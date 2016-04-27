@@ -1,0 +1,4 @@
+[submodule "libpll"]
+	path = libs/libpll
+	url = https://github.com/xflouris/libpll.git
+	branch = dev
