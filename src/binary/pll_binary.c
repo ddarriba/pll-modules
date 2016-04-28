@@ -127,9 +127,14 @@ PLL_EXPORT FILE * pll_binary_create(const char * filename,
                                     int access_type,
                                     int n_blocks)
 {
-  FILE * file;
+  FILE * file = NULL;
+
+  memset(header, 0, sizeof(pll_binary_header_t));
   header->access_type = access_type;
   header->max_blocks = n_blocks;
+  header->map_offset = (access_type == PLL_BINARY_ACCESS_RANDOM)?
+      n_blocks * sizeof(pll_block_map_t):0;
+  header->n_blocks = 0;
 
   if (access_type == PLL_BINARY_ACCESS_RANDOM && n_blocks <= 0)
   {
@@ -147,10 +152,6 @@ PLL_EXPORT FILE * pll_binary_create(const char * filename,
     pll_errno = PLL_ERROR_FILE_OPEN;
     return NULL;
   }
-
-  header->map_offset = (access_type == PLL_BINARY_ACCESS_RANDOM)?
-      n_blocks * sizeof(pll_block_map_t):0;
-  header->n_blocks = 0;
 
   if (!bin_fwrite(header, sizeof(pll_binary_header_t), 1, file))
   {
@@ -198,6 +199,11 @@ PLL_EXPORT FILE * pll_binary_open(const char * filename,
   return file;
 }
 
+PLL_EXPORT int pll_binary_close(FILE * bin_file)
+{
+  return fclose(bin_file);
+}
+
 PLL_EXPORT int pll_binary_partition_dump(FILE * bin_file,
                                          int block_id,
                                          pll_partition_t * partition,
@@ -207,9 +213,6 @@ PLL_EXPORT int pll_binary_partition_dump(FILE * bin_file,
   unsigned long partition_len = partition_size(partition),
                 clv_len = 0,
                 wgt_len = 0;
-
-  /* update main header */
-  binary_update_header(bin_file, &block_header);
 
   block_header.type       = PLL_BINARY_BLOCK_PARTITION;
   block_header.attributes = attributes;
@@ -226,6 +229,9 @@ PLL_EXPORT int pll_binary_partition_dump(FILE * bin_file,
       wgt_len = weightv_size(partition);
       block_header.block_len += wgt_len;
     }
+
+  /* update main header */
+  binary_update_header(bin_file, &block_header);
 
   /* dump header */
   bin_fwrite(&block_header, sizeof(pll_block_header_t) ,1, bin_file);
@@ -440,13 +446,15 @@ PLL_EXPORT int pll_binary_utree_dump(FILE * bin_file,
   /* dump data */
   for (i=0; i<trav_size; ++i)
   {
-    bin_fwrite(travbuffer[i], sizeof(pll_utree_t), 1, bin_file);
+    binary_apply_to_node (bin_file, travbuffer[i], 1, bin_fwrite);
     if (travbuffer[i]->next)
     {
-      bin_fwrite(travbuffer[i]->next, sizeof(pll_utree_t), 1, bin_file);
-      bin_fwrite(travbuffer[i]->next->next, sizeof(pll_utree_t), 1, bin_file);
+      binary_apply_to_node (bin_file, travbuffer[i]->next, 1, bin_fwrite);
+      binary_apply_to_node (bin_file, travbuffer[i]->next->next, 1, bin_fwrite);
     }
   }
+
+  free(travbuffer);
 
   return PLL_SUCCESS;
 }
@@ -502,22 +510,35 @@ PLL_EXPORT pll_utree_t * pll_binary_utree_load(FILE * bin_file,
   for (i=0; i<n_nodes; ++i)
   {
     pll_utree_t * t = (pll_utree_t *) malloc(sizeof(pll_utree_t));
-    bin_fread (t, sizeof(pll_utree_t), 1, bin_file);
+    binary_apply_to_node (bin_file, t, 0, bin_fread);
     if (t->next)
     {
       /* build inner node and connect */
       pll_utree_t *t_l, *t_r, *t_cl, *t_cr;
       t_l = (pll_utree_t *) malloc(sizeof(pll_utree_t));
       t_r = (pll_utree_t *) malloc(sizeof(pll_utree_t));
-      bin_fread (t_l, sizeof(pll_utree_t), 1, bin_file);
-      bin_fread (t_r, sizeof(pll_utree_t), 1, bin_file);
+      binary_apply_to_node (bin_file, t_l, 0, bin_fread);
+      binary_apply_to_node (bin_file, t_r, 0, bin_fread);
+      if (t->label)
+      {
+        free(t_l->label);
+        free(t_r->label);
+        t_l->label = t_r->label = t->label;
+      }
       t->next = t_l; t_l->next = t_r; t_r->next = t;
+
+      assert(t->clv_index == t_l->clv_index);
+      assert(t->clv_index == t_r->clv_index);
+      assert(t->scaler_index == t_l->scaler_index);
+      assert(t->scaler_index == t_r->scaler_index);
 
       /* pop */
       t_cl = tree_stack[--tree_stack_top];
       t_l->back = t_cl; t_cl->back = t_l;
+      assert(t_l->pmatrix_index == t_cl->back->pmatrix_index);
       t_cr = tree_stack[--tree_stack_top];
       t_r->back = t_cr; t_cr->back = t_r;
+      assert(t_r->pmatrix_index == t_cr->back->pmatrix_index);
     }
     else
       --n_tip_check;
@@ -533,6 +554,10 @@ PLL_EXPORT pll_utree_t * pll_binary_utree_load(FILE * bin_file,
   tree = tree_stack[--tree_stack_top];
   tree->back = tree_stack[--tree_stack_top];
   tree->back->back = tree;
+
+  assert(tree->pmatrix_index == tree->back->pmatrix_index);
+
+  free(tree_stack);
 
   return tree;
 }

@@ -36,6 +36,9 @@ int binary_apply_to_clv (FILE * bin_file,
                   size_t clv_size,
                   int (*bin_func)(void *, size_t, size_t, FILE *));
 
-
+int binary_apply_to_node (FILE * bin_file,
+                          pll_utree_t * node,
+                          int write,
+                          int (*bin_func)(void *, size_t, size_t, FILE *));
 
 #endif /* BINARY_IO_OPERATIONS_H_ */

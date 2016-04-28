@@ -105,6 +105,8 @@ PLL_EXPORT FILE * pll_binary_create(const char * filename,
 PLL_EXPORT FILE * pll_binary_open(const char * filename,
                                   pll_binary_header_t * header);
 
+PLL_EXPORT int pll_binary_close(FILE * bin_file);
+
 PLL_EXPORT pll_block_map_t * pll_binary_get_map(FILE * bin_file,
                                                 unsigned int * n_blocks);
 

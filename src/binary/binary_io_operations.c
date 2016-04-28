@@ -68,6 +68,18 @@ int binary_apply_to_partition_desc (FILE * bin_file,
   bin_func (&partition->scale_buffers, sizeof(unsigned int), 1, bin_file);
   bin_func (&partition->attributes, sizeof(unsigned int), 1, bin_file);
   bin_func (&partition->states_padded, sizeof(unsigned int), 1, bin_file);
+
+  /* The variables below are used only if PATTERN_TIP is active. Otherwise
+     they could be uninitialized and hence raise a valgrind error if we try
+     to write them into the binary file. */
+  if (!(partition->attributes & PLL_ATTRIB_PATTERN_TIP))
+  {
+    partition->maxstates      = 0;
+    partition->log2_maxstates = 0;
+    partition->log2_states    = 0;
+    partition->log2_rates     = 0;
+  }
+
   bin_func (&partition->maxstates, sizeof(unsigned int), 1, bin_file);
   bin_func (&partition->log2_maxstates, sizeof(unsigned int), 1, bin_file);
   bin_func (&partition->log2_states, sizeof(unsigned int), 1, bin_file);
@@ -95,16 +107,16 @@ int binary_apply_to_partition_body (FILE * bin_file,
             bin_file);
   for (i = 0; i < rate_matrices; ++i)
     bin_func (partition->eigenvecs[i], sizeof(double),
-              states_padded * states_padded, bin_file);
+              states * states_padded, bin_file);
   for (i = 0; i < rate_matrices; ++i)
     bin_func (partition->inv_eigenvecs[i], sizeof(double),
-              states_padded * states_padded, bin_file);
+              states * states_padded, bin_file);
   for (i = 0; i < rate_matrices; ++i)
     bin_func (partition->eigenvals[i], sizeof(double), states_padded,
               bin_file);
-  for (i = 0; i < prob_matrices; ++i)
-    bin_func (partition->pmatrix[i], sizeof(double),
-              states_padded * states_padded * rate_cats, bin_file);
+  bin_func (partition->pmatrix[0],
+            sizeof(double),
+            prob_matrices * states * states_padded * rate_cats, bin_file);
   for (i = 0; i < rate_matrices; ++i)
     bin_func (partition->subst_params[i], sizeof(double),
               n_subst_rates, bin_file);
@@ -189,6 +201,36 @@ int binary_apply_to_clv (FILE * bin_file,
     pll_errno = PLL_ERROR_LOADSTORE;
     snprintf(pll_errmsg, 200, "Error loading/storing CLV");
     return PLL_FAILURE;
+  }
+
+  return PLL_SUCCESS;
+}
+
+int binary_apply_to_node (FILE * bin_file,
+                          pll_utree_t * node,
+                          int write,
+                          int (*bin_func)(void *, size_t, size_t, FILE *))
+{
+  char * label = 0;
+  unsigned long label_len = 0;
+
+  bin_func(node, sizeof(pll_utree_t), 1, bin_file);
+  if (write && node->label)
+    label_len = strlen(node->label);
+  bin_func(&label_len, sizeof(unsigned long), 1, bin_file);
+  if (label_len)
+  {
+    if (write)
+    {
+      label = node->label;
+    }
+    else
+    {
+      label = (char *) malloc(label_len+1);
+      node->label = label;
+    }
+    bin_func(label, sizeof(char), label_len, bin_file);
+    node->label[label_len] = '\0';
   }
 
   return PLL_SUCCESS;
