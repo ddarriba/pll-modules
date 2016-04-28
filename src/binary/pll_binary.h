@@ -104,7 +104,13 @@ PLL_EXPORT FILE * pll_binary_create(const char * filename,
  */
 PLL_EXPORT FILE * pll_binary_open(const char * filename,
                                   pll_binary_header_t * header);
-
+/**
+ *  Closes the binary file
+ *
+ *  @param[in] bin_file the file
+ *
+ *  @return true, if OK
+ */
 PLL_EXPORT int pll_binary_close(FILE * bin_file);
 
 PLL_EXPORT pll_block_map_t * pll_binary_get_map(FILE * bin_file,
@@ -160,14 +166,14 @@ PLL_EXPORT int pll_binary_clv_load(FILE * bin_file,
                                    unsigned int * attributes,
                                    long int offset);
 
-//Warning: untested
+//Warning: unchecked
 PLL_EXPORT int pll_binary_utree_dump(FILE * bin_file,
                                      int block_id,
                                      pll_utree_t * tree,
                                      unsigned int tip_count,
                                      unsigned int attributes);
 
-//Warning: untested
+//Warning: unchecked
 PLL_EXPORT pll_utree_t * pll_binary_utree_load(FILE * bin_file,
                                                int block_id,
                                                unsigned int * attributes,

@@ -77,7 +77,7 @@ static void file_io_error (FILE * bin_file, long int setp, const char * msg)
 }
 
 static int binary_update_header(FILE * bin_file,
-                                 pll_block_header_t * header)
+                               pll_block_header_t * header)
 {
   unsigned int next_block;
   pll_block_map_t next_map;
@@ -214,6 +214,8 @@ PLL_EXPORT int pll_binary_partition_dump(FILE * bin_file,
                 clv_len = 0,
                 wgt_len = 0;
 
+  /* fill block header */
+  block_header.block_id   = block_id;
   block_header.type       = PLL_BINARY_BLOCK_PARTITION;
   block_header.attributes = attributes;
   block_header.block_len  = partition_len;
@@ -322,6 +324,7 @@ PLL_EXPORT int pll_binary_clv_dump(FILE * bin_file,
   size_t clv_size = partition->sites * partition->states_padded *
                       partition->rate_cats;
 
+  /* fill block header */
   block_header.block_id   = block_id;
   block_header.type       = PLL_BINARY_BLOCK_CLV;
   block_header.attributes = attributes;
