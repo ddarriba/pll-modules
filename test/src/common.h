@@ -26,7 +26,16 @@
 #include "pll.h"
 #endif
 
+/* parse attributes from the arguments */
 unsigned int get_attributes(int argc, char **argv);
+/* skip current test */
 void skip_test();
+
+/* callback function for traverse the utree */
+int cb_full_traversal (pll_utree_t * node);
+/* displays a tree */
+void show_tree (pll_utree_t * tree, int SHOW_ASCII_TREE);
+/* print error and exit */
+void fatal(const char * format, ...) __attribute__ ((noreturn));
 
 #endif /* COMMON_H_ */

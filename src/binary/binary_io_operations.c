@@ -189,7 +189,7 @@ int binary_apply_to_clv (FILE * bin_file,
                   size_t clv_size,
                   int (*bin_func)(void *, size_t, size_t, FILE *))
 {
-  if (clv_index < 0 || clv_index > (partition->tips + partition->clv_buffers))
+  if (clv_index > (partition->tips + partition->clv_buffers))
   {
     pll_errno = PLL_ERROR_INVALID_INDEX;
     snprintf(pll_errmsg, 200, "Invalid CLV index");

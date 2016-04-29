@@ -28,7 +28,7 @@
 #    tests: which tests cases to run. If no tests
 #           are specified, run the entire set.
 #
-#    e.g., ./runtest.py speed alpha-cats hky 
+#    e.g., ./runtest.py speed alpha-cats hky
 
 from subprocess import Popen, PIPE, call
 
@@ -57,7 +57,7 @@ colors={"default":"",
   "orange": "\x1b[01;33m",
   "bluebg": "\x1b[01;44m",
   "yellow": "\x1b[02;43m"}
-  
+
 which_test={"default": 0,
   "validation": 1,
   "speed":      2}
@@ -87,15 +87,13 @@ def fancyprint(color, text, breakline=0):
     sys.stdout.write("\n")
 
 def header():
-  fancyprint("green","\n             _                 ____        ____     _      _ \n"     
-    "            |\"|       ___   U | __\")u    U|  _\"\\ u |\"|    |\"|     \n"
-    "          U | | u    |_\"_|   \\|  _ \\/    \\| |_) |U | | uU | | u   \n"
-    "           \\| |/__    | |     | |_) |     |  __/  \\| |/__\\| |/__  \n"
-    "            |_____| U/| |\\u   |____/      |_|      |_____||_____| \n"
-    "            //  \\.-,_|___|_,-_|| \\\\_      ||>>_    //  \\\\ //  \\\\  \n"
-    "           (_\")(\"_\\_)-' '-(_(__) (__)    (__)__)  (_\")(\"_(_\")(\"_)\n\n")
+    fancyprint("green","\n"
+    "         ____  __    __        _  _   __  ____  _  _  __    ____  ____  \n"
+    "        (  _ \\(  )  (  )      ( \\/ ) /  \\(    \\/ )( \\(  )  (  __)/ ___) \n"
+    "         ) __// (_/\\/ (_/\\    / \\/ \\(  O )) D () \\/ (/ (_/\\ ) _) \\___ \\ \n"
+    "        (__)  \\____/\\____/    \\_)(_/ \\__/(____/\\____/\\____/(____)(____/ \n\n")
 
-
+#
 def validation_header():
   fancyprint("cyan","\n                           _ _     _       _   _\n"
     "                          | (_)   | |     | | (_)            \n"
@@ -104,7 +102,7 @@ def validation_header():
     "                \\ V / (_| | | | (_| | (_| | |_| | (_) | | | |\n"
     "                 \\_/ \\__,_|_|_|\\__,_|\\__,_|\\__|_|\\___/|_| |_|\n\n")
 
-#  
+#
 def speedtest_header():
   fancyprint("blue","\n                                       _ _            _   \n"
     "                                      | | |          | |  \n"
@@ -115,13 +113,13 @@ def speedtest_header():
     "                  | |                                     \n"
     "                  |_| \n\n")
 
-     
+
 def testOK():
   fancyprint("green",  "OK!    ")
 
 def testSKIP():
   fancyprint("orange", "Skip   ")
-  
+
 def testFAIL():
   fancyprint("red", "Fail!  ")
 
@@ -129,7 +127,7 @@ def diffOutput(filename):
   p2 = Popen(["diff", "tmp", filename], stdout=PIPE)
   output = p2.communicate()[0]
   return output
-  
+
 def runSpeedTest(files):
   speedtest_header()
   cur_test = 0
@@ -137,9 +135,9 @@ def runSpeedTest(files):
   num_tests = len(files) * len(all_args)
   result_ok = 0
   memory_ok = 0
-      
+
   for args in all_args:
-  
+
       # Set attributes
       attrib    = ""
       attribstr = ""
@@ -155,52 +153,52 @@ def runSpeedTest(files):
       else:
         attribstr += " CPU"
         typestr   += "C"
-          
+
       fancyprint("bluebg", "{:<80}"
         .format(attribstr.rjust(40 + len(attribstr)/2)), True)
-        
+
       # Process each test case
       fancyprint("yellow", "{:<7}   {:<8} {:<18} {:>13} {:>13} {:>13} "
         .format(" ","Start", "File", "AvgTime", "MinTime", "MaxTime"),True)
-      
+
       for filename in files:
         cur_test = cur_test+1
         now = time.strftime("  %H:%M:%S")
-        nowstr = time.strftime("%Y%m%d%H%M%S") 
+        nowstr = time.strftime("%Y%m%d%H%M%S")
         fancyprint("-", "{:>3}/{:<3} ".format(cur_test, num_tests) + now)
-    
+
         try:
           stat_info=os.lstat("obj/" + filename)
           stat_info=os.lstat("out/" + filename + ".out")
         except:
           fancyprint("red", " {:<18} Missing test files\n".format(filename))
           continue
-    
+
         if filename.endswith("exe"):
             fancyprint("blue", " {:<18} ".format(filename))
         else:
             fancyprint("cyan", " {:<18} ".format(filename))
-    
+
         sys.stdout.flush()
-    
+
         mean_time = 0.0
         max_time = 0
         min_time = 10000000
         test_ok = 1
         for i in range(1,num_replicates):
-        
+
           fancyprint("orange", "%2d/%2d" % (i, num_replicates))
           sys.stdout.flush()
-          
+
           start_time = int(time.time()*1000)
-          
+
           # Run test case
           p1 = Popen("obj/"+filename+" "+attrib+" 2>tmperr >tmp", shell=True)
           os.waitpid(p1.pid, 0)
-    
+
           # Check the output
           skipOutput = diffOutput("out/skip.out")
-        
+
           if skipOutput == "":
               fancyprint("orange", "\b\b\b\b\b")
               testSKIP()
@@ -208,14 +206,14 @@ def runSpeedTest(files):
               break
           else:
               output = diffOutput("out/"+filename+".out")
-        
+
               if output != "":
                 fancyprint("red", "  Test failed\n")
                 call(["mv", "tmp", "result/testfail_"+typestr+"_"+filename+"_"+nowstr])
                 call(["mv", "tmperr", "result/testfail_"+typestr+"_"+filename+"_"+nowstr+".err"])
                 test_ok = 0
                 break
-              
+
               end_time = int(time.time()*1000)
               run_time = end_time - start_time
               if (run_time > max_time):
@@ -223,33 +221,33 @@ def runSpeedTest(files):
               if (run_time < min_time):
                 min_time = run_time
               mean_time = mean_time + (1.0*run_time)/num_replicates
-              
+
               fancyprint("orange", "\b\b\b\b\b")
               sys.stdout.flush()
-          
+
         if (test_ok == 0):
           continue
         else:
           success_count = success_count+1
-          
+
         if test_ok == 1:
           sys.stdout.write("%10.2f ms " % mean_time)
           sys.stdout.write("%10d ms " % min_time)
           sys.stdout.write("%10d ms" % max_time)
-    
+
         # Check the output
         output = diffOutput("out/"+filename+".out")
-    
+
         sys.stdout.flush()
-    
+
         success_count = success_count + result_ok*memory_ok
-    
+
         print
-        
+
   fancyprint("yellow", "{:<80}"
     .format(" "),True)
   return (success_count)
-  
+
 def runValidation(files):
   validation_header()
   cur_test = 0
@@ -257,9 +255,9 @@ def runValidation(files):
   num_tests = len(files) * len(all_args)
   result_ok = 0
   memory_ok = 0
-  
+
   for args in all_args:
-  
+
         # Set attributes
       attrib    = ""
       attribstr = ""
@@ -275,49 +273,49 @@ def runValidation(files):
       else:
         attribstr += " CPU"
         typestr   += "C"
-          
+
       fancyprint("bluebg", "{:<80}"
         .format(attribstr.rjust(40 + len(attribstr)/2)), True)
-        
+
       # Process each test case
       fancyprint("yellow", "{:<7}   {:<8} {:<18} {:>11}    Result    {:<17}"
         .format(" ","Start", "File", "Time", "Memcheck"),True)
-    
+
       for filename in files:
         cur_test = cur_test+1
         now = time.strftime("  %H:%M:%S")
-        nowstr = time.strftime("%Y%m%d%H%M%S") 
+        nowstr = time.strftime("%Y%m%d%H%M%S")
         start_time = int(time.time()*1000)
         fancyprint("-", "{:>3}/{:<3} ".format(cur_test, num_tests) + now)
-    
+
         try:
           stat_info=os.lstat("obj/" + filename)
           stat_info=os.lstat("out/" + filename + ".out")
         except:
           fancyprint("red", " {:<18} Missing test files\n".format(filename))
           continue
-    
+
         if filename.endswith("exe"):
             fancyprint("blue", " {:<18} ".format(filename))
         else:
             fancyprint("cyan", " {:<18} ".format(filename))
-    
+
         sys.stdout.flush()
-    
+
         # Run test case
         if filename.endswith("exe"):
             p1 = Popen("wine obj/"+filename+" "+attrib+" 2>tmperr >tmp", shell=True)
         else:
             p1 = Popen("obj/"+filename+" "+attrib+" 2>tmperr >tmp", shell=True)
         os.waitpid(p1.pid, 0)
-    
+
         end_time = int(time.time()*1000)
         run_time = end_time - start_time
         sys.stdout.write("%8d ms       " % run_time)
-    
+
         # Check the output
         skipOutput = diffOutput("out/skip.out")
-        
+
         if skipOutput == "":
           testSKIP()
           print
@@ -336,9 +334,9 @@ def runValidation(files):
             call(["mv", "tmp", "result/testfail_"+typestr+"_"+filename+"_"+nowstr])
             call(["mv", "tmperr", "result/testfail_"+typestr+"_"+filename+"_"+nowstr+".err"])
             continue
-        
+
           sys.stdout.flush()
-        
+
           if (do_memtest == 1 and not filename.endswith("exe")):
               # Check memory leaks
               p3 = Popen(["./eval_valgrind.sh", "obj/"+filename, nowstr, attrib], stdout=PIPE)
@@ -347,7 +345,7 @@ def runValidation(files):
               indlost        = int(output.split(' ')[1])
               reachable      = int(output.split(' ')[2])
               valgrinderrors = int(output.split(' ')[3])
-        
+
               if (valgrinderrors == 1):
                 fancyprint("red", "Error\n")
               else:
@@ -365,13 +363,13 @@ def runValidation(files):
           else:
               memory_ok = 1
               fancyprint("orange", "  skip\n")
-    
+
         success_count = success_count + result_ok*memory_ok
-    
+
   fancyprint("yellow", "{:<78}"
     .format(" "),True)
   return (success_count)
-  
+
 if __name__ == "__main__":
 
   header()
@@ -393,7 +391,7 @@ if __name__ == "__main__":
     sys.exit()
 
   num_tests *= len(all_args)
-  
+
   global_start_time = int(time.time()*1000)
 
   success_count = 0
@@ -411,10 +409,10 @@ if __name__ == "__main__":
   print
   global_run_time = int(time.time()*1000) - global_start_time
   fancyprint("-", "Tests done... it took %d ms" % global_run_time, True)
-  fancyprint("green", "      %d/%d (%3.2f%%) OK" 
+  fancyprint("green", "      %d/%d (%3.2f%%) OK"
     % (success_count, num_tests, 100*success_count/num_tests), True)
   if (success_count < num_tests):
-    fancyprint("red", "      %d/%d (%3.2f%%) FAIL" 
+    fancyprint("red", "      %d/%d (%3.2f%%) FAIL"
       % (num_tests-success_count, num_tests, 100 - 100*success_count/num_tests), True)
 
   print

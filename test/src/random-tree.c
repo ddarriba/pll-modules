@@ -37,22 +37,6 @@
 #define N_SITES 491
 #define MAX_TAXA 200
 
-static void fatal (const char * format, ...)
-{
-  va_list argptr;
-  va_start(argptr, format);
-  vfprintf (stderr, format, argptr);
-  va_end(argptr);
-  fprintf (stderr, "\n");
-  exit (EXIT_FAILURE);
-}
-
-/* a callback function for performing a full traversal */
-static int cb_full_traversal (pll_utree_t * node)
-{
-  return 1;
-}
-
 int main (int argc, char * argv[])
 {
    unsigned int i, n_taxa;
@@ -62,14 +46,14 @@ int main (int argc, char * argv[])
    pll_fasta_t * fp;
    unsigned int params_indices[4] = {0, 0, 0, 0};
    unsigned int attributes = get_attributes(argc, argv);
- 
+
    fp = pll_fasta_open ("testdata/small.fas", pll_map_fasta);
    if (!fp)
    {
      printf (" ERROR opening file (%d): %s\n", pll_errno, pll_errmsg);
      exit (PLL_FAILURE);
    }
- 
+
    /* first read for getting number of taxa and headers */
    i = 0;
    while (pll_fasta_getnext (fp, &header[i], &header_len, &seq, &seq_len, &seqno))
@@ -83,7 +67,7 @@ int main (int argc, char * argv[])
            i, seq_len - 1, N_SITES);
        exit (PLL_FAILURE);
      }
- 
+
      printf ("Header of sequence %d(%ld) %s (%ld sites)\n", i, seqno, header[i],
              seq_len);
      free (seq);
@@ -91,20 +75,20 @@ int main (int argc, char * argv[])
    }
  //  pll_fasta_close (fp);
    n_taxa = i;
- 
+
    if (pll_errno != PLL_ERROR_FILE_EOF)
    {
      printf (" ERROR at the end (%d): %s\n", pll_errno, pll_errmsg);
      exit (PLL_FAILURE);
    }
- 
+
    /* fix RNG seed to arbitrary number */
    srand(42);
- 
+
    pll_utree_t * tree = pll_utree_create_random(n_taxa, (const char **)header);
    for (i=0; i<n_taxa; ++i)
      free(header[i]);
- 
+
    pll_utree_show_ascii(tree, PLL_UTREE_SHOW_CLV_INDEX | PLL_UTREE_SHOW_LABEL | PLL_UTREE_SHOW_PMATRIX_INDEX);
 
     unsigned int tip_nodes_count, inner_nodes_count, nodes_count, branch_count;
@@ -206,9 +190,9 @@ int main (int argc, char * argv[])
     printf ("Operations: %d\n", ops_count);
     printf ("Probability Matrices: %d\n", matrix_count);
 
-    pll_update_prob_matrices (partition, 
-                              params_indices, 
-                              matrix_indices, 
+    pll_update_prob_matrices (partition,
+                              params_indices,
+                              matrix_indices,
                               branch_lengths,
                               matrix_count);
 

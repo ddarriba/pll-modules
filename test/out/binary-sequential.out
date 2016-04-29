@@ -1,0 +1,21 @@
+Number of tip/leaf nodes in tree: 246
+Number of inner nodes in tree: 244
+Total number of nodes in tree: 490
+Number of branches in tree: 489
+
+Computing logL between CLV 489 and 0 - (pmatrix 0 with branch length 0.031825)
+Traversal size: 490
+Operations: 244
+Matrices: 489
+Log-L: -129371.206574
+** create binary file
+** dump partition
+** close binary file
+
+
+
+Restored Log-L: -129371.206574
+Likelihoods OK!
+Log-L: -129371.206574
+Log-L: -129371.206574
+Likelihoods OK!

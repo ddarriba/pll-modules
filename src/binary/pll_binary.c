@@ -96,6 +96,7 @@ static int binary_update_header(FILE * bin_file,
   fseek(bin_file, 0, SEEK_SET);
   next_block = bin_header.n_blocks;
   ++bin_header.n_blocks;
+
   if (!bin_fwrite(&bin_header, sizeof(pll_binary_header_t), 1, bin_file))
   {
     file_io_error(bin_file, cur_position, "update binary header [w]");
@@ -107,9 +108,10 @@ static int binary_update_header(FILE * bin_file,
     /* update map */
     assert(next_block < bin_header.max_blocks);
     fseek(bin_file, next_block * sizeof(pll_block_map_t), SEEK_CUR);
+
     next_map.block_id     = header->block_id;
     next_map.block_offset = cur_position;
-    if (!bin_fwrite(&next_map, sizeof(pll_binary_header_t), 1, bin_file))
+    if (!bin_fwrite(&next_map, sizeof(pll_block_map_t), 1, bin_file))
     {
       file_io_error(bin_file, cur_position, "update binary map");
       return PLL_FAILURE;
@@ -118,14 +120,13 @@ static int binary_update_header(FILE * bin_file,
 
   /* move back to original position */
   fseek(bin_file, cur_position, SEEK_SET);
-
   return PLL_SUCCESS;
 }
 
 PLL_EXPORT FILE * pll_binary_create(const char * filename,
                                     pll_binary_header_t * header,
-                                    int access_type,
-                                    int n_blocks)
+                                    unsigned int access_type,
+                                    unsigned int n_blocks)
 {
   FILE * file = NULL;
 
@@ -219,6 +220,7 @@ PLL_EXPORT int pll_binary_partition_dump(FILE * bin_file,
   block_header.type       = PLL_BINARY_BLOCK_PARTITION;
   block_header.attributes = attributes;
   block_header.block_len  = partition_len;
+  block_header.alignment  = 0;
 
   if (attributes & PLL_BINARY_ATTRIB_PARTITION_DUMP_CLV)
   {
@@ -329,6 +331,7 @@ PLL_EXPORT int pll_binary_clv_dump(FILE * bin_file,
   block_header.type       = PLL_BINARY_BLOCK_CLV;
   block_header.attributes = attributes;
   block_header.block_len  = clv_size * sizeof(double);
+  block_header.alignment  = 0;
 
   /* update main header */
   binary_update_header(bin_file, &block_header);
@@ -467,7 +470,8 @@ PLL_EXPORT pll_utree_t * pll_binary_utree_load(FILE * bin_file,
                                                unsigned int * attributes,
                                                long int offset)
 {
-  unsigned int i, n_utrees, n_tips, n_tip_check, n_nodes;
+  unsigned int i, n_tips, n_tip_check, n_nodes;
+  long n_utrees;
   pll_block_header_t block_header;
   pll_utree_t ** tree_stack;
   pll_utree_t * tree;
@@ -500,9 +504,11 @@ PLL_EXPORT pll_utree_t * pll_binary_utree_load(FILE * bin_file,
   }
 
   n_utrees = block_header.block_len/sizeof(pll_utree_t);
-  n_tips   = (n_utrees + 6) / 4;
+  n_tips   = (unsigned int) ((n_utrees + 6) / 4);
   n_nodes  = 2*n_tips - 2;
   assert( n_utrees % 4 == 2 );
+
+  *attributes = block_header.attributes;
 
   /* allocate stack for at most 'n_tips' nodes */
   tree_stack = (pll_utree_t **) malloc(n_tips * sizeof (pll_utree_t *));
@@ -579,9 +585,11 @@ PLL_EXPORT int pll_binary_custom_dump(FILE * bin_file,
   binary_update_header(bin_file, &block_header);
 
   /* dump header */
+  block_header.block_id   = block_id;
   block_header.type       = PLL_BINARY_BLOCK_CLV;
   block_header.attributes = attributes;
   block_header.block_len  = size;
+  block_header.alignment  = 0;
   bin_fwrite(&block_header, sizeof(pll_block_header_t) ,1, bin_file);
 
   /* dump data */
@@ -631,7 +639,6 @@ PLL_EXPORT void * pll_binary_custom_load(FILE * bin_file,
   unsigned int alignment;
   void * data;
 
-  assert (data);
   assert (offset >= 0 || offset == PLL_BINARY_ACCESS_SEEK);
 
   if (offset != 0)

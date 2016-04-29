@@ -13,8 +13,6 @@
 #define FASTAFILE "testdata/medium.fas"
 #define TREEFILE  "testdata/medium.tree"
 
-static void fatal (const char * format, ...) __attribute__ ((noreturn));
-
 const static float branch_opt_epsilon = 1e-2;
 const static int branch_opt_smoothings = 2;
 
@@ -22,12 +20,6 @@ typedef struct
 {
   int clv_valid;
 } node_info_t;
-
-/* a callback function for performing a full traversal */
-static int cb_full_traversal (pll_utree_t * node)
-{
-  return 1;
-}
 
 static void set_missing_branch_length_recursive (pll_utree_t * tree,
                                                  double length)
@@ -57,32 +49,6 @@ static void set_missing_branch_length (pll_utree_t * tree, double length)
 {
   set_missing_branch_length_recursive (tree, length);
   set_missing_branch_length_recursive (tree->back, length);
-}
-
-static void fatal (const char * format, ...)
-{
-  va_list argptr;
-  va_start(argptr, format);
-  vfprintf (stderr, format, argptr);
-  va_end(argptr);
-  fprintf (stderr, "\n");
-  exit (EXIT_FAILURE);
-}
-
-static void show_tree (pll_utree_t * tree)
-{
-#if(SHOW_ASCII_TREE)
-  printf ("\n");
-  pll_utree_show_ascii (tree, PLL_UTREE_SHOW_LABEL |
-  PLL_UTREE_SHOW_BRANCH_LENGTH |
-  PLL_UTREE_SHOW_CLV_INDEX);
-  char * newick = pll_utree_export_newick (tree);
-  printf ("%s\n\n", newick);
-  free (newick);
-#else
-  printf ("ASCII tree not shown (SHOW_ASCII_TREE flag)\n");
-  return;
-#endif
 }
 
 int main (int argc, char * argv[])
@@ -135,7 +101,7 @@ int main (int argc, char * argv[])
   /* place the virtual root at a random inner node */
   tree = innernodes[rand() % inner_nodes_count];
 
-  show_tree (tree);
+  show_tree (tree, SHOW_ASCII_TREE);
 
   /* create a libc hash table of size tip_nodes_count */
   hcreate (tip_nodes_count);
@@ -400,7 +366,7 @@ int main (int argc, char * argv[])
   pll_utree_create_operations (travbuffer, traversal_size, branch_lengths,
                                matrix_indices, operations, &matrix_count,
                                &ops_count);
-  show_tree (reconnect.edge.utree.child);
+  show_tree (reconnect.edge.utree.child, SHOW_ASCII_TREE);
 
   logl = pll_utree_compute_lk(partition,
                        tree,

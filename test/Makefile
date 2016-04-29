@@ -19,14 +19,13 @@
 
 CC = gcc
 CFLAGS = -O3 -Wall 
-CLIBS = -lpll -lm -lpll_optimize -lpll_tree
+CLIBS = -lpll -lm -lpll_optimize -lpll_tree -lpll_binary
 
-CFILES_INVALID = src/blopt-minimal.c \
-                 src/blopt-5states.c
-
-CFILES = src/blopt-minimal.c \
-				 src/blopt-5states.c \
-				 src/random-tree.c \
+CFILES = src/binary-sequential.c \
+         src/binary-random.c \
+         src/blopt-minimal.c \
+         src/blopt-5states.c \
+         src/random-tree.c \
          src/treemove-nni.c \
          src/treemove-spr.c \
          src/treemove-tbr.c
@@ -38,10 +37,10 @@ DATADIR = testdata
 RESULTDIR = result
 
 DEPFILES = worms16s.fas \
-					 small.fas small.tree small.rooted.tree \
-					 246x4465.fas 246x4465.tree \
-					 ribosomal_l5_pf00673.fas \
-					 medium.fas medium.tree
+           small.fas small.tree small.rooted.tree \
+           246x4465.fas 246x4465.tree \
+           ribosomal_l5_pf00673.fas \
+           medium.fas medium.tree
 REQFILES = $(patsubst %, $(DATADIR)/%, $(DEPFILES))
 ASSETS = https://raw.githubusercontent.com/xflouris/assets/master/libpll
 

@@ -49,21 +49,6 @@
 #define PLL_ERROR_INVALID_SIZE           4011
 #define PLL_ERROR_LOADSTORE              4012
 
-typedef struct
-{
-  unsigned int type;
-  int block_id;
-  unsigned int attributes;
-  unsigned int alignment;       // if memory should be aligned
-  size_t block_len;
-} pll_block_header_t;
-
-typedef struct
-{
-  int block_id;
-  long int block_offset;
-} pll_block_map_t;
-
 /*
  * This is the main header of the binary stream.
  * Access type can be sequential or random. If sequential, right after the
@@ -73,11 +58,36 @@ typedef struct
  */
 typedef struct
 {
-  unsigned int n_blocks;
-  unsigned int max_blocks;
-  int access_type;        //! PLL_BINARY_ACCESS_{SEQUENTIAL|RANDOM}
-  long map_offset;
+  unsigned int n_blocks;      //! number of blocks in the file
+  unsigned int max_blocks;    //! maximum number of blocks (size of block map)
+  unsigned int access_type;   //! PLL_BINARY_ACCESS_{SEQUENTIAL|RANDOM}
+  char pad[1];                //! padding
+  long map_offset;            //! offset of the block map
 } pll_binary_header_t;
+
+/* block map for random access */
+typedef struct
+{
+  long block_id;             //! user-defined block id
+  long block_offset;         //! offset in the file
+} pll_block_map_t;
+
+/*
+ * Header stored before each block
+ * If the binary file was created for random access, it may be important that
+ * attributes contain PLL_BINARY_ATTRIB_UPDATE_MAP such that the block map
+ * is updated. Otherwise the block will be only accessible sequentially after
+ * reading the previous block.
+ */
+typedef struct
+{
+  long block_id;             //! user-defined block id
+  unsigned int type;         //! block type PLL_BINARY_BLOCK_...
+  unsigned int attributes;   //! custom block attributes
+  unsigned int alignment;    //! if memory should be aligned
+  char pad[1];               //! padding
+  size_t block_len;          //! block length
+} pll_block_header_t;
 
 /**
  *  Open file for writing
@@ -91,8 +101,8 @@ typedef struct
  */
 PLL_EXPORT FILE * pll_binary_create(const char * filename,
                                     pll_binary_header_t * header,
-                                    int access_type,
-                                    int n_blocks);
+                                    unsigned int access_type,
+                                    unsigned int n_blocks);
 
 /**
  *  Open file for reading
@@ -121,7 +131,7 @@ PLL_EXPORT pll_block_map_t * pll_binary_get_map(FILE * bin_file,
  *
  *  @param[in] bin_file binary file
  *  @param[in] block_id id of the block for random access, or local identification
- *  @param[in] partition if NULL, creates a new partition
+ *  @param[in] partition the saved partition
  *  @param[in] attributes the loaded attributes
  *
  *  @return true, if OK
@@ -137,7 +147,7 @@ PLL_EXPORT int pll_binary_partition_dump(FILE * bin_file,
  *  @param[in] bin_file binary file
  *  @param[in] block_id id of the block for random access
  *  @param[in,out] partition if NULL, creates a new partition
- *  @param[out] attributes the loaded attributes
+ *  @param[out] attributes the dumped attributes
  *  @param offset offset to the data block, if known
  *                0, if access is sequential
  *                PLL_BINARY_ACCESS_SEEK, for searching in the file header
@@ -166,14 +176,35 @@ PLL_EXPORT int pll_binary_clv_load(FILE * bin_file,
                                    unsigned int * attributes,
                                    long int offset);
 
-//Warning: unchecked
+/**
+ *  Save an unrooted tree to the binary file
+ *
+ *  @param[in] bin_file binary file
+ *  @param[in] block_id id of the block for random access, or local identification
+ *  @param[in] tree the unrooted tree to be dumped
+ *  @param[in] tip_count the number of tips in the tree
+ *  @param[in] attributes the loaded attributes
+ *
+ *  @return true, if OK
+ */
 PLL_EXPORT int pll_binary_utree_dump(FILE * bin_file,
                                      int block_id,
                                      pll_utree_t * tree,
                                      unsigned int tip_count,
                                      unsigned int attributes);
 
-//Warning: unchecked
+/**
+ *  Load an unrooted tree from the binary file
+ *
+ *  @param[in] bin_file binary file
+ *  @param[in] block_id id of the block for random access
+ *  @param[out] attributes the block attributes
+ *  @param offset offset to the data block, if known
+ *                0, if access is sequential
+ *                PLL_BINARY_ACCESS_SEEK, for searching in the file header
+ *
+ *  @return pointer to the updated (or new) partition
+ */
 PLL_EXPORT pll_utree_t * pll_binary_utree_load(FILE * bin_file,
                                                int block_id,
                                                unsigned int * attributes,
