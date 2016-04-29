@@ -63,66 +63,6 @@ static unsigned int get_current_alignment( unsigned int attributes )
   return alignment;
 }
 
-static void file_io_error (FILE * bin_file, long int setp, const char * msg)
-{
-  assert(setp >= PLL_BINARY_INVALID_OFFSET);
-
-  /* if offset is valid, we apply it */
-  if (setp != PLL_BINARY_INVALID_OFFSET)
-    fseek(bin_file, setp, SEEK_SET);
-
-  /* update error data */
-  snprintf(pll_errmsg, 200, "Binary file I/O error: %s", msg);
-  pll_errno = PLL_ERROR_LOADSTORE;
-}
-
-static int binary_update_header(FILE * bin_file,
-                               pll_block_header_t * header)
-{
-  unsigned int next_block;
-  pll_block_map_t next_map;
-
-  long int cur_position = ftell(bin_file);
-
-  pll_binary_header_t bin_header;
-
-  /* update header */
-  fseek(bin_file, 0, SEEK_SET);
-  if (!bin_fread(&bin_header, sizeof(pll_binary_header_t), 1, bin_file))
-  {
-    file_io_error(bin_file, cur_position, "update binary header [r]");
-    return PLL_FAILURE;
-  }
-  fseek(bin_file, 0, SEEK_SET);
-  next_block = bin_header.n_blocks;
-  ++bin_header.n_blocks;
-
-  if (!bin_fwrite(&bin_header, sizeof(pll_binary_header_t), 1, bin_file))
-  {
-    file_io_error(bin_file, cur_position, "update binary header [w]");
-    return PLL_FAILURE;
-  }
-
-  if (header && (header->attributes & PLL_BINARY_ATTRIB_UPDATE_MAP))
-  {
-    /* update map */
-    assert(next_block < bin_header.max_blocks);
-    fseek(bin_file, next_block * sizeof(pll_block_map_t), SEEK_CUR);
-
-    next_map.block_id     = header->block_id;
-    next_map.block_offset = cur_position;
-    if (!bin_fwrite(&next_map, sizeof(pll_block_map_t), 1, bin_file))
-    {
-      file_io_error(bin_file, cur_position, "update binary map");
-      return PLL_FAILURE;
-    }
-  }
-
-  /* move back to original position */
-  fseek(bin_file, cur_position, SEEK_SET);
-  return PLL_SUCCESS;
-}
-
 PLL_EXPORT FILE * pll_binary_create(const char * filename,
                                     pll_binary_header_t * header,
                                     unsigned int access_type,
@@ -235,13 +175,22 @@ PLL_EXPORT int pll_binary_partition_dump(FILE * bin_file,
     }
 
   /* update main header */
-  binary_update_header(bin_file, &block_header);
+  if (!binary_update_header(bin_file, &block_header))
+  {
+    return PLL_FAILURE;
+  }
 
   /* dump header */
-  bin_fwrite(&block_header, sizeof(pll_block_header_t) ,1, bin_file);
+  if (!binary_block_header_apply(bin_file, &block_header, &bin_fwrite))
+  {
+    return PLL_FAILURE;
+  }
 
   /* dump data */
-  binary_apply_to_partition(bin_file, partition, attributes, &bin_fwrite);
+  if (!binary_partition_apply(bin_file, partition, attributes, &bin_fwrite))
+  {
+    return PLL_FAILURE;
+  }
 
   return PLL_SUCCESS;
 }
@@ -271,7 +220,7 @@ PLL_EXPORT pll_partition_t * pll_binary_partition_load(FILE * bin_file,
     fseek (bin_file, offset, SEEK_SET);
   }
 
-  bin_fread (&block_header, sizeof(pll_block_header_t), 1, bin_file);
+  if (!binary_block_header_apply(bin_file, &block_header, &bin_fread)) return NULL;
 
   if (block_header.type != PLL_BINARY_BLOCK_PARTITION)
   {
@@ -291,7 +240,14 @@ PLL_EXPORT pll_partition_t * pll_binary_partition_load(FILE * bin_file,
   {
     /* create new */
     pll_partition_t aux_partition;
-    binary_apply_to_partition_desc (bin_file, &aux_partition, *attributes, &bin_fread);
+    if (!binary_partition_desc_apply (bin_file,
+                                      &aux_partition,
+                                      *attributes,
+                                      &bin_fread))
+    {
+      return NULL;
+    }
+
     local_partition = pll_partition_create(
         aux_partition.tips,
         aux_partition.clv_buffers,
@@ -305,10 +261,19 @@ PLL_EXPORT pll_partition_t * pll_binary_partition_load(FILE * bin_file,
         aux_partition.attributes);
 
     if (!local_partition)
+    {
       return NULL;
+    }
   }
 
-  binary_apply_to_partition_body (bin_file, local_partition, *attributes, &bin_fread);
+  if (!binary_partition_body_apply (bin_file,
+                                    local_partition,
+                                    *attributes,
+                                    &bin_fread))
+  {
+    pll_partition_destroy(local_partition);
+    return NULL;
+  }
 
   return local_partition;
 }
@@ -334,13 +299,16 @@ PLL_EXPORT int pll_binary_clv_dump(FILE * bin_file,
   block_header.alignment  = 0;
 
   /* update main header */
-  binary_update_header(bin_file, &block_header);
+  if(!binary_update_header(bin_file, &block_header))
+  {
+    return PLL_FAILURE;
+  }
 
   /* dump block header */
-  bin_fwrite(&block_header, sizeof(pll_block_header_t) ,1, bin_file);
+  if (!binary_block_header_apply(bin_file, &block_header, &bin_fwrite)) return PLL_FAILURE;
 
   /* dump data */
-  retval = binary_apply_to_clv (bin_file,
+  retval = binary_clv_apply (bin_file,
                          partition,
                          clv_index,
                          attributes,
@@ -378,7 +346,8 @@ PLL_EXPORT int pll_binary_clv_load(FILE * bin_file,
   }
 
   /* read and validate header */
-  bin_fread (&block_header, sizeof(pll_block_header_t), 1, bin_file);
+  if (!binary_block_header_apply(bin_file, &block_header, &bin_fread)) return PLL_FAILURE;
+
   if (block_header.type != PLL_BINARY_BLOCK_CLV)
   {
     pll_errno = PLL_ERROR_BLOCK_MISMATCH;
@@ -399,7 +368,7 @@ PLL_EXPORT int pll_binary_clv_load(FILE * bin_file,
 
   *attributes = block_header.attributes;
 
-  retval = binary_apply_to_clv (bin_file,
+  retval = binary_clv_apply (bin_file,
                          partition,
                          clv_index,
                          *attributes,
@@ -423,6 +392,7 @@ PLL_EXPORT int pll_binary_utree_dump(FILE * bin_file,
   pll_utree_t ** travbuffer;
   pll_block_header_t block_header;
   unsigned int i, n_nodes, n_inner, n_utrees, trav_size;
+  int retval;
 
   n_inner = tip_count - 2;
   n_nodes = tip_count + n_inner;
@@ -430,7 +400,10 @@ PLL_EXPORT int pll_binary_utree_dump(FILE * bin_file,
 
   travbuffer = (pll_utree_t **)malloc(n_nodes* sizeof(pll_utree_t *));
 
-  pll_utree_traverse(tree, cb_full_traversal, travbuffer, &trav_size);
+  if (!pll_utree_traverse(tree, cb_full_traversal, travbuffer, &trav_size))
+  {
+    return PLL_FAILURE;
+  }
 
   assert (trav_size == n_nodes);
 
@@ -447,16 +420,32 @@ PLL_EXPORT int pll_binary_utree_dump(FILE * bin_file,
   }
 
   /* dump block header */
-  bin_fwrite(&block_header, sizeof(pll_block_header_t) ,1, bin_file);
+  if (!binary_block_header_apply(bin_file, &block_header, &bin_fwrite)) return PLL_FAILURE;
 
-  /* dump data */
+  /* traverse and dump data */
   for (i=0; i<trav_size; ++i)
   {
-    binary_apply_to_node (bin_file, travbuffer[i], 1, bin_fwrite);
+    if (!binary_node_apply (bin_file,
+                               travbuffer[i],
+                               1,
+                               bin_fwrite))
+    {
+      return PLL_FAILURE;
+    }
     if (travbuffer[i]->next)
     {
-      binary_apply_to_node (bin_file, travbuffer[i]->next, 1, bin_fwrite);
-      binary_apply_to_node (bin_file, travbuffer[i]->next->next, 1, bin_fwrite);
+      retval = binary_node_apply (bin_file,
+                                travbuffer[i]->next,
+                                1,
+                                bin_fwrite);
+      retval &= binary_node_apply (bin_file,
+                                 travbuffer[i]->next->next,
+                                 1,
+                                 bin_fwrite);
+      if (!retval)
+      {
+        return PLL_FAILURE;
+      }
     }
   }
 
@@ -476,6 +465,7 @@ PLL_EXPORT pll_utree_t * pll_binary_utree_load(FILE * bin_file,
   pll_utree_t ** tree_stack;
   pll_utree_t * tree;
   unsigned int tree_stack_top;
+  int retval;
 
   assert(offset >= 0 || offset == PLL_BINARY_ACCESS_SEEK);
 
@@ -486,7 +476,7 @@ PLL_EXPORT pll_utree_t * pll_binary_utree_load(FILE * bin_file,
       /* find offset */
       offset = binary_get_offset (bin_file, block_id);
       if (offset == PLL_BINARY_INVALID_OFFSET)
-        return PLL_FAILURE;
+        return NULL;
     }
 
     /* apply offset */
@@ -494,13 +484,14 @@ PLL_EXPORT pll_utree_t * pll_binary_utree_load(FILE * bin_file,
   }
 
   /* read and validate header */
-  bin_fread (&block_header, sizeof(pll_block_header_t), 1, bin_file);
+  if (!binary_block_header_apply(bin_file, &block_header, &bin_fread)) return NULL;
+
   if (block_header.type != PLL_BINARY_BLOCK_TREE)
   {
     pll_errno = PLL_ERROR_BLOCK_MISMATCH;
     snprintf (pll_errmsg, 200, "Block type is %d and should be %d",
               block_header.type, PLL_BINARY_BLOCK_TREE);
-    return PLL_FAILURE;
+    return NULL;
   }
 
   n_utrees = block_header.block_len/sizeof(pll_utree_t);
@@ -519,35 +510,36 @@ PLL_EXPORT pll_utree_t * pll_binary_utree_load(FILE * bin_file,
   for (i=0; i<n_nodes; ++i)
   {
     pll_utree_t * t = (pll_utree_t *) malloc(sizeof(pll_utree_t));
-    binary_apply_to_node (bin_file, t, 0, bin_fread);
+    if (!binary_node_apply (bin_file, t, 0, bin_fread))
+    {
+      return NULL;
+    }
     if (t->next)
     {
       /* build inner node and connect */
       pll_utree_t *t_l, *t_r, *t_cl, *t_cr;
       t_l = (pll_utree_t *) malloc(sizeof(pll_utree_t));
       t_r = (pll_utree_t *) malloc(sizeof(pll_utree_t));
-      binary_apply_to_node (bin_file, t_l, 0, bin_fread);
-      binary_apply_to_node (bin_file, t_r, 0, bin_fread);
+      retval = 1;
+      retval &= binary_node_apply (bin_file, t_l, 0, bin_fread);
+      retval &= binary_node_apply (bin_file, t_r, 0, bin_fread);
       if (t->label)
       {
         free(t_l->label);
         free(t_r->label);
         t_l->label = t_r->label = t->label;
       }
+      if (!retval)
+      {
+        return NULL;
+      }
       t->next = t_l; t_l->next = t_r; t_r->next = t;
-
-      assert(t->clv_index == t_l->clv_index);
-      assert(t->clv_index == t_r->clv_index);
-      assert(t->scaler_index == t_l->scaler_index);
-      assert(t->scaler_index == t_r->scaler_index);
 
       /* pop */
       t_cl = tree_stack[--tree_stack_top];
       t_l->back = t_cl; t_cl->back = t_l;
-      assert(t_l->pmatrix_index == t_cl->back->pmatrix_index);
       t_cr = tree_stack[--tree_stack_top];
       t_r->back = t_cr; t_cr->back = t_r;
-      assert(t_r->pmatrix_index == t_cr->back->pmatrix_index);
     }
     else
       --n_tip_check;
@@ -582,7 +574,10 @@ PLL_EXPORT int pll_binary_custom_dump(FILE * bin_file,
   memset(&block_header, 0, sizeof(pll_block_header_t));
 
   /* update main header */
-  binary_update_header(bin_file, &block_header);
+  if (!binary_update_header(bin_file, &block_header))
+  {
+    return PLL_FAILURE;
+  }
 
   /* dump header */
   block_header.block_id   = block_id;
@@ -609,7 +604,6 @@ PLL_EXPORT pll_block_map_t * pll_binary_get_map(FILE * bin_file,
 
   if (!bin_fread(&bin_header, sizeof(pll_binary_header_t), 1, bin_file))
   {
-    file_io_error(bin_file, PLL_BINARY_INVALID_OFFSET, "read binary header");
     return NULL;
   }
 
@@ -620,7 +614,6 @@ PLL_EXPORT pll_block_map_t * pll_binary_get_map(FILE * bin_file,
   if (!bin_fread(map, sizeof(pll_block_map_t), bin_header.n_blocks, bin_file))
   {
     free(map);
-    file_io_error(bin_file, PLL_BINARY_INVALID_OFFSET, "read binary header");
     return NULL;
   }
 
@@ -656,7 +649,7 @@ PLL_EXPORT void * pll_binary_custom_load(FILE * bin_file,
   }
 
   /* read header */
-  bin_fread (&block_header, sizeof(pll_block_header_t), 1, bin_file);
+  if (!binary_block_header_apply(bin_file, &block_header, &bin_fread)) return NULL;
   *type       = block_header.type;
   *size       = block_header.block_len;
   alignment   = block_header.alignment;
@@ -670,7 +663,7 @@ PLL_EXPORT void * pll_binary_custom_load(FILE * bin_file,
     /* unimplemented so far */
     assert(cur_alignment == alignment);
 
-    data = pll_aligned_alloc(*size,alignment);
+    data = pll_aligned_alloc(*size, alignment);
   }
   else
     data = malloc(*size);
@@ -749,21 +742,22 @@ static unsigned long partition_size(pll_partition_t * partition)
   unsigned int prob_matrices = partition->prob_matrices;
   unsigned int rate_matrices = partition->rate_matrices;
 
-//  tips clv_buffers states sites rate_matrices prob_matrices rate_cats;
-//  scale_buffers attributes states_padded maxstates
-//  log2_maxstates log2_states log2_rates
+  /*  tips clv_buffers states sites rate_matrices prob_matrices rate_cats;
+   *  scale_buffers attributes states_padded maxstates
+   *  log2_maxstates log2_states log2_rates */
   size += sizeof(unsigned int) * 15;
 
   /* eigen_decomp_valid */
   size += sizeof(int) * rate_matrices;
+
   /* eigenvecs + inv_eigenvecs */
   size += 2 * (sizeof(double) * rate_matrices *
-               states_padded * states_padded);
+               states * states_padded);
   /* eigenvals */
   size += sizeof(double) * rate_matrices * states_padded;
 
   /* pmatrix */
-  size += sizeof(double) * prob_matrices * states_padded * states_padded * rate_cats;
+  size += sizeof(double) * prob_matrices * states * states_padded * rate_cats;
 
   /* subst_params */
   size += sizeof(double) * rate_matrices * n_subst_rates;

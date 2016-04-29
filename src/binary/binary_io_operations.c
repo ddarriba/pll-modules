@@ -1,17 +1,33 @@
 /*
- * binary_io_operations.c
- *
- *  Created on: Mar 23, 2016
- *      Author: diego
- */
+ Copyright (C) 2016 Diego Darriba
 
+ This program is free software: you can redistribute it and/or modify
+ it under the terms of the GNU Affero General Public License as
+ published by the Free Software Foundation, either version 3 of the
+ License, or (at your option) any later version.
+
+ This program is distributed in the hope that it will be useful,
+ but WITHOUT ANY WARRANTY; without even the implied warranty of
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ GNU Affero General Public License for more details.
+
+ You should have received a copy of the GNU Affero General Public License
+ along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+ Contact: Diego Darriba <Diego.Darriba@h-its.org>,
+ Exelixis Lab, Heidelberg Instutute for Theoretical Studies
+ Schloss-Wolfsbrunnenweg 35, D-69118 Heidelberg, Germany
+ */
 #include "binary_io_operations.h"
+
+static void file_io_error (FILE * bin_file, long int setp, const char * msg);
 
 int bin_fwrite(void * data, size_t size, size_t count, FILE * file)
 {
   size_t ret = fwrite(data, size, count, file);
   if (ret != count)
   {
+    file_io_error(file, ftell(file), "write data");
     return PLL_FAILURE;
   }
   return PLL_SUCCESS;
@@ -22,9 +38,87 @@ int bin_fread(void * data, size_t size, size_t count, FILE * file)
   size_t ret = fread(data, size, count, file);
   if (ret != count)
   {
+    file_io_error(file, ftell(file), "read data");
     return PLL_FAILURE;
   }
   return PLL_SUCCESS;
+}
+
+int binary_block_header_apply(FILE * bin_file,
+                              pll_block_header_t * block_header,
+                              int (*bin_func)(void *, size_t, size_t, FILE *))
+{
+  if (!bin_func (block_header, sizeof(pll_block_header_t), 1, bin_file))
+  {
+    file_io_error(bin_file, ftell(bin_file), "block header apply");
+    return PLL_FAILURE;
+  }
+  return PLL_SUCCESS;
+}
+
+int binary_update_header(FILE * bin_file,
+                         pll_block_header_t * header)
+{
+ unsigned int next_block;
+ pll_block_map_t next_map;
+
+ long int cur_position = ftell(bin_file);
+
+ pll_binary_header_t bin_header;
+
+ /* update header */
+ if (fseek(bin_file, 0, SEEK_SET) == -1)
+ {
+   file_io_error(bin_file, 0, "update position to head");
+   return PLL_FAILURE;
+ }
+ if (!bin_fread(&bin_header, sizeof(pll_binary_header_t), 1, bin_file))
+ {
+   file_io_error(bin_file, cur_position, "update binary header [r]");
+   return PLL_FAILURE;
+ }
+ if (fseek(bin_file, 0, SEEK_SET) == -1)
+ {
+   file_io_error(bin_file, 0, "update position to head");
+   return PLL_FAILURE;
+ }
+
+ next_block = bin_header.n_blocks;
+ ++bin_header.n_blocks;
+
+ if (!bin_fwrite(&bin_header, sizeof(pll_binary_header_t), 1, bin_file))
+ {
+   file_io_error(bin_file, cur_position, "update binary header [w]");
+   return PLL_FAILURE;
+ }
+
+ if (header && (header->attributes & PLL_BINARY_ATTRIB_UPDATE_MAP))
+ {
+   /* update map */
+   assert(next_block < bin_header.max_blocks);
+   if (fseek(bin_file, next_block * sizeof(pll_block_map_t), SEEK_CUR) == -1)
+   {
+     file_io_error(bin_file, next_block * sizeof(pll_block_map_t),
+                   "update position to map");
+     return PLL_FAILURE;
+   }
+
+   next_map.block_id     = header->block_id;
+   next_map.block_offset = cur_position;
+   if (!bin_fwrite(&next_map, sizeof(pll_block_map_t), 1, bin_file))
+   {
+     file_io_error(bin_file, cur_position, "update binary map [w]");
+     return PLL_FAILURE;
+   }
+ }
+
+ /* move back to original position */
+ if (fseek(bin_file, cur_position, SEEK_SET) == -1)
+ {
+   file_io_error(bin_file, cur_position, "update position to block");
+   return PLL_FAILURE;
+ }
+ return PLL_SUCCESS;
 }
 
 long int binary_get_offset(FILE *bin_file, int block_id)
@@ -52,7 +146,7 @@ long int binary_get_offset(FILE *bin_file, int block_id)
   return offset;
 }
 
-int binary_apply_to_partition_desc (FILE * bin_file,
+int binary_partition_desc_apply (FILE * bin_file,
                              pll_partition_t * partition,
                              unsigned int attributes,
                              int (*bin_func)(void *, size_t, size_t, FILE *))
@@ -88,7 +182,7 @@ int binary_apply_to_partition_desc (FILE * bin_file,
   return PLL_SUCCESS;
 }
 
-int binary_apply_to_partition_body (FILE * bin_file,
+int binary_partition_body_apply (FILE * bin_file,
                              pll_partition_t * partition,
                              unsigned int attributes,
                              int (*bin_func)(void *, size_t, size_t, FILE *))
@@ -168,26 +262,26 @@ int binary_apply_to_partition_body (FILE * bin_file,
   return PLL_SUCCESS;
 }
 
-int binary_apply_to_partition(FILE * bin_file,
+int binary_partition_apply(FILE * bin_file,
                        pll_partition_t * partition,
                        unsigned int attributes,
                        int (*bin_func)(void *, size_t, size_t, FILE *))
 {
-  if (!binary_apply_to_partition_desc(bin_file, partition, attributes, bin_func))
+  if (!binary_partition_desc_apply(bin_file, partition, attributes, bin_func))
     return PLL_FAILURE;
 
-  if (!binary_apply_to_partition_body(bin_file, partition, attributes, bin_func))
+  if (!binary_partition_body_apply(bin_file, partition, attributes, bin_func))
     return PLL_FAILURE;
 
   return PLL_SUCCESS;
 }
 
-int binary_apply_to_clv (FILE * bin_file,
-                  pll_partition_t * partition,
-                  unsigned int clv_index,
-                  unsigned int attributes,
-                  size_t clv_size,
-                  int (*bin_func)(void *, size_t, size_t, FILE *))
+int binary_clv_apply (FILE * bin_file,
+                      pll_partition_t * partition,
+                      unsigned int clv_index,
+                      unsigned int attributes,
+                      size_t clv_size,
+                      int (*bin_func)(void *, size_t, size_t, FILE *))
 {
   if (clv_index > (partition->tips + partition->clv_buffers))
   {
@@ -206,10 +300,10 @@ int binary_apply_to_clv (FILE * bin_file,
   return PLL_SUCCESS;
 }
 
-int binary_apply_to_node (FILE * bin_file,
-                          pll_utree_t * node,
-                          int write,
-                          int (*bin_func)(void *, size_t, size_t, FILE *))
+int binary_node_apply (FILE * bin_file,
+                       pll_utree_t * node,
+                       int write,
+                       int (*bin_func)(void *, size_t, size_t, FILE *))
 {
   char * label = 0;
   unsigned long label_len = 0;
@@ -234,4 +328,19 @@ int binary_apply_to_node (FILE * bin_file,
   }
 
   return PLL_SUCCESS;
+}
+
+/* static functions */
+
+static void file_io_error (FILE * bin_file, long int setp, const char * msg)
+{
+  assert(setp >= PLL_BINARY_INVALID_OFFSET);
+
+  /* if offset is valid, we apply it */
+  if (setp != PLL_BINARY_INVALID_OFFSET)
+    fseek(bin_file, setp, SEEK_SET);
+
+  /* update error data */
+  snprintf(pll_errmsg, 200, "Binary file I/O error: %s", msg);
+  pll_errno = PLL_ERROR_LOADSTORE;
 }
