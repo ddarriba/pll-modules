@@ -20,15 +20,15 @@
 #    Schloss-Wolfsbrunnenweg 35, D-69118 Heidelberg, Germany
 
 # Usage:
-#  ./runtest.py validation|speed [tests]
+#  ./runtest.py validation|speed [modules]
 #
 #    validation: validate tests output and memory
 #    speed:      run speed tests
 #
-#    tests: which tests cases to run. If no tests
-#           are specified, run the entire set.
+#    modules: which modules to run. If no modules
+#             are specified, run the entire set.
 #
-#    e.g., ./runtest.py speed alpha-cats hky
+#    e.g., ./runtest.py speed optimize tree
 
 from subprocess import Popen, PIPE, call
 
@@ -40,7 +40,7 @@ import time
 #####################
 #   Configuration   #
 #####################
-do_memtest       =  1           # Evaluate memory leaks
+do_memtest       = 1           # Evaluate memory leaks
 num_replicates   = 20           # Number of samples for the speed test
 all_args         = [0, 1, 2, 3] # 0: No vector / No tip pattern
                                 # 1: No vector / Tip pattern
@@ -49,18 +49,27 @@ all_args         = [0, 1, 2, 3] # 0: No vector / No tip pattern
 #####################
 
 colors={"default":"",
-  "-":      "\x1b[00m",
-  "blue":   "\x1b[01;34m",
-  "cyan":   "\x1b[01;36m",
-  "green":  "\x1b[01;32m",
-  "red":    "\x1b[01;31m",
-  "orange": "\x1b[01;33m",
-  "bluebg": "\x1b[01;44m",
-  "yellow": "\x1b[02;43m"}
+  "-":       "\x1b[00m",
+  "blue":    "\x1b[01;34m",
+  "cyan":    "\x1b[01;36m",
+  "green":   "\x1b[01;32m",
+  "red":     "\x1b[01;31m",
+  "orange":  "\x1b[01;33m",
+  "bluebg":  "\x1b[01;44m",
+  "yellow":  "\x1b[02;43m",
+  "mod_bin": "\033[1;45m",
+  "mod_tre": "\033[1;46m",
+  "mod_opt": "\033[1;42m",
+  "mod_msa": "\033[1;44m"}
 
 which_test={"default": 0,
   "validation": 1,
   "speed":      2}
+
+modules={"optimize" : "mod_opt",
+  "binary"   : "mod_bin",
+  "tree"     : "mod_tre"}
+  #"msa"      : 3}
 
 #following from Python cookbook, #475186
 def has_colors(stream):
@@ -162,6 +171,7 @@ def runSpeedTest(files):
         .format(" ","Start", "File", "AvgTime", "MinTime", "MaxTime"),True)
 
       for filename in files:
+        test_module, test_name = filename.split('/')
         cur_test = cur_test+1
         now = time.strftime("  %H:%M:%S")
         nowstr = time.strftime("%Y%m%d%H%M%S")
@@ -177,7 +187,7 @@ def runSpeedTest(files):
         if filename.endswith("exe"):
             fancyprint("blue", " {:<18} ".format(filename))
         else:
-            fancyprint("cyan", " {:<18} ".format(filename))
+            fancyprint(modules[test_module], " {:<18} ".format(test_name))
 
         sys.stdout.flush()
 
@@ -185,7 +195,7 @@ def runSpeedTest(files):
         max_time = 0
         min_time = 10000000
         test_ok = 1
-        for i in range(1,num_replicates):
+        for i in range(1,num_replicates+1):
 
           fancyprint("orange", "%2d/%2d" % (i, num_replicates))
           sys.stdout.flush()
@@ -282,6 +292,7 @@ def runValidation(files):
         .format(" ","Start", "File", "Time", "Memcheck"),True)
 
       for filename in files:
+        test_module, test_name = filename.split('/')
         cur_test = cur_test+1
         now = time.strftime("  %H:%M:%S")
         nowstr = time.strftime("%Y%m%d%H%M%S")
@@ -296,9 +307,9 @@ def runValidation(files):
           continue
 
         if filename.endswith("exe"):
-            fancyprint("blue", " {:<18} ".format(filename))
+            fancyprint("blue", " {:<18} ".format(test_name))
         else:
-            fancyprint("cyan", " {:<18} ".format(filename))
+            fancyprint(modules[test_module], " {:<18} ".format(test_name))
 
         sys.stdout.flush()
 
@@ -375,17 +386,30 @@ if __name__ == "__main__":
   header()
 
   # Get the test binaries
+  test_modules = modules
   if len(sys.argv) <= 2:
-    files=os.listdir("obj")
-    files=[filename for filename in files if filename != "README"]
+    test_modules = modules
   else:
-    files=sys.argv[2:]
+    test_modules = sys.argv[2:]
+
+  num_modules = len(test_modules)
+
+  print("  %d modules" % num_modules)
+  print
+
+  files = []
+  for cur_mod in test_modules:
+    mod_files = [cur_mod+"/"+x for x in os.listdir("obj/"+cur_mod)]
+    fancyprint(modules[cur_mod], "    {:<15} {:>3} tests    ".format(cur_mod, len(mod_files)))
+    print
+    files = files + mod_files
+  print
 
   files.sort()
 
-  num_tests = len(files)
+  num_tests   = len(files)
 
-  print("  %d tests found" % num_tests)
+  print("  %d tests found in total" % num_tests)
   print("  %d sets of attributes" % len(all_args))
   if num_tests == 0:
     sys.exit()

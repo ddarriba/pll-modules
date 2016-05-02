@@ -19,7 +19,7 @@
  Schloss-Wolfsbrunnenweg 35, D-69118 Heidelberg, Germany
  */
 #include "pll_binary.h"
-#include "common.h"
+#include "../common.h"
 
 #include <string.h>
 #include <search.h>
@@ -305,18 +305,24 @@ int main (int argc, char * argv[])
   /* We save the structures in an arbitrary order */
 
   /* IMPORTANT! Attribute PLL_BINARY_ATTRIB_UPDATE_MAP must be set! */
-  pll_binary_partition_dump(bin_file,
+  if (!pll_binary_partition_dump(bin_file,
                             BLOCK_ID_PARTITION,
                             partition,
                             PLL_BINARY_ATTRIB_PARTITION_DUMP_CLV |
                             PLL_BINARY_ATTRIB_PARTITION_DUMP_WGT |
-                            PLL_BINARY_ATTRIB_UPDATE_MAP);
+                            PLL_BINARY_ATTRIB_UPDATE_MAP))
+  {
+    printf("Error dumping partition\n");
+  }
 
-  pll_binary_utree_dump(bin_file,
+  if (!pll_binary_utree_dump(bin_file,
                        BLOCK_ID_TREE,
                        tree,
                        tip_nodes_count,
-                       PLL_BINARY_ATTRIB_UPDATE_MAP); /* attributes */
+                       PLL_BINARY_ATTRIB_UPDATE_MAP))
+  {
+    printf("Error dumping tree\n");
+  }
 
   printf("** close binary file\n");
 
@@ -367,6 +373,9 @@ int main (int argc, char * argv[])
                                         pll_map_nt,
                                         partition_offset);
 
+  if (!partition)
+    printf("Error loading partition\n");
+    
    /* first check if partition was restored correctly */
    logl = pll_compute_edge_loglikelihood(partition,
                                          lk_parent_clv_index,

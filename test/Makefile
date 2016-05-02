@@ -21,14 +21,14 @@ CC = gcc
 CFLAGS = -O3 -Wall 
 CLIBS = -lpll -lm -lpll_optimize -lpll_tree -lpll_binary
 
-CFILES = src/binary-sequential.c \
-         src/binary-random.c \
-         src/blopt-minimal.c \
-         src/blopt-5states.c \
-         src/random-tree.c \
-         src/treemove-nni.c \
-         src/treemove-spr.c \
-         src/treemove-tbr.c
+CFILES = src/binary/binary-sequential.c \
+         src/binary/binary-random.c \
+         src/optimize/blopt-minimal.c \
+         src/optimize/blopt-5states.c \
+         src/tree/random-tree.c \
+         src/tree/treemove-nni.c \
+         src/tree/treemove-spr.c \
+         src/tree/treemove-tbr.c
 OBJFILES = $(patsubst src/%.c, obj/%, $(CFILES))
 
 OBJCOMMON = src/common.o

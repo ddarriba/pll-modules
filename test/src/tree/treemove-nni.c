@@ -1,5 +1,25 @@
+/*
+    Copyright (C) 2016 Diego Darriba
+
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU Affero General Public License as
+    published by the Free Software Foundation, either version 3 of the
+    License, or (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU Affero General Public License for more details.
+
+    You should have received a copy of the GNU Affero General Public License
+    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+    Contact: Diego Darriba <Diego.Darriba@h-its.org>,
+    Exelixis Lab, Heidelberg Instutute for Theoretical Studies
+    Schloss-Wolfsbrunnenweg 35, D-69118 Heidelberg, Germany
+*/
 #include "pll_tree.h"
-#include "common.h"
+#include "../common.h"
 
 #include <stdarg.h>
 #include <search.h>
@@ -12,9 +32,6 @@
 
 #define FASTAFILE "testdata/medium.fas"
 #define TREEFILE  "testdata/medium.tree"
-
-const static float branch_opt_epsilon = 1e-2;
-const static int branch_opt_smoothings = 2;
 
 typedef struct
 {
@@ -44,6 +61,59 @@ static void set_missing_branch_length_recursive (pll_utree_t * tree,
   }
 }
 
+static double evaluate_likelihood(pll_partition_t *partition,
+                                   pll_utree_t * tree,
+                                   pll_utree_t ** travbuffer,
+                                   unsigned int * matrix_indices,
+                                   double * branch_lengths,
+                                   pll_operation_t * operations)
+{
+  double lk;
+  unsigned int traversal_size,
+               ops_count,
+               matrix_count;
+  unsigned int params_indices[RATE_CATS] = {0,0,0,0};
+
+  if (!pll_utree_traverse (tree, cb_full_traversal, travbuffer,
+                             &traversal_size))
+    return -1;
+
+  pll_utree_create_operations (travbuffer, traversal_size, branch_lengths,
+                                 matrix_indices, operations, &matrix_count,
+                                 &ops_count);
+
+    pll_update_prob_matrices (partition, params_indices, matrix_indices, branch_lengths,
+                              matrix_count);
+
+    pll_update_partials (partition, operations, ops_count);
+
+    lk = pll_compute_edge_loglikelihood (partition,
+                                                  tree->clv_index,
+                                                  tree->scaler_index,
+                                                  tree->back->clv_index,
+                                                  tree->back->scaler_index,
+                                                  tree->pmatrix_index,
+                                                  params_indices,
+                                                  NULL);
+    return lk;
+}
+
+static void apply_move(pll_utree_t * edge,
+                       int type)
+{
+  pll_utree_NNI(edge, type, 0);
+
+  show_tree(edge, SHOW_ASCII_TREE);
+
+  /* validate tree integrity */
+  printf ("Integrity check %s... ", edge->label);
+  fflush(stdout);
+  pll_errno = 0;
+  if (!pll_utree_check_integrity (edge))
+    fatal ("Tree is not consistent %ld %s", pll_errno, pll_errmsg);
+  printf ("OK!\n");
+}
+
 /* branch lengths not present in the newick file get a value of 0.000001 */
 static void set_missing_branch_length (pll_utree_t * tree, double length)
 {
@@ -51,11 +121,12 @@ static void set_missing_branch_length (pll_utree_t * tree, double length)
   set_missing_branch_length_recursive (tree->back, length);
 }
 
-int main (int argc, char * argv[])
+int main (int argc, char *argv[])
 {
+  double logl, logl_start, logl_end;
+
   unsigned int i;
   unsigned int tip_nodes_count, inner_nodes_count, nodes_count, branch_count;
-  unsigned int matrix_count, ops_count;
   unsigned int * matrix_indices;
   double * branch_lengths;
   pll_partition_t * partition;
@@ -63,13 +134,6 @@ int main (int argc, char * argv[])
   pll_utree_t ** travbuffer;
 
   unsigned int attributes = get_attributes(argc, argv);
-  unsigned int params_indices[RATE_CATS] = {0,0,0,0};
-
-  if (attributes & PLL_ATTRIB_PATTERN_TIP)
-  {
-      /* Root loglikelihood is not implemented for tipvectors */
-      skip_test();
-  }
 
   /* parse the unrooted binary tree in newick format, and store the number
    of tip nodes in tip_nodes_count */
@@ -99,7 +163,7 @@ int main (int argc, char * argv[])
   pll_utree_query_innernodes (tree, innernodes);
 
   /* place the virtual root at a random inner node */
-  tree = innernodes[rand() % inner_nodes_count];
+  tree = innernodes[(unsigned int) rand() % inner_nodes_count];
 
   show_tree (tree, SHOW_ASCII_TREE);
 
@@ -145,7 +209,7 @@ int main (int argc, char * argv[])
       fatal ("FASTA file does not contain equal size sequences\n");
 
     if (sites == -1)
-      sites = seqlen;
+      sites = (int) seqlen;
 
     headers[i] = hdr;
     seqdata[i] = seq;
@@ -251,171 +315,66 @@ int main (int argc, char * argv[])
   operations = (pll_operation_t *) malloc (
       inner_nodes_count * sizeof(pll_operation_t));
 
-  /* perform a postorder traversal of the unrooted tree */
-  unsigned int traversal_size;
-  if (!pll_utree_traverse (tree, cb_full_traversal, travbuffer,
-                           &traversal_size))
-    fatal ("Function pll_utree_traverse() requires inner nodes as parameters");
-
-  /* given the computed traversal descriptor, generate the operations
-   structure, and the corresponding probability matrix indices that
-   may need recomputing */
-  pll_utree_create_operations (travbuffer, traversal_size, branch_lengths,
-                               matrix_indices, operations, &matrix_count,
-                               &ops_count);
-
-  printf ("Traversal size: %d\n", traversal_size);
-  printf ("Operations: %d\n", ops_count);
-  printf ("Probability Matrices: %d\n", matrix_count);
-
-  /* update matrix_count probability matrices for model with index 0. The i-th
-   matrix (i ranges from 0 to matrix_count - 1) is generated using branch
-   length branch_lengths[i] and can be refered to with index
-   matrix_indices[i] */
-  pll_update_prob_matrices (partition, params_indices, matrix_indices,
-                            branch_lengths, matrix_count);
-
-  /* use the operations array to compute all ops_count inner CLVs. Operations
-   will be carried out sequentially starting from operation 0 towards ops_count-1 */
-  pll_update_partials (partition, operations, ops_count);
-
-  /* compute the likelihood on an edge of the unrooted tree by specifying
-   the CLV indices at the two end-point of the branch, the probability matrix
-   index for the concrete branch length, and the index of the model of whose
-   frequency vector is to be used */
-  double logl = pll_compute_edge_loglikelihood (partition,
-                                                tree->clv_index,
-                                                tree->scaler_index,
-                                                tree->back->clv_index,
-                                                tree->back->scaler_index,
-                                                tree->pmatrix_index,
-                                                params_indices,
-                                                NULL);
-
-  printf ("Log-L at %s-%s: %f\n", tree->label, tree->back->label, logl);
-
-  /* Test TBR */
-
-  unsigned int distance = 3;
-  unsigned int n_nodes_at_dist;
-  pll_utree_t ** nodes_at_dist = (pll_utree_t **) malloc (
-      sizeof(pll_utree_t *) * pow (2, distance));
-  pll_tree_edge_t reconnect;
-  pll_utree_t * bisect_edge;
-
-  printf("\n\n");
-  printf("Obtaining random bisection edge\n");
-  printf("Obtaining random reconnection edges at a distance of %u\n", distance);
-  int max_tests = 100;
-  while (max_tests > 0)
+  for (i=0; i<5; i++)
   {
-    max_tests--;
-    bisect_edge = innernodes[rand () % inner_nodes_count];
+    printf("Iteration %d\n", i);
 
-    /* the bisection edge should not be a tip branch */
-    if (!(bisect_edge->next && bisect_edge->back->next))
-      continue;
+    logl_start = logl = evaluate_likelihood(partition, tree, travbuffer,
+                        matrix_indices, branch_lengths,
+                        operations);
+    printf ("Log-L[ST] at %s-%s: %f\n", tree->label, tree->back->label, logl);
 
-    /* find nodes at a certain distance */
-    pll_utree_nodes_at_node_dist (bisect_edge, nodes_at_dist, &n_nodes_at_dist,
-                                  distance, 1);
-    if (!n_nodes_at_dist)
-      continue;
-    reconnect.edge.utree.parent = nodes_at_dist[rand () % n_nodes_at_dist];
-    pll_utree_nodes_at_node_dist (bisect_edge->back, nodes_at_dist,
-                                  &n_nodes_at_dist, distance, 1);
-    if (!n_nodes_at_dist)
-          continue;
-    else
-      max_tests = -1;
-    reconnect.edge.utree.child = nodes_at_dist[rand () % n_nodes_at_dist];
+    /* Test NNI */
+    pll_utree_t * nni_edge;
+
+    printf("\n\n");
+    printf("Obtaining random inner edge\n");
+    nni_edge = innernodes[(unsigned int) rand () % inner_nodes_count];
+
+    show_tree(nni_edge, SHOW_ASCII_TREE);
+
+    printf ("Tree move at %s-%s\n", nni_edge->label, nni_edge->back->label);
+
+    apply_move(nni_edge, PLL_NNI_LEFT);
+
+    logl = evaluate_likelihood(partition, nni_edge, travbuffer,
+                        matrix_indices, branch_lengths,
+                        operations);
+    printf ("Log-L[M1] at %s-%s: %f\n", nni_edge->label, nni_edge->back->label, logl);
+
+    /* second move */
+    apply_move(nni_edge, PLL_NNI_RIGHT);
+
+    logl = evaluate_likelihood(partition, nni_edge, travbuffer,
+                        matrix_indices, branch_lengths,
+                        operations);
+    printf ("Log-L[M2] at %s-%s: %f\n", nni_edge->label, nni_edge->back->label, logl);
+
+    /* rollback */
+    apply_move(nni_edge, PLL_NNI_LEFT);
+
+    logl_end = logl = evaluate_likelihood(partition, nni_edge, travbuffer,
+                        matrix_indices, branch_lengths,
+                        operations);
+    printf ("Log-L[RB] at %s-%s: %f\n", nni_edge->label, nni_edge->back->label, logl);
+
+    if (fabs(logl_start - logl_end) > 1e-7)
+    {
+      printf("Error: Starting and final Log-LK differ\n");
+      assert(0);
+    }
   }
 
-  if (!max_tests)
-    fatal ("ERROR: Could not find valid bisection and reconnection points");
-
-  printf ("Tree bisect at %s-%s\n", bisect_edge->label, bisect_edge->back->label);
-  printf ("Tree reconnect %s-%s and %s-%s\n",
-          reconnect.edge.utree.parent->label,
-          reconnect.edge.utree.parent->back->label,
-          reconnect.edge.utree.child->label,
-          reconnect.edge.utree.child->back->label);
-  reconnect.length = 0.555;
-
-  if (!pll_utree_TBR (bisect_edge, &reconnect, 0))
-    fatal ("TBR move cannot be applied");
-
-  tree = reconnect.edge.utree.parent;
-  free(nodes_at_dist);
-
-  /* if tree is a tip node, move to its neighbor inner node */
-  if (!tree->next) tree = tree->back;
-
-  /* validate tree integrity */
-  printf ("Integrity check %s... ", tree->label);
-  fflush(stdout);
-  if (!pll_utree_check_integrity (tree))
-    fatal ("Tree is not consistent");
-  printf ("OK\n");
-
-  /* traversing the new tree */
-  if (!pll_utree_traverse (tree, cb_full_traversal, travbuffer,
-                           &traversal_size))
-    fatal ("Function pll_utree_traverse() requires inner nodes as parameters");
-
-  pll_utree_create_operations (travbuffer, traversal_size, branch_lengths,
-                               matrix_indices, operations, &matrix_count,
-                               &ops_count);
-  show_tree (reconnect.edge.utree.child, SHOW_ASCII_TREE);
-
-  logl = pll_utree_compute_lk(partition,
-                       tree,
-                       params_indices,
-                       1,
-                       1);
-
-  /* compute marginal likelihoods */
-  printf("\nMarginal likelihoods:\n");
-  logl = pll_compute_root_loglikelihood (partition,
-                                         tree->clv_index,
-                                         tree->scaler_index,
-                                         params_indices,
-                                         NULL);
-  printf ("  Log-L Partial at %s: %f\n", tree->label, logl);
-  logl = pll_compute_root_loglikelihood (partition,
-                                         tree->back->clv_index,
-                                         tree->back->scaler_index,
-                                         params_indices,
-                                         NULL);
-  printf ("  Log-L Partial at %s: %f\n", tree->back->label, logl);
-
-  /* compute global likelihood */
-  logl = pll_compute_edge_loglikelihood (partition,
-                                         tree->clv_index,
-                                         tree->scaler_index,
-                                         tree->back->clv_index,
-                                         tree->back->scaler_index,
-                                         tree->pmatrix_index,
-                                         params_indices,
-                                         NULL);
-
-  printf ("  Log-L at %s-%s: %f\n", tree->label, tree->back->label, logl);
-
-  /* destroy all structures allocated for the concrete PLL partition instance */
+  /* clean */
   pll_partition_destroy (partition);
-
-  /* deallocate traversal buffer, branch lengths array, matrix indices
-   array and operations */
-  printf ("\nDestroy buffers\n");
   free (innernodes);
   free (travbuffer);
   free (branch_lengths);
   free (matrix_indices);
   free (operations);
-
-  printf ("Destroy tree\n");
-  /* we will no longer need the tree structure */
   pll_utree_destroy (tree);
+
+  printf("Test OK!\n");
 
   return (EXIT_SUCCESS);
 }

@@ -20,7 +20,7 @@
 */
 
 #include "pll_optimize.h"
-#include "common.h"
+#include "../common.h"
 
 #define RATE_CATS 4
 

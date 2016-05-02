@@ -20,7 +20,7 @@
  */
 
 #include "pll_tree.h"
-#include "common.h"
+#include "../common.h"
 
 #include <string.h>
 #include <stdarg.h>

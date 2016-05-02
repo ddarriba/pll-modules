@@ -19,7 +19,7 @@
  Schloss-Wolfsbrunnenweg 35, D-69118 Heidelberg, Germany
  */
 #include "pll_binary.h"
-#include "common.h"
+#include "../common.h"
 
 #include <string.h>
 #include <search.h>
