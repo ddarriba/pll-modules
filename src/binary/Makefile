@@ -29,7 +29,7 @@ endif
 WARN=-Wall -Wsign-compare $(ADD_WARN)
 
 AR = ar
-CFLAGS = -D_GNU_SOURCE -DHAVE_AVX -fPIC $(PROFILING) -msse3 -O3 -I../ $(WARN)
+CFLAGS = -D_GNU_SOURCE -DHAVE_AVX -fPIC $(PROFILING) -msse3 -O3 -I../../libs/libpll/src $(WARN)
 LINKFLAGS=$(PROFILING)
 LIBS=-lpll -lm
 
