@@ -14,9 +14,15 @@ Log-L: -129371.206574
 
 
 ** reload data
-There are 2 blocks in the map
-  101
-  102
+There are 7 blocks in the map
+ 1000
+ 2000
+ 3000
+ 3001
+ 3002
+ 3003
+ 3004
+saved and restored clvs OK!
 Restored Log-L: -129371.206574
 Likelihoods OK!
 Recomputed Log-L: -129371.206574

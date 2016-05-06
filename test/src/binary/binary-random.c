@@ -34,8 +34,10 @@
 // #define MSA_FILENAME  "testdata/small.fas"
 // #define TREE_FILENAME "testdata/small.tree"
 
-#define BLOCK_ID_PARTITION 101
-#define BLOCK_ID_TREE      102
+#define BLOCK_ID_PARTITION 1000
+#define BLOCK_ID_TREE      2000
+#define BLOCK_ID_CLV       3000
+#define BLOCK_ID_CUSTOM    4000
 
 static int cb_traversal(pll_utree_t * node)
 {
@@ -181,6 +183,7 @@ int main (int argc, char * argv[])
   pll_partition_t * partition;
   pll_utree_t * tree;
   double logl, save_logl;
+  int i;
 
   pll_utree_t ** travbuffer;
   double * branch_lengths;
@@ -315,6 +318,7 @@ int main (int argc, char * argv[])
     printf("Error dumping partition\n");
   }
 
+  /* dump tree */
   if (!pll_binary_utree_dump(bin_file,
                        BLOCK_ID_TREE,
                        tree,
@@ -322,6 +326,30 @@ int main (int argc, char * argv[])
                        PLL_BINARY_ATTRIB_UPDATE_MAP))
   {
     printf("Error dumping tree\n");
+  }
+
+  /* dump 5 arbitrary CLVs and save original values*/
+  int n_clvs   = 5;
+  size_t clv_size = partition->states_padded * partition->rate_cats * partition->sites;
+
+  double * saved_clvs =
+    (double *) malloc(n_clvs * clv_size * sizeof(double));
+
+  double * saved_clvs_ptr = saved_clvs;
+  for (i=0; i<n_clvs; ++i)
+  {
+    int clv_index;
+    clv_index = partition->tips + i;
+    assert (clv_index < (partition->tips + partition->clv_buffers));
+    pll_binary_clv_dump(bin_file,
+                        BLOCK_ID_CLV + i,
+                        partition,
+                        clv_index,
+                        PLL_BINARY_ATTRIB_UPDATE_MAP);
+    memcpy(saved_clvs_ptr,
+           partition->clv[clv_index],
+           sizeof(double) * clv_size);
+    saved_clvs_ptr += clv_size;
   }
 
   printf("** close binary file\n");
@@ -333,7 +361,6 @@ int main (int argc, char * argv[])
   /* clean */
   pll_partition_destroy(partition);
   pll_utree_destroy(tree);
-
 
   printf("\n\n");
 
@@ -350,7 +377,7 @@ int main (int argc, char * argv[])
   block_map = pll_binary_get_map(bin_file, &n_blocks);
 
   printf("There are %d blocks in the map\n", n_blocks);
-  int i, partition_offset = 0;
+  int partition_offset = 0;
   for (i=0; i<n_blocks; ++i)
   {
     /* we cannot print the offset for the test since PATTERN_TIP
@@ -375,9 +402,53 @@ int main (int argc, char * argv[])
 
   if (!partition)
     printf("Error loading partition\n");
-    
-   /* first check if partition was restored correctly */
-   logl = pll_compute_edge_loglikelihood(partition,
+
+  double * loaded_clvs =
+    (double *) malloc(n_clvs * clv_size * sizeof(double));
+
+  /* load clvs in reverse order for testing */
+  for (i=(n_clvs-1); i>=0; --i)
+  {
+    int clv_index = partition->tips + i;
+    assert (clv_index < (partition->tips + partition->clv_buffers));
+
+    /* reset involved clvs */
+    memset(partition->clv[clv_index], 0, sizeof(double) * clv_size);
+
+    if (!pll_binary_clv_load(bin_file,
+                        BLOCK_ID_CLV + i,
+                        partition,
+                        clv_index,
+                        &bin_attributes,
+                        PLL_BINARY_ACCESS_SEEK))
+    {
+      printf("Error loading CLV %d\n", clv_index);
+      printf("%d : %s\n", pll_errno, pll_errmsg);
+      exit(1);
+    }
+
+    memcpy(loaded_clvs + (i * clv_size),
+           partition->clv[clv_index],
+           sizeof(double) * clv_size);
+    // loaded_clvs_ptr += clv_size;
+  }
+
+  /* compare CLVs */
+  if (memcmp(saved_clvs, loaded_clvs, n_clvs * clv_size * sizeof(double)))
+  {
+    printf("Error! CLVs do not agree\n");
+    exit(1);
+  }
+  else
+  {
+    printf("saved and restored clvs OK!\n");
+  }
+
+  free(saved_clvs);
+  free(loaded_clvs);
+
+  /* first check if partition was restored correctly */
+  logl = pll_compute_edge_loglikelihood(partition,
                                          lk_parent_clv_index,
                                          lk_parent_scaler_index,
                                          lk_child_clv_index,
