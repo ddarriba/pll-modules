@@ -309,11 +309,11 @@ PLL_EXPORT int pll_binary_clv_dump(FILE * bin_file,
 
   /* dump data */
   retval = binary_clv_apply (bin_file,
-                         partition,
-                         clv_index,
-                         attributes,
-                         clv_size,
-                         &bin_fwrite);
+                             partition,
+                             clv_index,
+                             attributes,
+                             clv_size,
+                             &bin_fwrite);
 
   return retval;
 }
@@ -338,7 +338,11 @@ PLL_EXPORT int pll_binary_clv_load(FILE * bin_file,
       /* find offset */
       offset = binary_get_offset (bin_file, block_id);
       if (offset == PLL_BINARY_INVALID_OFFSET)
+      {
+        pll_errno = PLL_ERROR_MISSING_BLOCK;
+        snprintf(pll_errmsg, 200, "Cannot find block with id %ld", block_id);
         return PLL_FAILURE;
+      }
     }
 
     /* apply offset */

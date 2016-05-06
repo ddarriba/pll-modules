@@ -48,6 +48,7 @@
 #define PLL_ERROR_INVALID_INDEX          4010
 #define PLL_ERROR_INVALID_SIZE           4011
 #define PLL_ERROR_LOADSTORE              4012
+#define PLL_ERROR_MISSING_BLOCK          4020
 
 /*
  * This is the main header of the binary stream.
@@ -61,7 +62,7 @@ typedef struct
   unsigned int n_blocks;      //! number of blocks in the file
   unsigned int max_blocks;    //! maximum number of blocks (size of block map)
   unsigned int access_type;   //! PLL_BINARY_ACCESS_{SEQUENTIAL|RANDOM}
-  char pad[1];                //! padding
+  char pad[4];                //! padding
   long map_offset;            //! offset of the block map
 } pll_binary_header_t;
 
@@ -85,7 +86,7 @@ typedef struct
   unsigned int type;         //! block type PLL_BINARY_BLOCK_...
   unsigned int attributes;   //! custom block attributes
   unsigned int alignment;    //! if memory should be aligned
-  char pad[1];               //! padding
+  char pad[4];               //! padding
   size_t block_len;          //! block length
 } pll_block_header_t;
 
@@ -132,7 +133,7 @@ PLL_EXPORT pll_block_map_t * pll_binary_get_map(FILE * bin_file,
  *  @param[in] bin_file binary file
  *  @param[in] block_id id of the block for random access, or local identification
  *  @param[in] partition the saved partition
- *  @param[in] attributes the loaded attributes
+ *  @param[in] attributes the dumped attributes
  *
  *  @return true, if OK
  */
@@ -147,7 +148,7 @@ PLL_EXPORT int pll_binary_partition_dump(FILE * bin_file,
  *  @param[in] bin_file binary file
  *  @param[in] block_id id of the block for random access
  *  @param[in,out] partition if NULL, creates a new partition
- *  @param[out] attributes the dumped attributes
+ *  @param[out] attributes the loaded attributes
  *  @param offset offset to the data block, if known
  *                0, if access is sequential
  *                PLL_BINARY_ACCESS_SEEK, for searching in the file header
@@ -161,14 +162,37 @@ PLL_EXPORT pll_partition_t * pll_binary_partition_load(FILE * bin_file,
                                                        const unsigned int * map,
                                                        long int offset);
 
-//Warning: untested
+/**
+ *  Save a partition to the binary file
+ *
+ *  @param[in] bin_file binary file
+ *  @param[in] block_id id of the block for random access, or local identification
+ *  @param[in] partition the partition containing the saved CLV
+ *  @param[in] clv_index the index of the CLV
+ *  @param[in] attributes the dumped attributes
+ *
+ *  @return true, if OK
+ */
 PLL_EXPORT int pll_binary_clv_dump(FILE * bin_file,
                                    int block_id,
                                    pll_partition_t * partition,
                                    unsigned int clv_index,
                                    unsigned int attributes);
 
-//Warning: untested
+/**
+ *  Load a CLV from the binary file
+ *
+ *  @param[in] bin_file binary file
+ *  @param[in] block_id id of the block for random access
+ *  @param[in, out] partition the partition where the CLV will be stored
+ *  @param[in] clv_index index of the CLV
+ *  @param[out] attributes the loaded attributes
+ *  @param offset offset to the data block, if known
+ *                0, if access is sequential
+ *                PLL_BINARY_ACCESS_SEEK, for searching in the file header
+ *
+ *  @return true, if OK
+ */
 PLL_EXPORT int pll_binary_clv_load(FILE * bin_file,
                                    int block_id,
                                    pll_partition_t * partition,

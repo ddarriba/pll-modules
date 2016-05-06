@@ -48,6 +48,8 @@ int binary_block_header_apply(FILE * bin_file,
                               pll_block_header_t * block_header,
                               int (*bin_func)(void *, size_t, size_t, FILE *))
 {
+  strcpy(block_header->pad, "000");
+
   if (!bin_func (block_header, sizeof(pll_block_header_t), 1, bin_file))
   {
     file_io_error(bin_file, ftell(bin_file), "block header apply");
