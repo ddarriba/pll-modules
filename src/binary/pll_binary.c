@@ -577,19 +577,21 @@ PLL_EXPORT int pll_binary_custom_dump(FILE * bin_file,
   pll_block_header_t block_header;
   memset(&block_header, 0, sizeof(pll_block_header_t));
 
+  /* dump header */
+  block_header.block_id   = block_id;
+  block_header.type       = PLL_BINARY_BLOCK_CUSTOM;
+  block_header.attributes = attributes;
+  block_header.block_len  = size;
+  block_header.alignment  = 0;
   /* update main header */
-  if (!binary_update_header(bin_file, &block_header))
+  if(!binary_update_header(bin_file, &block_header))
   {
     return PLL_FAILURE;
   }
 
-  /* dump header */
-  block_header.block_id   = block_id;
-  block_header.type       = PLL_BINARY_BLOCK_CLV;
-  block_header.attributes = attributes;
-  block_header.block_len  = size;
-  block_header.alignment  = 0;
-  bin_fwrite(&block_header, sizeof(pll_block_header_t) ,1, bin_file);
+  /* dump block header */
+  if (!binary_block_header_apply(bin_file, &block_header, &bin_fwrite))
+    return PLL_FAILURE;
 
   /* dump data */
   retval = bin_fwrite(data, size, 1, bin_file);
