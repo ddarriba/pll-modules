@@ -540,10 +540,10 @@ PLL_EXPORT pll_utree_t * pll_binary_utree_load(FILE * bin_file,
       t->next = t_l; t_l->next = t_r; t_r->next = t;
 
       /* pop */
-      t_cl = tree_stack[--tree_stack_top];
-      t_l->back = t_cl; t_cl->back = t_l;
       t_cr = tree_stack[--tree_stack_top];
       t_r->back = t_cr; t_cr->back = t_r;
+      t_cl = tree_stack[--tree_stack_top];
+      t_l->back = t_cl; t_cl->back = t_l;
     }
     else
       --n_tip_check;
