@@ -122,7 +122,6 @@ static pll_partition_t * parse_msa(unsigned int attributes, pll_utree_t * tree, 
                                     2*tip_nodes_count - 3, /* prob matrices */
                                     N_RATE_CATS,           /* rate categories */
                                     tip_nodes_count - 2,   /* scale buffers */
-                                    pll_map_nt,            /* map */
                                     attributes             /* attributes */
                                     );
 
@@ -329,7 +328,6 @@ int main (int argc, char * argv[])
                                         BLOCK_ID_PARTITION,
                                         NULL, /* in order to create a new partition */
                                         &bin_attributes,
-                                        pll_map_nt,
                                         0);
 
   tree = pll_binary_utree_load(bin_file,

@@ -199,7 +199,6 @@ PLL_EXPORT pll_partition_t * pll_binary_partition_load(FILE * bin_file,
                                                        int block_id,
                                                        pll_partition_t * partition,
                                                        unsigned int * attributes,
-                                                       const unsigned int * map,
                                                        long int offset)
 {
   pll_block_header_t block_header;
@@ -257,7 +256,6 @@ PLL_EXPORT pll_partition_t * pll_binary_partition_load(FILE * bin_file,
         aux_partition.prob_matrices,
         aux_partition.rate_cats,
         aux_partition.scale_buffers,
-        map,
         aux_partition.attributes);
 
     if (!local_partition)
@@ -340,7 +338,7 @@ PLL_EXPORT int pll_binary_clv_load(FILE * bin_file,
       if (offset == PLL_BINARY_INVALID_OFFSET)
       {
         pll_errno = PLL_ERROR_MISSING_BLOCK;
-        snprintf(pll_errmsg, 200, "Cannot find block with id %ld", block_id);
+        snprintf(pll_errmsg, 200, "Cannot find block with id %d", block_id);
         return PLL_FAILURE;
       }
     }

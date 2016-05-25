@@ -159,7 +159,6 @@ PLL_EXPORT pll_partition_t * pll_binary_partition_load(FILE * bin_file,
                                                        int block_id,
                                                        pll_partition_t * partition,
                                                        unsigned int * attributes,
-                                                       const unsigned int * map,
                                                        long int offset);
 
 /**

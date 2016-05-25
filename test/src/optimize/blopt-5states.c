@@ -60,7 +60,6 @@ int main(int argc, char * argv[])
                                    3,         /* P matrices */
                                    RATE_CATS, /* Rate categories */
                                    0,         /* Scale buffers */
-                                   odd_map,
                                    attributes);
   
   double branch_lengths[3] = { 0.105361, 0.166920, 0.166920 };

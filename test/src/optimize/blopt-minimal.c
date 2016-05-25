@@ -41,7 +41,6 @@ int main(int argc, char * argv[])
                                    3,       /* P matrices */
                                    4,       /* Rate categories */
                                    0,       /* Scale buffers */
-                                   pll_map_nt,
                                    attributes);
   
   double branch_lengths[3] = { 0.105361, 0.166920, 0.166920 };

@@ -937,6 +937,7 @@ PLL_EXPORT double pll_optimize_branch_lengths_local (
 {
   unsigned int iters;
   double lnl = 0.0;
+  unsigned int sites_alloc;
 
   /* get the initial likelihood score */
   lnl = pll_compute_edge_loglikelihood (partition,
@@ -1008,6 +1009,10 @@ PLL_EXPORT double pll_optimize_branch_lengths_local (
     params.sumtable       = 0;
 
     /* allocate the sumtable */
+    sites_alloc = partition->sites;
+    if (partition->attributes & PLL_ATTRIB_ASC_BIAS)
+      sites_alloc += partition->states;
+      
     if ((params.sumtable = (double *) pll_aligned_alloc(
         partition->sites * partition->rate_cats * partition->states_padded *
         sizeof(double), partition->alignment)) == NULL)

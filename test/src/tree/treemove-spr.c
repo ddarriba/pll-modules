@@ -254,7 +254,6 @@ int main (int argc, char * argv[])
                                     branch_count,
                                     RATE_CATS,
                                     inner_nodes_count,
-                                    pll_map_nt,
                                     attributes
                                     );
 

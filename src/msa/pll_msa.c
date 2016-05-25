@@ -45,7 +45,7 @@ PLL_EXPORT double * pll_msa_empirical_frequencies(pll_partition_t * partition)
     {
       for (i = 0; i < tips; ++i)
             {
-              const char *tipchars = partition->tipchars[i];
+              const unsigned char *tipchars = partition->tipchars[i];
               for (n = 0; n < sites; ++n)
               {
                 unsigned int state = (unsigned int) tipchars[n];
@@ -63,7 +63,7 @@ PLL_EXPORT double * pll_msa_empirical_frequencies(pll_partition_t * partition)
     {
       for (i = 0; i < tips; ++i)
       {
-        const char *tipchars = partition->tipchars[i];
+        const unsigned char *tipchars = partition->tipchars[i];
         for (n = 0; n < sites; ++n)
         {
           unsigned int state = tipmap[(int) tipchars[n]];
@@ -117,13 +117,13 @@ PLL_EXPORT double * pll_msa_empirical_frequencies(pll_partition_t * partition)
 PLL_EXPORT double * pll_msa_empirical_subst_rates(pll_partition_t * partition)
 {
   unsigned int i, j, k, n;
-  unsigned int states         = partition->states;
-  unsigned int sites          = partition->sites;
-  unsigned int tips           = partition->tips;
-  unsigned int rate_cats      = partition->rate_cats;
-  const unsigned int * tipmap = partition->tipmap;
-  const unsigned int * w      = partition->pattern_weights;
-  char * const * tipchars     = partition->tipchars;
+  unsigned int states              = partition->states;
+  unsigned int sites               = partition->sites;
+  unsigned int tips                = partition->tips;
+  unsigned int rate_cats           = partition->rate_cats;
+  const unsigned int * tipmap      = partition->tipmap;
+  const unsigned int * w           = partition->pattern_weights;
+  unsigned char * const * tipchars = partition->tipchars;
 
   unsigned int n_subst_rates  = (states * (states - 1) / 2);
   double * subst_rates = (double *) calloc ((size_t) n_subst_rates, sizeof(double));
