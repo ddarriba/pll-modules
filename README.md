@@ -3,9 +3,26 @@ High Level modules for the Low Level Phylogenetic Likelihood Library
 
 ## Introduction
 
-## Compilation instructions
+## Clone & compile
 
-PLL-Modules depends on the PLL library submodule (libs/libpll)
+PLL-Modules depends on the PLL library submodule (libs/libpll), so you have to clone the repository as follows:
+
+```git clone --recursive https://github.com/ddarriba/pll-modules```
+
+or
+
+```
+git clone https://github.com/ddarriba/pll-modules
+git submodule update --init --recursive
+```
+
+To compile and install libpll with all modules, simply run:
+
+```
+./install.sh <TARGET_DIR>
+```
+
+Alternatively, you can build libpll and individual modules manually, by running `make` in the respective `src` directories.
 
 ## Usage examples 
 
