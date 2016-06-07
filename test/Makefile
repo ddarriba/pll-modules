@@ -21,8 +21,11 @@ CC = gcc
 CFLAGS = -O3 -Wall 
 CLIBS = -lpll -lm -lpll_optimize -lpll_tree -lpll_binary
 
+MODULES = binary optimize tree
+
 CFILES = src/binary/binary-sequential.c \
          src/binary/binary-random.c \
+         src/binary/binary-ascbias.c \
          src/optimize/blopt-minimal.c \
          src/optimize/blopt-5states.c \
          src/tree/random-tree.c \
@@ -45,7 +48,7 @@ REQFILES = $(patsubst %, $(DATADIR)/%, $(DEPFILES))
 ASSETS = https://raw.githubusercontent.com/xflouris/assets/master/libpll
 
 all: $(OBJCOMMON) $(OBJFILES) $(REQFILES)
-	@mkdir -p $(RESULTDIR)
+	@mkdir -p $(RESULTDIR) $(foreach m,$(MODULES), $(RESULTDIR)/$(m))
 
 $(DATADIR)/%:
 	@mkdir -p "$(@D)"
@@ -59,4 +62,4 @@ obj/%: src/%.c $(DEPS)
 	$(CC) $(CPPFLAGS) $(CFLAGS) -c -o $@ $< $(CLIBS) $(LDFLAGS) -DDATADIR=\"$(DATADIR)\"
 	
 clean:
-	rm -rf obj result/* $(OBJCOMMON)
+	rm -rf obj result $(OBJCOMMON)

@@ -44,11 +44,6 @@
  *          d) Apply operations (e.g., new memory alignment)
   */
 
-static unsigned long clv_size(pll_partition_t * partition);
-static unsigned long partition_size(pll_partition_t * partition);
-static unsigned long weightv_size(pll_partition_t * partition);
-static unsigned long scaler_size(pll_partition_t * partition);
-
 static unsigned int get_current_alignment( unsigned int attributes )
 {
   unsigned int alignment = PLL_ALIGNMENT_CPU;
@@ -151,28 +146,18 @@ PLL_EXPORT int pll_binary_partition_dump(FILE * bin_file,
                                          unsigned int attributes)
 {
   pll_block_header_t block_header;
-  unsigned long partition_len = partition_size(partition),
-                clv_len = 0,
-                wgt_len = 0;
+  // unsigned long partition_len = partition_size(partition),
+  //               clv_len = 0,
+  //               wgt_len = 0;
+  long int start_pos = ftell(bin_file),
+           end_pos;
 
   /* fill block header */
   block_header.block_id   = block_id;
   block_header.type       = PLL_BINARY_BLOCK_PARTITION;
   block_header.attributes = attributes;
-  block_header.block_len  = partition_len;
+  block_header.block_len  = 0; //partition_len;
   block_header.alignment  = 0;
-
-  if (attributes & PLL_BINARY_ATTRIB_PARTITION_DUMP_CLV)
-  {
-    clv_len = (partition->clv_buffers + partition->tips)  * clv_size(partition) +
-               partition->scale_buffers * scaler_size(partition);
-    block_header.block_len += clv_len;
-  }
-  if (attributes & PLL_BINARY_ATTRIB_PARTITION_DUMP_WGT)
-    {
-      wgt_len = weightv_size(partition);
-      block_header.block_len += wgt_len;
-    }
 
   /* update main header */
   if (!binary_update_header(bin_file, &block_header))
@@ -192,6 +177,23 @@ PLL_EXPORT int pll_binary_partition_dump(FILE * bin_file,
     return PLL_FAILURE;
   }
 
+  end_pos = ftell(bin_file);
+
+  /* update header */
+  if (fseek(bin_file, start_pos, SEEK_SET) == -1)
+  {
+    return PLL_FAILURE;
+  }
+  block_header.block_len = end_pos - start_pos;
+  if (!binary_block_header_apply(bin_file, &block_header, &bin_fwrite))
+  {
+    return PLL_FAILURE;
+  }
+  if (fseek(bin_file, end_pos, SEEK_SET) == -1)
+  {
+    return PLL_FAILURE;
+  }
+
   return PLL_SUCCESS;
 }
 
@@ -204,6 +206,8 @@ PLL_EXPORT pll_partition_t * pll_binary_partition_load(FILE * bin_file,
   pll_block_header_t block_header;
   pll_partition_t * local_partition;
   assert(offset >= 0 || offset == PLL_BINARY_ACCESS_SEEK);
+  unsigned int sites_alloc;
+  unsigned int i;
 
   if (offset != 0)
   {
@@ -258,6 +262,80 @@ PLL_EXPORT pll_partition_t * pll_binary_partition_load(FILE * bin_file,
         aux_partition.scale_buffers,
         aux_partition.attributes);
 
+    /* initialize extra variables */
+    local_partition->maxstates = aux_partition.maxstates;
+    local_partition->asc_bias_alloc = aux_partition.asc_bias_alloc;
+
+    sites_alloc = local_partition->asc_bias_alloc ?
+                   local_partition->sites + local_partition->states :
+                   local_partition->sites;
+    if (local_partition->attributes & PLL_ATTRIB_PATTERN_TIP)
+    {
+      /* allocate tip character arrays */
+      local_partition->tipchars = (unsigned char **)calloc(local_partition->tips,
+                                                     sizeof(unsigned char *));
+      if (!local_partition->tipchars)
+      {
+        pll_errno = PLL_ERROR_INIT_CHARMAP;
+        snprintf (pll_errmsg, 200,
+                  "Cannot allocate space for storing tip characters.");
+        return PLL_FAILURE;
+      }
+
+      if (!(local_partition->charmap = (unsigned char *)calloc(PLL_ASCII_SIZE,
+                                                         sizeof(unsigned char))))
+      {
+        pll_errno = PLL_ERROR_INIT_CHARMAP;
+        snprintf (pll_errmsg, 200,
+                  "Cannot allocate charmap for tip-tip precomputation.");
+        return PLL_FAILURE;
+      }
+
+      if (!(local_partition->tipmap = (unsigned int *)calloc(PLL_ASCII_SIZE,
+                                                       sizeof(unsigned int))))
+      {
+        pll_errno = PLL_ERROR_INIT_CHARMAP;
+        snprintf (pll_errmsg, 200,
+                  "Cannot allocate tipmap for tip-tip precomputation.");
+        return PLL_FAILURE;
+      }
+
+      for (i = 0; i < local_partition->tips; ++i)
+      {
+        local_partition->tipchars[i] = (unsigned char *)malloc(sites_alloc *
+                                                         sizeof(unsigned char));
+        if (!local_partition->tipchars[i])
+        {
+          pll_errno = PLL_ERROR_INIT_CHARMAP;
+          snprintf (pll_errmsg, 200,
+                    "Cannot allocate space for storing tip characters.");
+          return PLL_FAILURE;
+        }
+      }
+
+      if ((local_partition->states == 4) && (local_partition->attributes & PLL_ATTRIB_ARCH_AVX))
+      {
+        local_partition->ttlookup = pll_aligned_alloc(1024 * local_partition->rate_cats *
+                                                sizeof(double),
+                                                local_partition->alignment);
+      }
+      else
+      {
+        unsigned int l2_maxstates = (unsigned int)ceil(log2(local_partition->maxstates));
+        size_t alloc_size = (1 << (2 * l2_maxstates)) *
+                            (local_partition->states_padded * local_partition->rate_cats);
+        local_partition->ttlookup = pll_aligned_alloc(alloc_size * sizeof(double),
+                                                local_partition->alignment);
+      }
+      if (!local_partition->ttlookup)
+      {
+        pll_errno = PLL_ERROR_INIT_CHARMAP;
+        snprintf (pll_errmsg, 200,
+                  "Cannot allocate space for storing precomputed tip-tip CLVs.");
+        return PLL_FAILURE;
+      }
+    }
+
     if (!local_partition)
     {
       return NULL;
@@ -285,8 +363,11 @@ PLL_EXPORT int pll_binary_clv_dump(FILE * bin_file,
 {
   int retval;
   pll_block_header_t block_header;
+  unsigned int sites_alloc = partition->asc_bias_alloc ?
+                 partition->sites + partition->states :
+                 partition->sites;
 
-  size_t clv_size = partition->sites * partition->states_padded *
+  size_t clv_size = sites_alloc * partition->states_padded *
                       partition->rate_cats;
 
   /* fill block header */
@@ -329,6 +410,10 @@ PLL_EXPORT int pll_binary_clv_load(FILE * bin_file,
   assert (partition);
   assert(offset >= 0 || offset == PLL_BINARY_ACCESS_SEEK);
 
+  unsigned int sites_alloc = partition->asc_bias_alloc ?
+                 partition->sites + partition->states :
+                 partition->sites;
+
   if (offset != 0)
   {
     if (offset == PLL_BINARY_ACCESS_SEEK)
@@ -358,7 +443,7 @@ PLL_EXPORT int pll_binary_clv_load(FILE * bin_file,
     return PLL_FAILURE;
   }
 
-  size_t clv_size = partition->sites * partition->states_padded *
+  size_t clv_size = sites_alloc * partition->states_padded *
                     partition->rate_cats;
 
   if (block_header.block_len != (clv_size * sizeof(double)))
@@ -689,91 +774,4 @@ PLL_EXPORT void * pll_binary_custom_load(FILE * bin_file,
   }
 
   return data;
-}
-
-static unsigned long clv_size(pll_partition_t * partition)
-{
-  unsigned long size = 0;
-  unsigned int n_clvs, n_tipchars;
-
-  /* Question: What will happen when tipchars are set? partition->clv_buffers
-   * would count the tips as well even though they are not used?
-   */
-  n_tipchars = partition->attributes & PLL_ATTRIB_PATTERN_TIP?partition->tips:0;
-  n_clvs     = partition->clv_buffers;
-
-  size = sizeof(double) *
-         partition->sites *
-         partition->states_padded *
-         partition->rate_cats *
-         n_clvs;
-
-  if (n_tipchars)
-  {
-    size += sizeof(char) * partition->sites * n_tipchars;
-    size += sizeof(char) * PLL_ASCII_SIZE;
-  }
-
-  return size;
-}
-
-static unsigned long scaler_size(pll_partition_t * partition)
-{
-  unsigned long size = 0;
-  /*TODO: when per-category scalers are available, we need to multiply
-   * the size by the number of categories.
-   */
-  size = sizeof(unsigned int)    *
-         partition->sites;
-  return size;
-}
-
-static unsigned long weightv_size(pll_partition_t * partition)
-{
-  unsigned long size = 0;
-  size = sizeof(unsigned int)    *
-         partition->sites;
-  return size;
-}
-
-static unsigned long partition_size(pll_partition_t * partition)
-{
-  unsigned long size         = 0;
-  unsigned int rate_cats     = partition->rate_cats;
-  unsigned int states        = partition->states;
-  unsigned int states_padded = partition->states_padded;
-  unsigned int n_subst_rates = states * (states-1) / 2;
-  unsigned int prob_matrices = partition->prob_matrices;
-  unsigned int rate_matrices = partition->rate_matrices;
-
-  /*  tips clv_buffers states sites rate_matrices prob_matrices rate_cats;
-   *  scale_buffers attributes states_padded maxstates
-   *  log2_maxstates log2_states log2_rates */
-  size += sizeof(unsigned int) * 15;
-
-  /* eigen_decomp_valid */
-  size += sizeof(int) * rate_matrices;
-
-  /* eigenvecs + inv_eigenvecs */
-  size += 2 * (sizeof(double) * rate_matrices *
-               states * states_padded);
-  /* eigenvals */
-  size += sizeof(double) * rate_matrices * states_padded;
-
-  /* pmatrix */
-  size += sizeof(double) * prob_matrices * states * states_padded * rate_cats;
-
-  /* subst_params */
-  size += sizeof(double) * rate_matrices * n_subst_rates;
-
-  /* frequencies */
-  size += sizeof(double) * rate_matrices * states_padded;
-
-  /* rate_cats + rate_weights */
-  size += 2 * sizeof(double) * rate_cats;
-
-  /* prop_invar */
-  size += 2 * sizeof(double) * rate_matrices;
-
-  return size;
 }

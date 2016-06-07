@@ -219,8 +219,8 @@ def runSpeedTest(files):
 
               if output != "":
                 fancyprint("red", "  Test failed\n")
-                call(["mv", "tmp", "result/testfail_"+typestr+"_"+filename+"_"+nowstr])
-                call(["mv", "tmperr", "result/testfail_"+typestr+"_"+filename+"_"+nowstr+".err"])
+                call(["mv", "tmp", "result/"+filename+"_"+typestr+"_"+nowstr])
+                call(["mv", "tmperr", "result/"+filename+"_"+typestr+"_"+nowstr+".err"])
                 test_ok = 0
                 break
 
@@ -342,8 +342,8 @@ def runValidation(files):
           else:
             testFAIL()
             print
-            call(["mv", "tmp", "result/testfail_"+typestr+"_"+filename+"_"+nowstr])
-            call(["mv", "tmperr", "result/testfail_"+typestr+"_"+filename+"_"+nowstr+".err"])
+            call(["mv", "tmp", "result/"+filename+"_"+typestr+"_"+nowstr])
+            call(["mv", "tmperr", "result/"+filename+"_"+typestr+"_"+nowstr+".err"])
             continue
 
           sys.stdout.flush()

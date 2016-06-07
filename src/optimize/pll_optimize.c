@@ -1010,9 +1010,9 @@ PLL_EXPORT double pll_optimize_branch_lengths_local (
 
     /* allocate the sumtable */
     sites_alloc = partition->sites;
-    if (partition->attributes & PLL_ATTRIB_ASC_BIAS)
+    if (partition->attributes & PLL_ATTRIB_ASC_BIAS_FLAG)
       sites_alloc += partition->states;
-      
+
     if ((params.sumtable = (double *) pll_aligned_alloc(
         partition->sites * partition->rate_cats * partition->states_padded *
         sizeof(double), partition->alignment)) == NULL)
@@ -1027,14 +1027,14 @@ PLL_EXPORT double pll_optimize_branch_lengths_local (
     {
       double new_lnl = lnl;
 
-lnl = pll_compute_edge_loglikelihood (partition,
-                                      tree->back->clv_index,
-                                      tree->back->scaler_index,
-                                      tree->clv_index,
-                                      tree->scaler_index,
-                                      tree->pmatrix_index,
-                                      params_indices,
-                                      NULL);
+      lnl = pll_compute_edge_loglikelihood (partition,
+                                            tree->back->clv_index,
+                                            tree->back->scaler_index,
+                                            tree->clv_index,
+                                            tree->scaler_index,
+                                            tree->pmatrix_index,
+                                            params_indices,
+                                            NULL);
 
       /* iterate on first edge */
       recomp_iterative (&params, &new_lnl, radius, keep_update);
@@ -1052,7 +1052,7 @@ lnl = pll_compute_edge_loglikelihood (partition,
       if (fabs (new_lnl - lnl) < tolerance) iters = 0;
     }
 
-    free(params.sumtable);
+    pll_aligned_free(params.sumtable);
 
     return -1*lnl;
 } /* pll_optimize_branch_lengths_local */

@@ -18,23 +18,36 @@
 #    Schloss-Wolfsbrunnenweg 35, D-69118 Heidelberg, Germany
 
 CC = i686-w64-mingw32-gcc
-CFLAGS = -g -O3 -Wall -L/usr/local/lib 
-CLIBS = -lpll -lm
+CFLAGS = -g -O3 -Wall 
+CLIBS = -lpll -lm -lpll_optimize -lpll_tree -lpll_binary
 
-CFILES = $(wildcard **/*.c)
-CFILES = $(shell find src/ -type f -name '*.c' | grep -v travers)
+MODULES = binary optimize tree
+
+CFILES = src/binary/binary-sequential.c \
+         src/binary/binary-random.c \
+         src/optimize/blopt-minimal.c \
+         src/optimize/blopt-5states.c \
+         src/tree/random-tree.c \
+         src/tree/treemove-nni.c \
+         src/tree/treemove-spr.c \
+         src/tree/treemove-tbr.c
+
 OBJFILES = $(patsubst src/%.c, obj/%.exe, $(CFILES))
+OBJCOMMON = src/common.o
 
 DATADIR = testdata
 RESULTDIR = result
 
-DEPFILES = worms16s.fas small.fas small.tree 246x4465.fas 246x4465.tree \
-					 ribosomal_l5_pf00673.fas
+DEPFILES = worms16s.fas \
+           small.fas small.tree small.rooted.tree \
+           246x4465.fas 246x4465.tree \
+           ribosomal_l5_pf00673.fas \
+           medium.fas medium.tree
 REQFILES = $(patsubst %, $(DATADIR)/%, $(DEPFILES))
 ASSETS = https://raw.githubusercontent.com/xflouris/assets/master/libpll
 
-all: $(OBJFILES) $(REQFILES)
-	@mkdir -p $(RESULTDIR)
+all: $(OBJCOMMON) $(OBJFILES) $(REQFILES)
+	@mkdir -p $(RESULTDIR) $(foreach m,$(MODULES), $(RESULTDIR)/$(m))
 
 $(DATADIR)/%:
 	@mkdir -p "$(@D)"
@@ -45,4 +58,4 @@ obj/%.exe: src/%.c $(DEPS)
 	$(CC) $(CPPFLAGS) $(CFLAGS) -D__WIN64__ -o $@ $< $(CLIBS) $(LDFLAGS) -DDATADIR=\"$(DATADIR)\"
 
 clean:
-	rm -rf obj
+	rm -rf obj result $(OBJCOMMON)

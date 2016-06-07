@@ -164,22 +164,14 @@ int binary_partition_desc_apply (FILE * bin_file,
   bin_func (&partition->scale_buffers, sizeof(unsigned int), 1, bin_file);
   bin_func (&partition->attributes, sizeof(unsigned int), 1, bin_file);
   bin_func (&partition->states_padded, sizeof(unsigned int), 1, bin_file);
+  bin_func (&partition->asc_bias_alloc, sizeof(int), 1, bin_file);
 
   /* The variables below are used only if PATTERN_TIP is active. Otherwise
      they could be uninitialized and hence raise a valgrind error if we try
      to write them into the binary file. */
   if (!(partition->attributes & PLL_ATTRIB_PATTERN_TIP))
-  {
-    partition->maxstates      = 0;
-    partition->log2_maxstates = 0;
-    partition->log2_states    = 0;
-    partition->log2_rates     = 0;
-  }
-
+    partition->maxstates = 0;
   bin_func (&partition->maxstates, sizeof(unsigned int), 1, bin_file);
-  bin_func (&partition->log2_maxstates, sizeof(unsigned int), 1, bin_file);
-  bin_func (&partition->log2_states, sizeof(unsigned int), 1, bin_file);
-  bin_func (&partition->log2_rates, sizeof(unsigned int), 1, bin_file);
 
   return PLL_SUCCESS;
 }
@@ -198,6 +190,8 @@ int binary_partition_body_apply (FILE * bin_file,
   unsigned int n_subst_rates = states * (states - 1) / 2;
   unsigned int prob_matrices = partition->prob_matrices;
   unsigned int rate_matrices = partition->rate_matrices;
+  unsigned int sites_alloc = partition->asc_bias_alloc ?
+                  partition->sites + partition->states : partition->sites;
 
   bin_func (partition->eigen_decomp_valid, sizeof(int), rate_matrices,
             bin_file);
@@ -226,29 +220,41 @@ int binary_partition_body_apply (FILE * bin_file,
   if (attributes & PLL_BINARY_ATTRIB_PARTITION_DUMP_CLV)
   {
     unsigned int first_clv_index = 0;
+
     /* dump tipchars if TIP_PATTERN is used*/
     if (partition->attributes & PLL_ATTRIB_PATTERN_TIP)
     {
       for (i = 0; i < tips; ++i)
-        bin_func (partition->tipchars[i], sizeof(char), sites, bin_file);
+      {
+        bin_func (partition->tipchars[i], sizeof(unsigned char), sites_alloc, bin_file);
+      }
       bin_func (partition->charmap, sizeof(char), PLL_ASCII_SIZE, bin_file);
       first_clv_index = tips;
+
+      unsigned int l2_maxstates = (unsigned int)ceil(log2(partition->maxstates));
+
+      /* allocate space for the precomputed tip-tip likelihood vector */
+      size_t alloc_size = (1 << (2 * l2_maxstates)) *
+                          (partition->states_padded * partition->rate_cats);
+      bin_func (partition->ttlookup, sizeof(double), alloc_size, bin_file);
+      bin_func (partition->tipmap, sizeof(char), PLL_ASCII_SIZE, bin_file);
     }
+
     /* dump CLVs and scalers*/
     for (i = first_clv_index; i < (partition->clv_buffers + tips); ++i)
     {
       bin_func (partition->clv[i], sizeof(double),
-                states_padded * rate_cats * sites, bin_file);
+                states_padded * rate_cats * sites_alloc, bin_file);
     }
     for (i = 0; i < partition->scale_buffers; ++i)
-      bin_func (partition->scale_buffer[i], sizeof(unsigned int), sites,
+      bin_func (partition->scale_buffer[i], sizeof(unsigned int), sites_alloc,
                 bin_file);
   }
 
   if (attributes & PLL_BINARY_ATTRIB_PARTITION_DUMP_WGT)
   {
     /* dump pattern weights */
-    bin_func (partition->pattern_weights, sizeof(unsigned int), sites,
+    bin_func (partition->pattern_weights, sizeof(unsigned int), sites_alloc,
               bin_file);
   }
 
@@ -271,7 +277,6 @@ int binary_partition_apply(FILE * bin_file,
 {
   if (!binary_partition_desc_apply(bin_file, partition, attributes, bin_func))
     return PLL_FAILURE;
-
   if (!binary_partition_body_apply(bin_file, partition, attributes, bin_func))
     return PLL_FAILURE;
 
