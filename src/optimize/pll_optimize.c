@@ -736,7 +736,8 @@ static void update_partials_and_scalers(pll_partition_t * partition,
   /* update scalers */
   if (parent->scaler_index != PLL_SCALE_BUFFER_NONE)
   {
-    int n = partition->sites;
+    int n = partition->sites +
+        ((partition->attributes&PLL_ATTRIB_ASC_BIAS_FLAG)?partition->states:0);
     for (i=0; i<n; i++)
     {
       partition->scale_buffer[parent->scaler_index][i] =
@@ -768,9 +769,6 @@ static double recomp_iterative (pll_newton_tree_params_t * params,
   tr_q = params->tree->next;
   tr_z = tr_q?tr_q->next:NULL;
 
-  DBG("Optimizing branch %3d - %3d (%.6f) [%.4f]\n",
-      tr_p->clv_index, tr_p->back->clv_index, tr_p->length, *best_lnl);
-
 #if !defined(NDEBUG) && defined(_ULTRACHECK)
   {
     /* evaluate first */
@@ -783,7 +781,10 @@ static double recomp_iterative (pll_newton_tree_params_t * params,
 
     if (fabs(test_logl - lnl) > 1e-6)
     {
-      printf("ERROR: %s-%s %f vs %f\n", tr_p->label, tr_p->back->label, test_logl, lnl);
+      printf("ERROR: %d-%d %f vs %f\n", tr_p->clv_index,
+                                        tr_p->back->clv_index,
+                                        test_logl,
+                                        lnl);
     }
     assert(fabs(test_logl - lnl) < 1e-6);
   }
@@ -831,7 +832,7 @@ static double recomp_iterative (pll_newton_tree_params_t * params,
     {
        pll_update_prob_matrices(params->partition,
                                 params->params_indices,
-                                &(params->tree->pmatrix_index),
+                                &(tr_p->pmatrix_index),
                                 &(tr_p->length),1);
 #if !defined(NDEBUG) && defined(_ULTRACHECK)
     {
@@ -841,6 +842,13 @@ static double recomp_iterative (pll_newton_tree_params_t * params,
                 tr_p->back->clv_index, tr_p->back->scaler_index,
                 tr_p->pmatrix_index, params->params_indices,
                 NULL);
+      if (fabs(new_lnl - lnl) > 1e-6)
+      {
+        printf("ERROR: %d-%d %f vs %f\n", tr_p->clv_index,
+                                          tr_p->back->clv_index,
+                                          new_lnl,
+                                          lnl);
+      }
       assert(fabs(lnl - new_lnl) < 1e-6);
       assert(lnl >= *best_lnl);
     }
@@ -881,7 +889,6 @@ static double recomp_iterative (pll_newton_tree_params_t * params,
      * CLV at P is recomputed with children P->back and Z->back
      * Scaler is updated by subtracting Q->back and adding P->back
      */
-
     update_partials_and_scalers(params->partition,
                       tr_q,
                       tr_p,
@@ -1014,7 +1021,7 @@ PLL_EXPORT double pll_optimize_branch_lengths_local (
       sites_alloc += partition->states;
 
     if ((params.sumtable = (double *) pll_aligned_alloc(
-        partition->sites * partition->rate_cats * partition->states_padded *
+        sites_alloc * partition->rate_cats * partition->states_padded *
         sizeof(double), partition->alignment)) == NULL)
     {
       pll_errno = PLL_ERROR_MEM_ALLOC;

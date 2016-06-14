@@ -28,7 +28,7 @@ typedef int logical;
 #define FALSE_ (0)
 
 #ifdef DEBUG
-    #define DBG(fmt, ...) printf(fmt, ##__VA_ARGS__);
+    #define DBG(fmt, ...) do { printf(fmt, ##__VA_ARGS__); } while(0)
 #else
     #define DBG(fmt, ...)
 #endif
