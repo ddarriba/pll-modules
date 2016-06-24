@@ -242,7 +242,7 @@ PLL_EXPORT int pll_utree_NNI(pll_utree_t * edge,
     assert(0);
 
   /* apply move */
-  if (!pll_utree_interchange(base, neighbor));
+  if (!pll_utree_interchange(base, neighbor))
     return PLL_FAILURE;
 
   return PLL_SUCCESS;
