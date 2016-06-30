@@ -164,7 +164,6 @@ int binary_partition_desc_apply (FILE * bin_file,
   bin_func (&partition->scale_buffers, sizeof(unsigned int), 1, bin_file);
   bin_func (&partition->attributes, sizeof(unsigned int), 1, bin_file);
   bin_func (&partition->states_padded, sizeof(unsigned int), 1, bin_file);
-  bin_func (&partition->asc_bias_alloc, sizeof(int), 1, bin_file);
 
   /* The variables below are used only if PATTERN_TIP is active. Otherwise
      they could be uninitialized and hence raise a valgrind error if we try
@@ -190,7 +189,7 @@ int binary_partition_body_apply (FILE * bin_file,
   unsigned int n_subst_rates = states * (states - 1) / 2;
   unsigned int prob_matrices = partition->prob_matrices;
   unsigned int rate_matrices = partition->rate_matrices;
-  unsigned int sites_alloc = partition->asc_bias_alloc ?
+  unsigned int sites_alloc = (partition->attributes & PLL_ATTRIB_ASC_BIAS) ?
                   partition->sites + partition->states : partition->sites;
 
   bin_func (partition->eigen_decomp_valid, sizeof(int), rate_matrices,

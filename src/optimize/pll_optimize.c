@@ -737,7 +737,7 @@ static void update_partials_and_scalers(pll_partition_t * partition,
   if (parent->scaler_index != PLL_SCALE_BUFFER_NONE)
   {
     int n = partition->sites +
-        ((partition->attributes&PLL_ATTRIB_ASC_BIAS_FLAG)?partition->states:0);
+        ((partition->attributes&PLL_ATTRIB_ASC_BIAS)?partition->states:0);
     for (i=0; i<n; i++)
     {
       partition->scale_buffer[parent->scaler_index][i] =
@@ -1017,7 +1017,7 @@ PLL_EXPORT double pll_optimize_branch_lengths_local (
 
     /* allocate the sumtable */
     sites_alloc = partition->sites;
-    if (partition->attributes & PLL_ATTRIB_ASC_BIAS_FLAG)
+    if (partition->attributes & PLL_ATTRIB_ASC_BIAS)
       sites_alloc += partition->states;
 
     if ((params.sumtable = (double *) pll_aligned_alloc(
