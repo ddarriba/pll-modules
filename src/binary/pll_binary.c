@@ -264,8 +264,9 @@ PLL_EXPORT pll_partition_t * pll_binary_partition_load(FILE * bin_file,
 
     /* initialize extra variables */
     local_partition->maxstates = aux_partition.maxstates;
+    local_partition->asc_bias_alloc = aux_partition.asc_bias_alloc;
 
-    sites_alloc = (partition->attributes & PLL_ATTRIB_ASC_BIAS) ?
+    sites_alloc = local_partition->asc_bias_alloc ?
                    local_partition->sites + local_partition->states :
                    local_partition->sites;
     if (local_partition->attributes & PLL_ATTRIB_PATTERN_TIP)
@@ -362,7 +363,7 @@ PLL_EXPORT int pll_binary_clv_dump(FILE * bin_file,
 {
   int retval;
   pll_block_header_t block_header;
-  unsigned int sites_alloc = (partition->attributes & PLL_ATTRIB_ASC_BIAS) ?
+  unsigned int sites_alloc = partition->asc_bias_alloc ?
                  partition->sites + partition->states :
                  partition->sites;
 
@@ -409,7 +410,7 @@ PLL_EXPORT int pll_binary_clv_load(FILE * bin_file,
   assert (partition);
   assert(offset >= 0 || offset == PLL_BINARY_ACCESS_SEEK);
 
-  unsigned int sites_alloc = (partition->attributes & PLL_ATTRIB_ASC_BIAS) ?
+  unsigned int sites_alloc = partition->asc_bias_alloc ?
                  partition->sites + partition->states :
                  partition->sites;
 
