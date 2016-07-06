@@ -12,6 +12,29 @@ static void utree_nodes_at_dist(pll_utree_t * node,
 /******************************************************************************/
 /* Topological operations */
 
+/**
+ * @brief Bisects the tree by removing one edge
+ *
+ * Removes the edge \p edge and frees the nodes defining that edge.
+ * Reconnects the subtrees at the sides of the edge (figure below).
+ * The branch lengths of the new edges are the sum of the removed ones.
+ * The join branch contains the pmatrix index of the parent edges
+ * The removed pmatrix indices are returned in the field
+ *     'additional_pmatrix_index' of both output subtrees
+ *
+ * Returns the new parent and child edges, where parent is the closest to \p edge.
+ *
+ *   A            C              A        C
+ *    \___edge___/       ---->   |        |
+ *    /          \               |        |
+ *   B            D              B        D
+ *   A,B,C,D are subtrees
+ *
+ * @param[in] edge            edge to remove
+ * @param[out] parent_subtree edge corresponding to the 'edge' subtree
+ * @param[out] child_subtree  edge corresponding to the 'edge->back' subtree
+ * @return PLL_SUCCESS if OK
+ */
 PLL_EXPORT int pll_utree_bisect(pll_utree_t * edge,
                                 pll_utree_t ** parent_subtree,
                                 pll_utree_t ** child_subtree)
@@ -71,7 +94,7 @@ PLL_EXPORT int pll_utree_bisect(pll_utree_t * edge,
  * @param[in] child_scaler_index   scaler index of e2
  * @param[in] edge_pmatrix_index   matrix index of e1-e2
  *
- * @returns the new created edge
+ * @return the new created edge
  */
 PLL_EXPORT pll_tree_edge_t pll_utree_reconnect(pll_tree_edge_t * edge,
                                                pll_utree_t * pruned_edge)
@@ -107,7 +130,7 @@ PLL_EXPORT pll_tree_edge_t pll_utree_reconnect(pll_tree_edge_t * edge,
   pll_utree_connect_nodes(child_node->next->next,
                           edge->edge.utree.child->back,
                           edge->edge.utree.child->back->length);
-  //child_node->next->pmatrix_index = child_pmatrix_index;
+
   pll_utree_connect_nodes(edge->edge.utree.child,
                           child_node->next,
                           0);
@@ -115,6 +138,24 @@ PLL_EXPORT pll_tree_edge_t pll_utree_reconnect(pll_tree_edge_t * edge,
   return new_edge;
 }
 
+/**
+ * @brief Prunes a subtree
+ *
+ * Disconnecs an edge (e1) and connects the adjacent nodes. New branch (A-B)
+ * length is set to the sum of lengths of previous branch (e1-A + e1-B)
+ *
+ *   A              C              A                   C
+ *    \            /               |                  /
+ *     e1--edge--e2        --->    |  +   e1--edge--e2
+ *    /            \               |                  \
+ *   B              D              B                   D
+ *   A,B,C,D are subtrees
+ *
+ *  Note that `edge` is disconnected after the operation
+ *
+ * @param edge the edge to prune
+ * @return the new connected edge, if the operation was applied correctly
+ */
 PLL_EXPORT pll_utree_t * pll_utree_prune(pll_utree_t * edge)
 {
   pll_utree_t *edge1, *edge2;
@@ -128,15 +169,37 @@ PLL_EXPORT pll_utree_t * pll_utree_prune(pll_utree_t * edge)
     return NULL;
   }
 
+  /* connect adjacent subtrees together */
   edge1 = edge->next->back;
   edge2 = edge->next->next->back;
   pll_utree_connect_nodes(edge1, edge2, edge1->length + edge2->length);
 
+  /* disconnect pruned edge */
   edge->next->back = edge->next->next->back = NULL;
 
   return edge1;
 }
 
+/**
+ * @brief Regrafts an edge into a tree
+ *
+ * Connects a disconnected edge (provided by `e2` in the graph below)
+ * into a tree
+ *
+ *  A                    C         A              C
+ *   \                   |          \            /
+ *    e1--edge--e2   +   |   --->    e1--edge--e2
+ *   /                   |          /            \
+ *  B                    D         B              D
+ *   A,B,C,D are subtrees
+ *
+ *  The length of the new branches (e2-C and e2-D) are set to half the length
+ *  of the removed branch (C-D)
+ *
+ * @param edge the edge to regraft
+ * @param tree the tree to connect `edge` to
+ * @return true, if the operation was applied correctly
+ */
 PLL_EXPORT int pll_utree_regraft(pll_utree_t * edge,
                                  pll_utree_t * tree)
 {
@@ -159,6 +222,7 @@ PLL_EXPORT int pll_utree_regraft(pll_utree_t * edge,
     return PLL_FAILURE;
   }
 
+  /* connect tree with edge, splitting the branch designed by tree */
   edge1      = tree;
   edge2      = tree->back;
   new_length = tree->length/2;
@@ -169,12 +233,12 @@ PLL_EXPORT int pll_utree_regraft(pll_utree_t * edge,
 }
 
 /**
- * Interchanges 2 edges, represented by 2 internal nodes
+ * @brief Interchanges 2 edges, represented by 2 internal nodes
  *
  * CLV and scaler indices, and labels are interchanged between nodes to match
  * the other 2 nodes in the triplet.
  *
- * @returns true, if the move was applied correctly
+ * @return true, if the move was applied correctly
  */
 PLL_EXPORT int pll_utree_interchange(pll_utree_t * node1,
                                      pll_utree_t * node2)
@@ -204,7 +268,7 @@ PLL_EXPORT int pll_utree_interchange(pll_utree_t * node1,
  * @param label        the node label
  * @param data         the data pointer
  *
- * @returns the new node
+ * @return the new node
  */
 PLL_EXPORT pll_utree_t * pll_utree_create_node(unsigned int clv_index,
                                                int scaler_index,
@@ -226,7 +290,15 @@ PLL_EXPORT pll_utree_t * pll_utree_create_node(unsigned int clv_index,
 }
 
 /**
- * connects 2 nodes
+ * @brief Connects 2 nodes and sets the pmatrix index and branch length
+ *
+ * connects `back` pointers of `child` and `parent`
+ * pmatrix index for `child` is set to the one in `parent`
+ *
+ * @oaran[in,out] parent the parent node
+ * @param[in,out] child  the child node
+ * @param[in] length     the branch length
+ *
  */
 PLL_EXPORT int pll_utree_connect_nodes(pll_utree_t * parent,
                                        pll_utree_t * child,
@@ -244,33 +316,6 @@ PLL_EXPORT int pll_utree_connect_nodes(pll_utree_t * parent,
 
   return PLL_SUCCESS;
 }
-
-
-
-
-/**
- * Bisects the tree by removing one edge
- *
- * Removes the edge \p edge and frees the nodes defining that edge.
- * Reconnects the subtrees at the sides of the edge (figure below).
- * The branch lengths of the new edges are the sum of the removed ones.
- * The join branch contains the pmatrix index of the parent edges
- * The removed pmatrix indices are returned in the field
- *     'additional_pmatrix_index' of both output subtrees
- *
- * Returns the new parent and child edges, where parent is the closest to \p edge.
- *
- *   A            C              A        C
- *    \___edge___/       ---->   |        |
- *    /          \               |        |
- *   B            D              B        D
- *   A,B,C,D are subtrees
- *
- * @param[in] edge edge to remove
- * @param[out] parent_subtree edge corresponding to the 'edge' subtree
- * @param[out] child_subtree  edge corresponding to the 'edge->back' subtree
- * @returns PLL_SUCCESS if OK
- */
 
 
 
