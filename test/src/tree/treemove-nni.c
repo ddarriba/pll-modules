@@ -66,7 +66,8 @@ static double evaluate_likelihood(pll_partition_t *partition,
                                    pll_utree_t ** travbuffer,
                                    unsigned int * matrix_indices,
                                    double * branch_lengths,
-                                   pll_operation_t * operations)
+                                   pll_operation_t * operations,
+                                   int update_pmatrices)
 {
   double lk;
   unsigned int traversal_size,
@@ -74,28 +75,40 @@ static double evaluate_likelihood(pll_partition_t *partition,
                matrix_count;
   unsigned int params_indices[RATE_CATS] = {0,0,0,0};
 
-  if (!pll_utree_traverse (tree, cb_full_traversal, travbuffer,
+  if (update_pmatrices)
+  {
+    if (!pll_utree_traverse (tree, cb_full_traversal, travbuffer,
                              &traversal_size))
-    return -1;
+      return -1;
+  }
+  else
+  {
+    traversal_size = 2;
+    travbuffer[0] = tree;
+    travbuffer[1] = tree->back;
+  }
 
   pll_utree_create_operations (travbuffer, traversal_size, branch_lengths,
-                                 matrix_indices, operations, &matrix_count,
-                                 &ops_count);
+                               matrix_indices, operations, &matrix_count,
+                               &ops_count);
 
+  if (update_pmatrices)
+  {
     pll_update_prob_matrices (partition, params_indices, matrix_indices, branch_lengths,
                               matrix_count);
+  }
 
-    pll_update_partials (partition, operations, ops_count);
+  pll_update_partials (partition, operations, ops_count);
 
-    lk = pll_compute_edge_loglikelihood (partition,
-                                                  tree->clv_index,
-                                                  tree->scaler_index,
-                                                  tree->back->clv_index,
-                                                  tree->back->scaler_index,
-                                                  tree->pmatrix_index,
-                                                  params_indices,
-                                                  NULL);
-    return lk;
+  lk = pll_compute_edge_loglikelihood (partition,
+                                       tree->clv_index,
+                                       tree->scaler_index,
+                                       tree->back->clv_index,
+                                       tree->back->scaler_index,
+                                       tree->pmatrix_index,
+                                       params_indices,
+                                       NULL);
+  return lk;
 }
 
 static void apply_move(pll_utree_t * edge,
@@ -314,13 +327,17 @@ int main (int argc, char *argv[])
   operations = (pll_operation_t *) malloc (
       inner_nodes_count * sizeof(pll_operation_t));
 
+  evaluate_likelihood(partition, tree, travbuffer,
+                      matrix_indices, branch_lengths,
+                      operations, 1);
+
   for (i=0; i<5; i++)
   {
     printf("Iteration %d\n", i);
 
     logl_start = logl = evaluate_likelihood(partition, tree, travbuffer,
                         matrix_indices, branch_lengths,
-                        operations);
+                        operations, 1);
     printf ("Log-L[ST] at %s-%s: %f\n", tree->label, tree->back->label, logl);
 
     /* Test NNI */
@@ -328,9 +345,17 @@ int main (int argc, char *argv[])
 
     printf("\n\n");
     printf("Obtaining random inner edge\n");
+    pll_utree_query_innernodes (tree, innernodes);
     nni_edge = innernodes[(unsigned int) rand () % inner_nodes_count];
 
     show_tree(nni_edge, SHOW_ASCII_TREE);
+
+    /* update CLVs towards new root */
+    logl = evaluate_likelihood(partition, nni_edge, travbuffer,
+                        matrix_indices, branch_lengths,
+                        operations, 1);
+
+    assert(fabs(logl - logl_start) < 1e-7);
 
     printf ("Tree move at %s-%s\n", nni_edge->label, nni_edge->back->label);
 
@@ -338,7 +363,7 @@ int main (int argc, char *argv[])
 
     logl = evaluate_likelihood(partition, nni_edge, travbuffer,
                         matrix_indices, branch_lengths,
-                        operations);
+                        operations, 0);
     printf ("Log-L[M1] at %s-%s: %f\n", nni_edge->label, nni_edge->back->label, logl);
 
     /* second move */
@@ -346,7 +371,7 @@ int main (int argc, char *argv[])
 
     logl = evaluate_likelihood(partition, nni_edge, travbuffer,
                         matrix_indices, branch_lengths,
-                        operations);
+                        operations, 0);
     printf ("Log-L[M2] at %s-%s: %f\n", nni_edge->label, nni_edge->back->label, logl);
 
     /* rollback */
@@ -354,7 +379,7 @@ int main (int argc, char *argv[])
 
     logl_end = logl = evaluate_likelihood(partition, nni_edge, travbuffer,
                         matrix_indices, branch_lengths,
-                        operations);
+                        operations, 0);
     printf ("Log-L[RB] at %s-%s: %f\n", nni_edge->label, nni_edge->back->label, logl);
 
     if (fabs(logl_start - logl_end) > 1e-7)

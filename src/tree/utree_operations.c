@@ -182,8 +182,8 @@ PLL_EXPORT int pll_utree_interchange(pll_utree_t * node1,
   pll_utree_t *next1 = node2->back;
   pll_utree_t *next2 = node1->back;
 
-  pll_utree_connect_nodes(node1, next1, next1->length);
-  pll_utree_connect_nodes(node2, next2, next2->length);
+  pll_utree_connect_nodes(next1, node1, next1->length);
+  pll_utree_connect_nodes(next2, node2, next2->length);
 
   return PLL_SUCCESS;
 }
