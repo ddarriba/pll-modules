@@ -317,12 +317,12 @@ int main (int argc, char * argv[])
 
     /* find nodes at a certain distance */
     pll_utree_nodes_at_node_dist (bisect_edge, nodes_at_dist, &n_nodes_at_dist,
-                                  distance, 1);
+                                  distance, distance);
     if (!n_nodes_at_dist)
       continue;
     reconnect.edge.utree.parent = nodes_at_dist[rand () % n_nodes_at_dist];
     pll_utree_nodes_at_node_dist (bisect_edge->back, nodes_at_dist,
-                                  &n_nodes_at_dist, distance, 1);
+                                  &n_nodes_at_dist, distance, distance);
     if (!n_nodes_at_dist)
           continue;
     else

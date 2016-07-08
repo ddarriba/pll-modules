@@ -3,9 +3,9 @@
 static void utree_nodes_at_dist(pll_utree_t * node,
                                 pll_utree_t ** outbuffer,
                                 unsigned int * index,
-                                unsigned int distance,
-                                unsigned int depth,
-                                int fixed);
+                                unsigned int min_distance,
+                                unsigned int max_distance,
+                                unsigned int depth);
 
 
 
@@ -323,59 +323,28 @@ PLL_EXPORT int pll_utree_connect_nodes(pll_utree_t * parent,
 /* Topological search */
 
 /**
- * Returns the list of nodes at a certain distance from a specified edge
- *
- * @param[in] root the root edge
- * @param[out] outbuffer the list of nodes. Outbuffer should be allocated
- * @param[out] n_nodes the number of nodes returned in \p outbuffer
- * @param[in] distance the maximum distance to check
- * @param[in] fixed if true, returns only the nodes at distance \p distance,
- *            otherwise, the nodes at distance <= \p distance.
- */
-PLL_EXPORT int pll_utree_nodes_at_edge_dist(pll_utree_t * root,
-                                            pll_utree_t ** outbuffer,
-                                            unsigned int * n_nodes,
-                                            unsigned int distance,
-                                            int fixed)
-{
-  unsigned int depth = 0;
-  if (!root->next) return PLL_FAILURE;
-
-  *n_nodes = 0;
-
-  /* we will traverse an unrooted tree in the following way
-
-       3          1
-        \        /
-         * ---- *
-        /        \
-       4          2
-   */
-
-  utree_nodes_at_dist(root->back, outbuffer, n_nodes, distance, depth+1, fixed);
-  utree_nodes_at_dist(root, outbuffer, n_nodes, distance, depth, fixed);
-
-  return PLL_SUCCESS;
-}
-
-/**
- * Returns the list of nodes at a certain distance from a specified node
+ * Returns the list of nodes at a distance between \p min_distance and
+ * \p max_distance from a specified node
  *
  * @param[in] node the root node
  * @param[out] outbuffer the list of nodes. Outbuffer should be allocated
  * @param[out] n_nodes the number of nodes returned in \p outbuffer
- * @param[in] distance the maximum distance to check
- * @param[in] fixed if true, returns only the nodes at distance \p distance,
- *            otherwise, the nodes at distance <= \p distance.
+ * @param[in] min_distance the minimum distance to check
+ * @param[in] max_distance the maximum distance to check
  */
 PLL_EXPORT int pll_utree_nodes_at_node_dist(pll_utree_t * node,
-                                 pll_utree_t ** outbuffer,
-                                 unsigned int * n_nodes,
-                                 unsigned int distance,
-                                 int fixed)
+                                            pll_utree_t ** outbuffer,
+                                            unsigned int * n_nodes,
+                                            unsigned int min_distance,
+                                            unsigned int max_distance)
 {
-  unsigned int depth = 0;
   if (!node->next) return PLL_FAILURE;
+
+  if (max_distance < min_distance)
+    {
+      // TODO: pll_set_error()
+      return PLL_FAILURE;
+    }
 
   *n_nodes = 0;
 
@@ -388,11 +357,54 @@ PLL_EXPORT int pll_utree_nodes_at_node_dist(pll_utree_t * node,
                2
     */
 
-  utree_nodes_at_dist(node, outbuffer, n_nodes, distance, depth, fixed);
+  utree_nodes_at_dist(node, outbuffer, n_nodes, min_distance, max_distance, 0);
 
   return PLL_SUCCESS;
 }
 
+/**
+ * Returns the list of nodes at a distance between \p min_distance and
+ * \p max_distance from a specified edge
+ *
+ * @param[in] root the root edge
+ * @param[out] outbuffer the list of nodes. Outbuffer should be allocated
+ * @param[out] n_nodes the number of nodes returned in \p outbuffer
+ * @param[in] min_distance the minimum distance to check
+ * @param[in] max_distance the maximum distance to check
+ */
+
+PLL_EXPORT int pll_utree_nodes_at_edge_dist(pll_utree_t * edge,
+                                            pll_utree_t ** outbuffer,
+                                            unsigned int * n_nodes,
+                                            unsigned int min_distance,
+                                            unsigned int max_distance)
+{
+  unsigned int depth = 0;
+
+  if (!edge->next) return PLL_FAILURE;
+
+  if (max_distance < min_distance)
+    {
+      // TODO: pll_set_error()
+      return PLL_FAILURE;
+    }
+
+  *n_nodes = 0;
+
+  /* we will traverse an unrooted tree in the following way
+
+       3          1
+        \        /
+         * ---- *
+        /        \
+       4          2
+   */
+
+  utree_nodes_at_dist(edge->back, outbuffer, n_nodes, min_distance, max_distance, depth+1);
+  utree_nodes_at_dist(edge, outbuffer, n_nodes, min_distance, max_distance, depth);
+
+  return PLL_SUCCESS;
+}
 
 
 /******************************************************************************/
@@ -401,20 +413,20 @@ PLL_EXPORT int pll_utree_nodes_at_node_dist(pll_utree_t * node,
 static void utree_nodes_at_dist(pll_utree_t * node,
                                 pll_utree_t ** outbuffer,
                                 unsigned int * index,
-                                unsigned int distance,
-                                unsigned int depth,
-                                int fixed)
+                                unsigned int min_distance,
+                                unsigned int max_distance,
+                                unsigned int depth)
 {
-  if (depth == distance || !fixed)
+  if (depth >= min_distance && depth <= max_distance)
   {
     outbuffer[*index] = node;
     *index = *index + 1;
   }
 
-  if (depth >= distance || !(node->next)) return;
+  if (depth >= max_distance || !(node->next)) return;
 
   utree_nodes_at_dist(node->next->back, outbuffer, index,
-                      distance, depth+1, fixed);
+                      min_distance, max_distance, depth+1);
   utree_nodes_at_dist(node->next->next->back, outbuffer, index,
-                      distance, depth+1, fixed);
+                      min_distance, max_distance, depth+1);
 }

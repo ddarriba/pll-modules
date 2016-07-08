@@ -355,7 +355,7 @@ int main (int argc, char * argv[])
     prune_edge = innernodes[(unsigned int) rand () % inner_nodes_count];
 
     pll_utree_nodes_at_node_dist (prune_edge, nodes_at_dist, &n_nodes_at_dist,
-                                  distance, 0);
+                                  0, distance);
     do
     {
       regraft_edge = nodes_at_dist[(unsigned int) rand () % n_nodes_at_dist];
@@ -378,7 +378,7 @@ int main (int argc, char * argv[])
     prune_edge = innernodes[(unsigned int) rand () % inner_nodes_count];
 
     pll_utree_nodes_at_node_dist (prune_edge, nodes_at_dist, &n_nodes_at_dist,
-                                  distance, 0);
+                                  0, distance);
     do
     {
       regraft_edge = nodes_at_dist[(unsigned int) rand () % n_nodes_at_dist];

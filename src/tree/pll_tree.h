@@ -178,20 +178,17 @@ PLL_EXPORT int pll_utree_connect_nodes(pll_utree_t * parent,
 /* Topological search */
 /* functions at utree_operations.c */
 
-PLL_EXPORT int pll_utree_nodes_at_edge_dist(pll_utree_t * edge,
-                                            pll_utree_t ** outbuffer,
-                                            unsigned int * n_nodes,
-                                            unsigned int distance,
-                                            int fixed);
-
-
 PLL_EXPORT int pll_utree_nodes_at_node_dist(pll_utree_t * node,
                                             pll_utree_t ** outbuffer,
                                             unsigned int * n_nodes,
-                                            unsigned int distance,
-                                            int fixed);
+                                            unsigned int min_distance,
+                                            unsigned int max_distance);
 
-
+PLL_EXPORT int pll_utree_nodes_at_edge_dist(pll_utree_t * edge,
+                                            pll_utree_t ** outbuffer,
+                                            unsigned int * n_nodes,
+                                            unsigned int min_distance,
+                                            unsigned int max_distance);
 
 /* Tree construction */
 /* functions at pll_tree.c */
