@@ -16,7 +16,7 @@ make
 
 cd ../../../src 
 
-for mod in `ls .`;
+for mod in `ls -d */`;
 do
 
   cd $mod
@@ -27,8 +27,8 @@ done
 
 cd ..
 
-cp -v libs/libpll/src/*.so src/*/*.so $INSTALL_DIR
+cp -v --preserve libs/libpll/src/*.so src/*/*.so $INSTALL_DIR
 
-cp -v libs/libpll/src/pll.h $INSTALL_DIR
+cp -v --preserve libs/libpll/src/pll.h $INSTALL_DIR
 
-cp -v src/*/pll_*.h $INSTALL_DIR
+cp -v --preserve src/*/pll_*.h $INSTALL_DIR

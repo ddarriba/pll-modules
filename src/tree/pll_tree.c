@@ -19,6 +19,7 @@
  Schloss-Wolfsbrunnenweg 35, D-69118 Heidelberg, Germany
  */
 #include "pll_tree.h"
+#include "../pllmod_common.h"
 
 #define UNIMPLEMENTED 0
 
@@ -63,8 +64,7 @@ PLL_EXPORT int pll_utree_TBR(pll_utree_t * b_edge,
   /* 1. bisection point must not be a leaf branch */
   if (!(b_edge->next && b_edge->back->next))
   {
-    snprintf (pll_errmsg, 200, "attempting to bisect at a leaf node");
-    pll_errno = PLL_ERROR_TBR_LEAF_BISECTION;
+    pllmod_set_error(PLL_ERROR_TBR_LEAF_BISECTION, "attempting to bisect at a leaf node");
     return PLL_FAILURE;
   }
 
@@ -78,8 +78,7 @@ PLL_EXPORT int pll_utree_TBR(pll_utree_t * b_edge,
       b_edge->back == r_edge->edge.utree.child ||
       b_edge->back == r_edge->edge.utree.child->back)
   {
-    snprintf (pll_errmsg, 200, "TBR nodes are overlapped");
-    pll_errno = PLL_ERROR_TBR_OVERLAPPED_NODES;
+    pllmod_set_error(PLL_ERROR_TBR_OVERLAPPED_NODES, "TBR nodes are overlapped");
     return PLL_FAILURE;
   }
 
@@ -91,8 +90,7 @@ PLL_EXPORT int pll_utree_TBR(pll_utree_t * b_edge,
       !(utree_find_node_in_subtree(b_edge->back, r_edge->edge.utree.parent) &&
         utree_find_node_in_subtree(b_edge, r_edge->edge.utree.child)))
   {
-    snprintf (pll_errmsg, 200, "TBR reconnection in same subtree");
-    pll_errno = PLL_ERROR_TBR_SAME_SUBTREE;
+    pllmod_set_error(PLL_ERROR_TBR_SAME_SUBTREE, "TBR reconnection in same subtree");
     return PLL_FAILURE;
   }
 
@@ -146,8 +144,7 @@ PLL_EXPORT int pll_utree_SPR(pll_utree_t * p_edge,
   if (pll_utree_is_tip(p_edge))
   {
     /* invalid move */
-    snprintf (pll_errmsg, 200, "Attempting to prune a leaf branch");
-    pll_errno = PLL_ERROR_SPR_INVALID_NODE;
+    pllmod_set_error(PLL_ERROR_SPR_INVALID_NODE, "Attempting to prune a leaf branch");
     return PLL_FAILURE;
   }
 
@@ -202,15 +199,13 @@ PLL_EXPORT int pll_utree_NNI(pll_utree_t * edge,
   if (!(type == PLL_NNI_LEFT || type == PLL_NNI_RIGHT))
   {
     /* invalid move */
-    snprintf (pll_errmsg, 200, "Invalid NNI move type");
-    pll_errno = PLL_ERROR_NNI_INVALID_MOVE;
+    pllmod_set_error(PLL_ERROR_NNI_INVALID_MOVE, "Invalid NNI move type");
     return PLL_FAILURE;
   }
   if (pll_utree_is_tip(edge) || pll_utree_is_tip(edge->back))
   {
     /* invalid move */
-    snprintf (pll_errmsg, 200, "Attempting to apply NNI on a leaf branch");
-    pll_errno = PLL_ERROR_INTERCHANGE_LEAF;
+    pllmod_set_error(PLL_ERROR_INTERCHANGE_LEAF, "Attempting to apply NNI on a leaf branch");
     return PLL_FAILURE;
   }
 

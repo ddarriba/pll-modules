@@ -1,5 +1,7 @@
 #include "pll_tree.h"
 
+#include "../pllmod_common.h"
+
 static void utree_nodes_at_dist(pll_utree_t * node,
                                 pll_utree_t ** outbuffer,
                                 unsigned int * index,
@@ -164,8 +166,7 @@ PLL_EXPORT pll_utree_t * pll_utree_prune(pll_utree_t * edge)
   if (!edge->next)
   {
     /* invalid node */
-    snprintf (pll_errmsg, 200, "Attempting to prune a tip node");
-    pll_errno = PLL_ERROR_SPR_INVALID_NODE;
+    pllmod_set_error(PLL_ERROR_SPR_INVALID_NODE, "Attempting to prune a tip node");
     return NULL;
   }
 
@@ -210,15 +211,13 @@ PLL_EXPORT int pll_utree_regraft(pll_utree_t * edge,
   if (!edge->next)
       {
         /* invalid node */
-        snprintf (pll_errmsg, 200, "Attempting to regraft a tip node");
-        pll_errno = PLL_ERROR_SPR_INVALID_NODE;
+        pllmod_set_error(PLL_ERROR_SPR_INVALID_NODE, "Attempting to regraft a tip node");
         return PLL_FAILURE;
       }
   if (edge->next->back || edge->next->next->back)
   {
     /* invalid node */
-    snprintf (pll_errmsg, 200, "Attempting to regraft a connected node");
-    pll_errno = PLL_ERROR_SPR_INVALID_NODE;
+    pllmod_set_error(PLL_ERROR_SPR_INVALID_NODE, "Attempting to regraft a connected node");
     return PLL_FAILURE;
   }
 
@@ -338,11 +337,16 @@ PLL_EXPORT int pll_utree_nodes_at_node_dist(pll_utree_t * node,
                                             unsigned int min_distance,
                                             unsigned int max_distance)
 {
-  if (!node->next) return PLL_FAILURE;
+  if (!node->next)
+  {
+    pllmod_set_error(PLL_ERROR_INVALID_NODE_TYPE, "Internal node expected, but tip node was provided");
+    return PLL_FAILURE;
+  }
 
   if (max_distance < min_distance)
     {
-      // TODO: pll_set_error()
+      pllmod_set_error(PLL_ERROR_INVALID_RANGE, "Invalid distance range: %d..%d (max_distance < min_distance)",
+                       min_distance, max_distance);
       return PLL_FAILURE;
     }
 
@@ -381,11 +385,16 @@ PLL_EXPORT int pll_utree_nodes_at_edge_dist(pll_utree_t * edge,
 {
   unsigned int depth = 0;
 
-  if (!edge->next) return PLL_FAILURE;
+  if (!edge->next)
+  {
+    pllmod_set_error(PLL_ERROR_INVALID_NODE_TYPE, "Internal node expected, but tip node was provided");
+    return PLL_FAILURE;
+  }
 
   if (max_distance < min_distance)
     {
-      // TODO: pll_set_error()
+      pllmod_set_error(PLL_ERROR_INVALID_RANGE, "Invalid distance range: %d..%d (max_distance < min_distance)",
+                       min_distance, max_distance);
       return PLL_FAILURE;
     }
 

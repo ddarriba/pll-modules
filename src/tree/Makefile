@@ -32,12 +32,13 @@ AR = ar
 CFLAGS = -D_GNU_SOURCE -DHAVE_AVX -fPIC $(PROFILING) -msse3 -O3 -I../../libs/libpll/src $(WARN)
 LINKFLAGS=$(PROFILING)
 LIBS=-lpll -lm
+DEPS=../pllmod_common.o
 
 PROG=libpll_tree.so
 
 all: $(PROG)
 
-OBJS=pll_tree.o utree_operations.o utree_distances.o
+OBJS=pll_tree.o utree_operations.o utree_distances.o $(DEPS)
 
 $(PROG): $(OBJS)
 	$(CC) -shared -Wl,-soname,$@ -o $@ $+
