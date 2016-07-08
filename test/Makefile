@@ -18,14 +18,22 @@
 #    Schloss-Wolfsbrunnenweg 35, D-69118 Heidelberg, Germany
 
 CC = gcc
-CFLAGS = -O3 -Wall 
+CFLAGS = -O3 -Wall
 CLIBS = -lpll -lm -lpll_optimize -lpll_tree -lpll_binary
+
+ifdef LIBPLL_INC
+  CFLAGS += -I$(LIBPLL_INC)
+  ifdef LIBPLL_LIB
+    CFLAGS += -L$(LIBPLL_LIB)
+  else
+    CFLAGS += -L$(LIBPLL_INC)
+  endif
+endif
 
 MODULES = binary optimize tree
 
 CFILES = src/binary/binary-sequential.c \
          src/binary/binary-random.c \
-         src/binary/binary-ascbias.c \
          src/optimize/blopt-minimal.c \
          src/optimize/blopt-5states.c \
          src/tree/random-tree.c \

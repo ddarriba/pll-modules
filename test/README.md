@@ -40,7 +40,11 @@ How to create a new test:
 
 ## Run the test framework
 
-1. Run `make` for compiling the test cases
+1. Run `make` for compiling the test cases.
+   If libpll is installed in a non-standard location, you must specify it as follows:
+
+   LIBPLL_INC=/path/to/libpll/headers LIBPLL_LIB=/path/to/libpll/sharedobjects make
+
 2. Run `runtest.py` for executing the tests
 3. Check the output for errors
 4. If any of the tests fail, go and fix your code!
