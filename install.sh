@@ -31,4 +31,4 @@ cp -v --preserve libs/libpll/src/*.so src/*/*.so $INSTALL_DIR
 
 cp -v --preserve libs/libpll/src/pll.h $INSTALL_DIR
 
-cp -v --preserve src/*/pll_*.h $INSTALL_DIR
+cp -v --preserve src/*/pll_*.h src/*/pllmod_*.h $INSTALL_DIR
