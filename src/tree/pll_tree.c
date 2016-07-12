@@ -474,12 +474,12 @@ PLL_EXPORT int pll_utree_traverse_apply(pll_utree_t * root,
   return retval;
 }
 
-PLL_EXPORT inline int pll_utree_is_tip(pll_utree_t * node)
+PLL_EXPORT int pll_utree_is_tip(pll_utree_t * node)
 {
   return (node->next == NULL);
 }
 
-PLL_EXPORT inline void pll_utree_set_length(pll_utree_t * edge,
+PLL_EXPORT void pll_utree_set_length(pll_utree_t * edge,
                                             double length)
 {
   edge->length = edge->back->length = length;

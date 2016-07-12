@@ -227,9 +227,9 @@ PLL_EXPORT int pll_utree_traverse_apply(pll_utree_t * root,
                                         int (*cb_post_trav)(pll_utree_t *, void *),
                                         void *data);
 
-PLL_EXPORT inline int pll_utree_is_tip(pll_utree_t * node);
+PLL_EXPORT int pll_utree_is_tip(pll_utree_t * node);
 
-PLL_EXPORT inline void pll_utree_set_length(pll_utree_t * edge,
+PLL_EXPORT void pll_utree_set_length(pll_utree_t * edge,
                                             double length);
 
 PLL_EXPORT double pll_utree_compute_lk(pll_partition_t * partition,

@@ -18,14 +18,23 @@
 # Schloss-Wolfsbrunnenweg 35, D-69118 Heidelberg, Germany
 
 # Profiling
-#PROFILING=-g -pg
-PROFILING=-g
+OS = $(shell uname -s)
+PROFILING = -g
+CC ?= gcc
 
 # Compiler warnings
+ifeq ($(CC),clang)
+	ADD_WARN=-Weverything -Wno-padded
+endif
 WARN=-Wall -Wsign-compare
 
+ifeq ($(OS), Darwin)
+  SONAMEFLAGS=-Wl,-install_name,$(PROG)
+else
+  SONAMEFLAGS=-Wl,-soname,$(PROG)
+endif
+
 AR = ar
-CC = gcc
 CFLAGS = -D_GNU_SOURCE -fPIC $(PROFILING) -msse3 -O3 -I../../libs/libpll/src $(WARN)
 LINKFLAGS=$(PROFILING)
 LIBS=-lpll -lm
@@ -40,7 +49,7 @@ OBJS=pll_optimize.o \
 	lbfgsb/miniCBLAS.o lbfgsb/subalgorithms.o
 
 $(PROG): $(OBJS)
-	$(CC) -shared -Wl,-soname,$@ -o $@ $+
+	$(CC) -shared $(SONAMEFLAGS) -o $@ $+
 
 %.o: %.c
 	$(CC) $(CFLAGS) -c -o $@ $<
