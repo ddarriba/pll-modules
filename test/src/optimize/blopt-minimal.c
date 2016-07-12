@@ -42,7 +42,7 @@ int main(int argc, char * argv[])
                                    4,       /* Rate categories */
                                    0,       /* Scale buffers */
                                    attributes);
-  
+
   double branch_lengths[3] = { 0.105361, 0.166920, 0.166920 };
   double frequencies[4] = { 0.25, 0.25, 0.25, 0.25 };
   unsigned int matrix_indices[3] = { 0, 1, 2 };
@@ -147,7 +147,9 @@ int main(int argc, char * argv[])
 
   double test_logl = pll_optimize_branch_lengths_local (partition,
                                      tree[2].back,
-                                     params_indices,    /* params index */
+                                     params_indices,
+                                     1e-4, /* min branch length */
+                                     1e+3, /* max branch length */
                                      1e-4, /* tolerance    */
                                      1,    /* smoothings   */
                                      1,    /* radius       */

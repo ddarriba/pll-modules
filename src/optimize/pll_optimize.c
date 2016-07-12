@@ -793,7 +793,7 @@ static double recomp_iterative (pll_newton_tree_params_t * params,
   /* set Branch Length */
   assert(d_equals(tr_p->length, tr_p->back->length));
 
-  double xmin, xguess, xmax;
+  double xmin, xguess, xmax, xtol;
 
   pll_update_sumtable (params->partition,
                        tr_p->clv_index,
@@ -801,13 +801,14 @@ static double recomp_iterative (pll_newton_tree_params_t * params,
                        params->params_indices,
                        params->sumtable);
 
-  xmin = PLL_OPT_MIN_BRANCH_LEN + PLL_LBFGSB_ERROR;
-  xmax = PLL_OPT_MAX_BRANCH_LEN;
+  xmin = params->branch_length_min;
+  xmax = params->branch_length_max;
+  xtol = params->tolerance;
   xguess = tr_p->length;
   if (xguess < xmin || xguess > xmax)
     xguess = PLL_OPT_DEFAULT_BRANCH_LEN;
 
-  double xres = pll_minimize_newton (xmin, xguess, xmax,
+  double xres = pll_minimize_newton (xmin, xguess, xmax, xtol,
                                      10, &new_lnl, params,
                                      utree_derivative_func);
 
@@ -937,6 +938,8 @@ PLL_EXPORT double pll_optimize_branch_lengths_local (
                                               pll_partition_t * partition,
                                               pll_utree_t * tree,
                                               const unsigned int * params_indices,
+                                              double branch_length_min,
+                                              double branch_length_max,
                                               double tolerance,
                                               int smoothings,
                                               int radius,
@@ -1010,10 +1013,19 @@ PLL_EXPORT double pll_optimize_branch_lengths_local (
 
     /* set parameters for N-R optimization */
     pll_newton_tree_params_t params;
-    params.partition      = partition;
-    params.tree           = tree;
-    params.params_indices = params_indices;
-    params.sumtable       = 0;
+    params.partition         = partition;
+    params.tree              = tree;
+    params.params_indices    = params_indices;
+    params.branch_length_min = (branch_length_min>0)?
+                                 branch_length_min:
+                                 PLL_OPT_MIN_BRANCH_LEN;
+    params.branch_length_max = (branch_length_max>0)?
+                                 branch_length_max:
+                                 PLL_OPT_MAX_BRANCH_LEN;
+    params.tolerance         = (tolerance>0)?
+                                 tolerance:
+                                 PLL_OPT_TOL_BRANCH_LEN;
+    params.sumtable          = 0;
 
     /* allocate the sumtable */
     sites_alloc = partition->sites;
@@ -1068,6 +1080,8 @@ PLL_EXPORT double pll_optimize_branch_lengths_iterative (
                                               pll_partition_t * partition,
                                               pll_utree_t * tree,
                                               const unsigned int * params_indices,
+                                              double branch_length_min,
+                                              double branch_length_max,
                                               double tolerance,
                                               int smoothings,
                                               int keep_update)
@@ -1076,6 +1090,8 @@ PLL_EXPORT double pll_optimize_branch_lengths_iterative (
   lnl = pll_optimize_branch_lengths_local (partition,
                                            tree,
                                            params_indices,
+                                           branch_length_min,
+                                           branch_length_max,
                                            tolerance,
                                            smoothings,
                                            -1,

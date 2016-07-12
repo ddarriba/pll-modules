@@ -38,6 +38,7 @@ static inline int d_equals(double a, double b)
 PLL_EXPORT double pll_minimize_newton(double x1,
                                       double xguess,
                                       double x2,
+                                      double tolerance,
                                       unsigned int max_iters,
                                       double *score,
                                       void * params,
@@ -48,8 +49,6 @@ PLL_EXPORT double pll_minimize_newton(double x1,
   unsigned int i;
   double df, dx, dxold, f;
   double temp, xh, xl, rts, rts_old;
-
-  double tolerance = 1e-4; //params->pgtol
 
   /* reset errno */
   pll_errno = 0;

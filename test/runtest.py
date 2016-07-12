@@ -399,6 +399,9 @@ if __name__ == "__main__":
 
   files = []
   for cur_mod in test_modules:
+    if not os.path.exists(os.path.join("obj", cur_mod)):
+        fancyprint("red", "  Module " + cur_mod + " does not exist\n", True)
+        continue
     mod_files = [cur_mod+"/"+x for x in os.listdir("obj/"+cur_mod)]
     fancyprint(modules[cur_mod], "    {:<15} {:>3} tests    ".format(cur_mod, len(mod_files)))
     print

@@ -52,9 +52,9 @@
 #define PLL_OPT_DEFAULT_ALPHA           0.5
 #define PLL_OPT_DEFAULT_BRANCH_LEN      0.1
 
-/* Parameter limits */
+/* Default parameter limits */
 #define PLL_OPT_MIN_BRANCH_LEN       1.0e-4
-#define PLL_OPT_MAX_BRANCH_LEN         100.
+#define PLL_OPT_MAX_BRANCH_LEN          100.
 #define PLL_OPT_TOL_BRANCH_LEN       1.0e-4
 #define PLL_OPT_MIN_SUBST_RATE       1.0e-3
 #define PLL_OPT_MAX_SUBST_RATE        1000.
@@ -135,6 +135,9 @@ typedef struct
   pll_utree_t * tree;
   const unsigned int * params_indices;
   double * sumtable;
+  double branch_length_min;
+  double branch_length_max;
+  double tolerance;
 } pll_newton_tree_params_t;
 
 /******************************************************************************/
@@ -144,6 +147,7 @@ typedef struct
 PLL_EXPORT double pll_minimize_newton(double x1,
                                       double xguess,
                                       double x2,
+                                      double tolerance,
                                       unsigned int max_iters,
                                       double *score,
                                       void *params,
@@ -207,6 +211,8 @@ PLL_EXPORT double pll_optimize_branch_lengths_iterative (
                                               pll_partition_t * partition,
                                               pll_utree_t * tree,
                                               const unsigned int * params_indices,
+                                              double branch_length_min,
+                                              double branch_length_max,
                                               double tolerance,
                                               int smoothings,
                                               int keep_update);
@@ -215,6 +221,8 @@ PLL_EXPORT double pll_optimize_branch_lengths_local (
                                               pll_partition_t * partition,
                                               pll_utree_t * tree,
                                               const unsigned int * params_indices,
+                                              double branch_length_min,
+                                              double branch_length_max,
                                               double tolerance,
                                               int smoothings,
                                               int radius,
