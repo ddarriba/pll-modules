@@ -87,14 +87,8 @@ PLL_EXPORT int pll_utree_bisect(pll_utree_t * edge,
  *   B       D         B              D
  *   A,B,C,D are subtrees
  *
- * @param[in] edge                 new edge
- * @param[in] parent_pmatrix_index matrix index of e1-A
- * @param[in] parent_clv_index     clv index of e1
- * @param[in] parent_scaler_index  scaler index of e1
- * @param[in] child_pmatrix_index  matrix index of e2-C
- * @param[in] child_clv_index      clv index of e2
- * @param[in] child_scaler_index   scaler index of e2
- * @param[in] edge_pmatrix_index   matrix index of e1-e2
+ * @param edge                 new edge (edge structure)
+ * @param pruned_edge          edge to prune, defined by a tree node
  *
  * @return the new created edge
  */
@@ -294,7 +288,7 @@ PLL_EXPORT pll_utree_t * pll_utree_create_node(unsigned int clv_index,
  * connects `back` pointers of `child` and `parent`
  * pmatrix index for `child` is set to the one in `parent`
  *
- * @oaran[in,out] parent the parent node
+ * @param[in,out] parent the parent node
  * @param[in,out] child  the child node
  * @param[in] length     the branch length
  *
@@ -370,7 +364,7 @@ PLL_EXPORT int pll_utree_nodes_at_node_dist(pll_utree_t * node,
  * Returns the list of nodes at a distance between \p min_distance and
  * \p max_distance from a specified edge
  *
- * @param[in] root the root edge
+ * @param[in] edge the root edge
  * @param[out] outbuffer the list of nodes. Outbuffer should be allocated
  * @param[out] n_nodes the number of nodes returned in \p outbuffer
  * @param[in] min_distance the minimum distance to check

@@ -703,7 +703,7 @@ PLL_EXPORT double pll_optimize_parameters_multidim (
     score = -INFINITY;
     if (!pll_errno)
     {
-      pll_errno = PLL_ERROR_LBFGSB_UNKNOWN;
+      pll_errno = PLL_OPT_ERROR_LBFGSB_UNKNOWN;
       snprintf(pll_errmsg, 200, "Unknown LBFGSB error");
     }
   }

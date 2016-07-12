@@ -94,7 +94,7 @@ int binary_update_header(FILE * bin_file,
    return PLL_FAILURE;
  }
 
- if (header && (header->attributes & PLL_BINARY_ATTRIB_UPDATE_MAP))
+ if (header && (header->attributes & PLL_BIN_ATTRIB_UPDATE_MAP))
  {
    /* update map */
    assert(next_block < bin_header.max_blocks);
@@ -127,12 +127,12 @@ long int binary_get_offset(FILE *bin_file, int block_id)
 {
   pll_block_map_t * map;
   unsigned int i, n_blocks;
-  long int offset = PLL_BINARY_INVALID_OFFSET;
+  long int offset = PLL_BIN_INVALID_OFFSET;
 
   map = pll_binary_get_map(bin_file, &n_blocks);
 
   if (!map)
-    return PLL_BINARY_INVALID_OFFSET;
+    return PLL_BIN_INVALID_OFFSET;
 
   /* search id */
   for (i=0; i<n_blocks; ++i)
@@ -217,7 +217,7 @@ int binary_partition_body_apply (FILE * bin_file,
   bin_func (partition->rate_weights, sizeof(double), rate_cats, bin_file);
   bin_func (partition->prop_invar, sizeof(double), rate_matrices, bin_file);
 
-  if (attributes & PLL_BINARY_ATTRIB_PARTITION_DUMP_CLV)
+  if (attributes & PLL_BIN_ATTRIB_PARTITION_DUMP_CLV)
   {
     unsigned int first_clv_index = 0;
 
@@ -226,7 +226,10 @@ int binary_partition_body_apply (FILE * bin_file,
     {
       for (i = 0; i < tips; ++i)
       {
-        bin_func (partition->tipchars[i], sizeof(unsigned char), sites_alloc, bin_file);
+        bin_func (partition->tipchars[i],
+                  sizeof(unsigned char),
+                  sites_alloc,
+                  bin_file);
       }
       bin_func (partition->charmap, sizeof(char), PLL_ASCII_SIZE, bin_file);
       first_clv_index = tips;
@@ -251,7 +254,7 @@ int binary_partition_body_apply (FILE * bin_file,
                 bin_file);
   }
 
-  if (attributes & PLL_BINARY_ATTRIB_PARTITION_DUMP_WGT)
+  if (attributes & PLL_BIN_ATTRIB_PARTITION_DUMP_WGT)
   {
     /* dump pattern weights */
     bin_func (partition->pattern_weights, sizeof(unsigned int), sites_alloc,
@@ -292,14 +295,14 @@ int binary_clv_apply (FILE * bin_file,
 {
   if (clv_index > (partition->tips + partition->clv_buffers))
   {
-    pll_errno = PLL_ERROR_INVALID_INDEX;
+    pll_errno = PLL_BIN_ERROR_INVALID_INDEX;
     snprintf(pll_errmsg, 200, "Invalid CLV index");
     return PLL_FAILURE;
   }
 
   if (!bin_func(partition->clv[clv_index], sizeof(double), clv_size, bin_file))
   {
-    pll_errno = PLL_ERROR_LOADSTORE;
+    pll_errno = PLL_BIN_ERROR_LOADSTORE;
     snprintf(pll_errmsg, 200, "Error loading/storing CLV");
     return PLL_FAILURE;
   }
@@ -341,13 +344,13 @@ int binary_node_apply (FILE * bin_file,
 
 static void file_io_error (FILE * bin_file, long int setp, const char * msg)
 {
-  assert(setp >= PLL_BINARY_INVALID_OFFSET);
+  assert(setp >= PLL_BIN_INVALID_OFFSET);
 
   /* if offset is valid, we apply it */
-  if (setp != PLL_BINARY_INVALID_OFFSET)
+  if (setp != PLL_BIN_INVALID_OFFSET)
     fseek(bin_file, setp, SEEK_SET);
 
   /* update error data */
   snprintf(pll_errmsg, 200, "Binary file I/O error: %s", msg);
-  pll_errno = PLL_ERROR_LOADSTORE;
+  pll_errno = PLL_BIN_ERROR_LOADSTORE;
 }

@@ -66,7 +66,7 @@ PLL_EXPORT double pll_minimize_newton(double x1,
   if (!isfinite(f) || !isfinite(df))
   {
     snprintf (pll_errmsg, 200, "wrong likelihood derivatives");
-    pll_errno = PLL_ERROR_NEWTON_DERIV;
+    pll_errno = PLL_OPT_ERROR_NEWTON_DERIV;
     return -INFINITY;
   }
   if (df >= 0.0 && fabs (f) < tolerance)
@@ -115,7 +115,7 @@ PLL_EXPORT double pll_minimize_newton(double x1,
     if (!isfinite(f) || !isfinite(df))
     {
       snprintf (pll_errmsg, 200, "Wrong likelihood derivatives [it]");
-      pll_errno = PLL_ERROR_NEWTON_DERIV;
+      pll_errno = PLL_OPT_ERROR_NEWTON_DERIV;
       return -INFINITY;
     }
 
@@ -131,7 +131,7 @@ PLL_EXPORT double pll_minimize_newton(double x1,
   }
 
   snprintf(pll_errmsg, 200, "Exceeded maximum number of iterations");
-  pll_errno = PLL_ERROR_NEWTON_LIMIT;
+  pll_errno = PLL_OPT_ERROR_NEWTON_LIMIT;
   return -INFINITY;
 }
 
@@ -256,7 +256,7 @@ PLL_EXPORT double pll_minimize_lbfgsb (double * x,
     /* set errno only if it was not set by some inner function */
     if (!pll_errno)
     {
-      pll_errno = PLL_ERROR_LBFGSB_UNKNOWN;
+      pll_errno = PLL_OPT_ERROR_LBFGSB_UNKNOWN;
       snprintf(pll_errmsg, 200, "Unknown LBFGSB error");
     }
   }

@@ -68,15 +68,15 @@ PLL_EXPORT FILE * pll_binary_create(const char * filename,
   memset(header, 0, sizeof(pll_binary_header_t));
   header->access_type = access_type;
   header->max_blocks = n_blocks;
-  header->map_offset = (access_type == PLL_BINARY_ACCESS_RANDOM)?
+  header->map_offset = (access_type == PLL_BIN_ACCESS_RANDOM)?
       n_blocks * sizeof(pll_block_map_t):0;
   header->n_blocks = 0;
 
-  if (access_type == PLL_BINARY_ACCESS_RANDOM && n_blocks <= 0)
+  if (access_type == PLL_BIN_ACCESS_RANDOM && n_blocks <= 0)
   {
     snprintf(pll_errmsg, 200,
              "Number of blocks for random access must be greater than 0");
-    pll_errno = PLL_ERROR_INVALID_SIZE;
+    pll_errno = PLL_BIN_ERROR_INVALID_SIZE;
     return NULL;
   }
 
@@ -92,7 +92,7 @@ PLL_EXPORT FILE * pll_binary_create(const char * filename,
   if (!bin_fwrite(header, sizeof(pll_binary_header_t), 1, file))
   {
     snprintf(pll_errmsg, 200, "Error writing header to file");
-    pll_errno = PLL_ERROR_BINARY_IO;
+    pll_errno = PLL_BIN_ERROR_BINARY_IO;
     fclose(file);
     return NULL;
   }
@@ -100,7 +100,7 @@ PLL_EXPORT FILE * pll_binary_create(const char * filename,
   if(fseek(file, header->map_offset, SEEK_CUR))
   {
     snprintf(pll_errmsg, 200, "Error seeking through file during creation");
-    pll_errno = PLL_ERROR_BINARY_IO;
+    pll_errno = PLL_BIN_ERROR_BINARY_IO;
     fclose(file);
     return NULL;
   }
@@ -125,7 +125,7 @@ PLL_EXPORT FILE * pll_binary_open(const char * filename,
   if (!bin_fread(header, sizeof(pll_binary_header_t), 1, file))
   {
     snprintf(pll_errmsg, 200, "Error reading header from file");
-    pll_errno = PLL_ERROR_BINARY_IO;
+    pll_errno = PLL_BIN_ERROR_BINARY_IO;
     fclose(file);
     return NULL;
   }
@@ -154,7 +154,7 @@ PLL_EXPORT int pll_binary_partition_dump(FILE * bin_file,
 
   /* fill block header */
   block_header.block_id   = block_id;
-  block_header.type       = PLL_BINARY_BLOCK_PARTITION;
+  block_header.type       = PLL_BIN_BLOCK_PARTITION;
   block_header.attributes = attributes;
   block_header.block_len  = 0; //partition_len;
   block_header.alignment  = 0;
@@ -184,7 +184,7 @@ PLL_EXPORT int pll_binary_partition_dump(FILE * bin_file,
   {
     return PLL_FAILURE;
   }
-  block_header.block_len = end_pos - start_pos;
+  block_header.block_len = (size_t) (end_pos - start_pos);
   if (!binary_block_header_apply(bin_file, &block_header, &bin_fwrite))
   {
     return PLL_FAILURE;
@@ -205,17 +205,17 @@ PLL_EXPORT pll_partition_t * pll_binary_partition_load(FILE * bin_file,
 {
   pll_block_header_t block_header;
   pll_partition_t * local_partition;
-  assert(offset >= 0 || offset == PLL_BINARY_ACCESS_SEEK);
+  assert(offset >= 0 || offset == PLL_BIN_ACCESS_SEEK);
   unsigned int sites_alloc;
   unsigned int i;
 
   if (offset != 0)
   {
-    if (offset == PLL_BINARY_ACCESS_SEEK)
+    if (offset == PLL_BIN_ACCESS_SEEK)
     {
       /* find offset */
       offset = binary_get_offset (bin_file, block_id);
-      if (offset == PLL_BINARY_INVALID_OFFSET)
+      if (offset == PLL_BIN_INVALID_OFFSET)
         return NULL;
     }
 
@@ -223,13 +223,14 @@ PLL_EXPORT pll_partition_t * pll_binary_partition_load(FILE * bin_file,
     fseek (bin_file, offset, SEEK_SET);
   }
 
-  if (!binary_block_header_apply(bin_file, &block_header, &bin_fread)) return NULL;
+  if (!binary_block_header_apply(bin_file, &block_header, &bin_fread))
+    return NULL;
 
-  if (block_header.type != PLL_BINARY_BLOCK_PARTITION)
+  if (block_header.type != PLL_BIN_BLOCK_PARTITION)
   {
-    pll_errno = PLL_ERROR_BLOCK_MISMATCH;
+    pll_errno = PLL_BIN_ERROR_BLOCK_MISMATCH;
     snprintf(pll_errmsg, 200, "Block type is %d and should be %d",
-             block_header.type, PLL_BINARY_BLOCK_PARTITION);
+             block_header.type, PLL_BIN_BLOCK_PARTITION);
     return NULL;
   }
 
@@ -272,8 +273,9 @@ PLL_EXPORT pll_partition_t * pll_binary_partition_load(FILE * bin_file,
     if (local_partition->attributes & PLL_ATTRIB_PATTERN_TIP)
     {
       /* allocate tip character arrays */
-      local_partition->tipchars = (unsigned char **)calloc(local_partition->tips,
-                                                     sizeof(unsigned char *));
+      local_partition->tipchars =
+        (unsigned char **)calloc(local_partition->tips,
+                                 sizeof(unsigned char *));
       if (!local_partition->tipchars)
       {
         pll_errno = PLL_ERROR_INIT_CHARMAP;
@@ -283,7 +285,7 @@ PLL_EXPORT pll_partition_t * pll_binary_partition_load(FILE * bin_file,
       }
 
       if (!(local_partition->charmap = (unsigned char *)calloc(PLL_ASCII_SIZE,
-                                                         sizeof(unsigned char))))
+                                                        sizeof(unsigned char))))
       {
         pll_errno = PLL_ERROR_INIT_CHARMAP;
         snprintf (pll_errmsg, 200,
@@ -313,19 +315,24 @@ PLL_EXPORT pll_partition_t * pll_binary_partition_load(FILE * bin_file,
         }
       }
 
-      if ((local_partition->states == 4) && (local_partition->attributes & PLL_ATTRIB_ARCH_AVX))
+      if ((local_partition->states == 4) &&
+         (local_partition->attributes & PLL_ATTRIB_ARCH_AVX))
       {
-        local_partition->ttlookup = pll_aligned_alloc(1024 * local_partition->rate_cats *
+        local_partition->ttlookup = pll_aligned_alloc(1024 *
+                                                local_partition->rate_cats *
                                                 sizeof(double),
                                                 local_partition->alignment);
       }
       else
       {
-        unsigned int l2_maxstates = (unsigned int)ceil(log2(local_partition->maxstates));
+        unsigned int l2_maxstates =
+          (unsigned int) ceil(log2(local_partition->maxstates));
         size_t alloc_size = (1 << (2 * l2_maxstates)) *
-                            (local_partition->states_padded * local_partition->rate_cats);
-        local_partition->ttlookup = pll_aligned_alloc(alloc_size * sizeof(double),
-                                                local_partition->alignment);
+                            (local_partition->states_padded *
+                            local_partition->rate_cats);
+        local_partition->ttlookup = pll_aligned_alloc(alloc_size *
+                                                      sizeof(double),
+                                                    local_partition->alignment);
       }
       if (!local_partition->ttlookup)
       {
@@ -372,7 +379,7 @@ PLL_EXPORT int pll_binary_clv_dump(FILE * bin_file,
 
   /* fill block header */
   block_header.block_id   = block_id;
-  block_header.type       = PLL_BINARY_BLOCK_CLV;
+  block_header.type       = PLL_BIN_BLOCK_CLV;
   block_header.attributes = attributes;
   block_header.block_len  = clv_size * sizeof(double);
   block_header.alignment  = 0;
@@ -384,7 +391,8 @@ PLL_EXPORT int pll_binary_clv_dump(FILE * bin_file,
   }
 
   /* dump block header */
-  if (!binary_block_header_apply(bin_file, &block_header, &bin_fwrite)) return PLL_FAILURE;
+  if (!binary_block_header_apply(bin_file, &block_header, &bin_fwrite))
+    return PLL_FAILURE;
 
   /* dump data */
   retval = binary_clv_apply (bin_file,
@@ -408,7 +416,7 @@ PLL_EXPORT int pll_binary_clv_load(FILE * bin_file,
   pll_block_header_t block_header;
 
   assert (partition);
-  assert(offset >= 0 || offset == PLL_BINARY_ACCESS_SEEK);
+  assert(offset >= 0 || offset == PLL_BIN_ACCESS_SEEK);
 
   unsigned int sites_alloc = partition->asc_bias_alloc ?
                  partition->sites + partition->states :
@@ -416,13 +424,13 @@ PLL_EXPORT int pll_binary_clv_load(FILE * bin_file,
 
   if (offset != 0)
   {
-    if (offset == PLL_BINARY_ACCESS_SEEK)
+    if (offset == PLL_BIN_ACCESS_SEEK)
     {
       /* find offset */
       offset = binary_get_offset (bin_file, block_id);
-      if (offset == PLL_BINARY_INVALID_OFFSET)
+      if (offset == PLL_BIN_INVALID_OFFSET)
       {
-        pll_errno = PLL_ERROR_MISSING_BLOCK;
+        pll_errno = PLL_BIN_ERROR_MISSING_BLOCK;
         snprintf(pll_errmsg, 200, "Cannot find block with id %d", block_id);
         return PLL_FAILURE;
       }
@@ -433,13 +441,14 @@ PLL_EXPORT int pll_binary_clv_load(FILE * bin_file,
   }
 
   /* read and validate header */
-  if (!binary_block_header_apply(bin_file, &block_header, &bin_fread)) return PLL_FAILURE;
+  if (!binary_block_header_apply(bin_file, &block_header, &bin_fread))
+    return PLL_FAILURE;
 
-  if (block_header.type != PLL_BINARY_BLOCK_CLV)
+  if (block_header.type != PLL_BIN_BLOCK_CLV)
   {
-    pll_errno = PLL_ERROR_BLOCK_MISMATCH;
+    pll_errno = PLL_BIN_ERROR_BLOCK_MISMATCH;
     snprintf(pll_errmsg, 200, "Block type is %d and should be %d",
-             block_header.type, PLL_BINARY_BLOCK_CLV);
+             block_header.type, PLL_BIN_BLOCK_CLV);
     return PLL_FAILURE;
   }
 
@@ -448,7 +457,7 @@ PLL_EXPORT int pll_binary_clv_load(FILE * bin_file,
 
   if (block_header.block_len != (clv_size * sizeof(double)))
   {
-      pll_errno = PLL_ERROR_BLOCK_LENGTH;
+      pll_errno = PLL_BIN_ERROR_BLOCK_LENGTH;
       snprintf(pll_errmsg, 200, "Wrong block length");
       return PLL_FAILURE;
   }
@@ -495,7 +504,7 @@ PLL_EXPORT int pll_binary_utree_dump(FILE * bin_file,
   assert (trav_size == n_nodes);
 
   block_header.block_id   = block_id;
-  block_header.type       = PLL_BINARY_BLOCK_TREE;
+  block_header.type       = PLL_BIN_BLOCK_TREE;
   block_header.attributes = attributes;
   block_header.block_len  = n_utrees * sizeof(pll_utree_t);
   block_header.alignment  = 0;
@@ -507,7 +516,8 @@ PLL_EXPORT int pll_binary_utree_dump(FILE * bin_file,
   }
 
   /* dump block header */
-  if (!binary_block_header_apply(bin_file, &block_header, &bin_fwrite)) return PLL_FAILURE;
+  if (!binary_block_header_apply(bin_file, &block_header, &bin_fwrite))
+    return PLL_FAILURE;
 
   /* traverse and dump data */
   for (i=0; i<trav_size; ++i)
@@ -554,15 +564,15 @@ PLL_EXPORT pll_utree_t * pll_binary_utree_load(FILE * bin_file,
   unsigned int tree_stack_top;
   int retval;
 
-  assert(offset >= 0 || offset == PLL_BINARY_ACCESS_SEEK);
+  assert(offset >= 0 || offset == PLL_BIN_ACCESS_SEEK);
 
   if (offset != 0)
   {
-    if (offset == PLL_BINARY_ACCESS_SEEK)
+    if (offset == PLL_BIN_ACCESS_SEEK)
     {
       /* find offset */
       offset = binary_get_offset (bin_file, block_id);
-      if (offset == PLL_BINARY_INVALID_OFFSET)
+      if (offset == PLL_BIN_INVALID_OFFSET)
         return NULL;
     }
 
@@ -571,13 +581,14 @@ PLL_EXPORT pll_utree_t * pll_binary_utree_load(FILE * bin_file,
   }
 
   /* read and validate header */
-  if (!binary_block_header_apply(bin_file, &block_header, &bin_fread)) return NULL;
+  if (!binary_block_header_apply(bin_file, &block_header, &bin_fread))
+    return NULL;
 
-  if (block_header.type != PLL_BINARY_BLOCK_TREE)
+  if (block_header.type != PLL_BIN_BLOCK_TREE)
   {
-    pll_errno = PLL_ERROR_BLOCK_MISMATCH;
+    pll_errno = PLL_BIN_ERROR_BLOCK_MISMATCH;
     snprintf (pll_errmsg, 200, "Block type is %d and should be %d",
-              block_header.type, PLL_BINARY_BLOCK_TREE);
+              block_header.type, PLL_BIN_BLOCK_TREE);
     return NULL;
   }
 
@@ -662,7 +673,7 @@ PLL_EXPORT int pll_binary_custom_dump(FILE * bin_file,
 
   /* dump header */
   block_header.block_id   = block_id;
-  block_header.type       = PLL_BINARY_BLOCK_CUSTOM;
+  block_header.type       = PLL_BIN_BLOCK_CUSTOM;
   block_header.attributes = attributes;
   block_header.block_len  = size;
   block_header.alignment  = 0;
@@ -697,7 +708,8 @@ PLL_EXPORT pll_block_map_t * pll_binary_get_map(FILE * bin_file,
   }
 
   /* get map */
-  map = (pll_block_map_t *) malloc (bin_header.n_blocks * sizeof(pll_block_map_t));
+  map = (pll_block_map_t *) malloc (bin_header.n_blocks *
+                                    sizeof(pll_block_map_t));
   if (!map) return NULL;
 
   if (!bin_fread(map, sizeof(pll_block_map_t), bin_header.n_blocks, bin_file))
@@ -721,15 +733,15 @@ PLL_EXPORT void * pll_binary_custom_load(FILE * bin_file,
   unsigned int alignment;
   void * data;
 
-  assert (offset >= 0 || offset == PLL_BINARY_ACCESS_SEEK);
+  assert (offset >= 0 || offset == PLL_BIN_ACCESS_SEEK);
 
   if (offset != 0)
   {
-    if (offset == PLL_BINARY_ACCESS_SEEK)
+    if (offset == PLL_BIN_ACCESS_SEEK)
     {
       /* find offset */
       offset = binary_get_offset(bin_file, block_id);
-      if (offset == PLL_BINARY_INVALID_OFFSET)
+      if (offset == PLL_BIN_INVALID_OFFSET)
         return NULL;
     }
 
@@ -738,14 +750,15 @@ PLL_EXPORT void * pll_binary_custom_load(FILE * bin_file,
   }
 
   /* read header */
-  if (!binary_block_header_apply(bin_file, &block_header, &bin_fread)) return NULL;
+  if (!binary_block_header_apply(bin_file, &block_header, &bin_fread))
+    return NULL;
   *type       = block_header.type;
   *size       = block_header.block_len;
   alignment   = block_header.alignment;
   *attributes = block_header.attributes;
 
   /* read data */
-  if (*attributes & PLL_BINARY_ATTRIB_ALIGNED)
+  if (*attributes & PLL_BIN_ATTRIB_ALIGNED)
   {
     unsigned int cur_alignment = get_current_alignment(*attributes);
 
@@ -767,7 +780,7 @@ PLL_EXPORT void * pll_binary_custom_load(FILE * bin_file,
 
   if (!bin_fread (data, *size, 1, bin_file))
   {
-    pll_errno = PLL_ERROR_BINARY_IO;
+    pll_errno = PLL_BIN_ERROR_BINARY_IO;
     snprintf (pll_errmsg, 200, "Error reading data.");
     free(data);
     return PLL_FAILURE;

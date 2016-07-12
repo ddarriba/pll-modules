@@ -291,7 +291,7 @@ int main (int argc, char * argv[])
   printf("** create binary file\n");
   bin_file = pll_binary_create(bin_fname,
                                &bin_header,
-                               PLL_BINARY_ACCESS_SEQUENTIAL,
+                               PLL_BIN_ACCESS_SEQUENTIAL,
                                0);
 
   if (!bin_file)
@@ -303,7 +303,8 @@ int main (int argc, char * argv[])
   pll_binary_partition_dump(bin_file,
                             BLOCK_ID_PARTITION,
                             partition,
-                            PLL_BINARY_ATTRIB_PARTITION_DUMP_CLV | PLL_BINARY_ATTRIB_PARTITION_DUMP_WGT);
+                            PLL_BIN_ATTRIB_PARTITION_DUMP_CLV |
+                              PLL_BIN_ATTRIB_PARTITION_DUMP_WGT);
 
   pll_binary_utree_dump(bin_file,
                        BLOCK_ID_TREE,
@@ -326,7 +327,7 @@ int main (int argc, char * argv[])
 
   partition = pll_binary_partition_load(bin_file,
                                         BLOCK_ID_PARTITION,
-                                        NULL, /* in order to create a new partition */
+                                        NULL, /* create a new partition */
                                         &bin_attributes,
                                         0);
 

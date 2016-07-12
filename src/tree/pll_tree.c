@@ -633,7 +633,7 @@ static int cb_update_matrices_partials(pll_utree_t * node, void *data)
     double branch_length = node->length;
 
     /* check integrity */
-    assert(node->length == node->back->length);
+    assert(fabs(node->length - node->back->length) < 1e-8);
     assert(node->pmatrix_index == node->back->pmatrix_index);
 
     pll_update_prob_matrices (st_data->partition,

@@ -227,7 +227,7 @@ PLL_EXPORT double * pll_msa_empirical_subst_rates(pll_partition_t * partition)
           continue;
         for (k = 0; k < states; ++k)
         {
-          if (partition->clv[i][n + k])
+          if (partition->clv[i][n + k] > 0)
           {
             state_freq[k]++;
           }
@@ -280,7 +280,7 @@ PLL_EXPORT double pll_msa_empirical_invariant_sites(pll_partition_t *partition)
 
   if (!partition->invariant)
     if (!pll_update_invariant_sites(partition))
-      return NAN;
+      return (double) -INFINITY;
 
   const int * invariant = partition->invariant;
 

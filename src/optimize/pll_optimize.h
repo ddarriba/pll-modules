@@ -72,20 +72,15 @@
 #define PLL_OPT_MIN_RATE_WEIGHT      1.0e-3
 #define PLL_OPT_MAX_RATE_WEIGHT        100.
 
-/* Branch lengths optimization algorithm */
-#define PLL_BRANCH_OPT_NEWTON 1
-#define PLL_BRANCH_OPT_BRENT  2
-#define PLL_BRANCH_OPT_LBFGSB 3
-
 /* error codes (for this module, 2000-3000) */
-#define PLL_ERROR_PARAMETER           2000
-#define PLL_ERROR_TAXA_MISMATCH       2010
-#define PLL_ERROR_SEQLEN_MISMATCH     2020
-#define PLL_ERROR_ALIGN_UNREADABLE    2030
-#define PLL_ERROR_LBFGSB_UNKNOWN      2100
-#define PLL_ERROR_NEWTON_DERIV        2210
-#define PLL_ERROR_NEWTON_LIMIT        2220
-#define PLL_ERROR_NEWTON_UNKNOWN      2230
+#define PLL_OPT_ERROR_PARAMETER           2000
+#define PLL_OPT_ERROR_TAXA_MISMATCH       2010
+#define PLL_OPT_ERROR_SEQLEN_MISMATCH     2020
+#define PLL_OPT_ERROR_ALIGN_UNREADABLE    2030
+#define PLL_OPT_ERROR_LBFGSB_UNKNOWN      2100
+#define PLL_OPT_ERROR_NEWTON_DERIV        2210
+#define PLL_OPT_ERROR_NEWTON_LIMIT        2220
+#define PLL_OPT_ERROR_NEWTON_UNKNOWN      2230
 
 /* Structure with information necessary for evaluating the likelihood */
 

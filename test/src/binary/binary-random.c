@@ -294,7 +294,7 @@ int main (int argc, char * argv[])
   printf("** create binary file\n");
   bin_file = pll_binary_create(bin_fname,
                                &bin_header,
-                               PLL_BINARY_ACCESS_RANDOM,
+                               PLL_BIN_ACCESS_RANDOM,
                                10); /* allocate for up to 10 blocks */
 
   if (!bin_file)
@@ -306,13 +306,13 @@ int main (int argc, char * argv[])
 
   /* We save the structures in an arbitrary order */
 
-  /* IMPORTANT! Attribute PLL_BINARY_ATTRIB_UPDATE_MAP must be set! */
+  /* IMPORTANT! Attribute PLL_BIN_ATTRIB_UPDATE_MAP must be set! */
   if (!pll_binary_partition_dump(bin_file,
                             BLOCK_ID_PARTITION,
                             partition,
-                            PLL_BINARY_ATTRIB_PARTITION_DUMP_CLV |
-                            PLL_BINARY_ATTRIB_PARTITION_DUMP_WGT |
-                            PLL_BINARY_ATTRIB_UPDATE_MAP))
+                            PLL_BIN_ATTRIB_PARTITION_DUMP_CLV |
+                            PLL_BIN_ATTRIB_PARTITION_DUMP_WGT |
+                            PLL_BIN_ATTRIB_UPDATE_MAP))
   {
     printf("Error dumping partition\n");
   }
@@ -322,7 +322,7 @@ int main (int argc, char * argv[])
                        BLOCK_ID_TREE,
                        tree,
                        tip_nodes_count,
-                       PLL_BINARY_ATTRIB_UPDATE_MAP))
+                       PLL_BIN_ATTRIB_UPDATE_MAP))
   {
     printf("Error dumping tree\n");
   }
@@ -344,7 +344,7 @@ int main (int argc, char * argv[])
                         BLOCK_ID_CLV + i,
                         partition,
                         clv_index,
-                        PLL_BINARY_ATTRIB_UPDATE_MAP);
+                        PLL_BIN_ATTRIB_UPDATE_MAP);
     memcpy(saved_clvs_ptr,
            partition->clv[clv_index],
            sizeof(double) * clv_size);
@@ -391,7 +391,7 @@ int main (int argc, char * argv[])
   }
 
   /* For the offset we can use the actual offset (from the block_map),
-     or PLL_BINARY_ACCESS_SEEK */
+     or PLL_BIN_ACCESS_SEEK */
   partition = pll_binary_partition_load(bin_file,
                                         BLOCK_ID_PARTITION,
                                         NULL, /* in order to create a new partition */
@@ -418,7 +418,7 @@ int main (int argc, char * argv[])
                         partition,
                         clv_index,
                         &bin_attributes,
-                        PLL_BINARY_ACCESS_SEEK))
+                        PLL_BIN_ACCESS_SEEK))
     {
       printf("Error loading CLV %d\n", clv_index);
       printf("%d : %s\n", pll_errno, pll_errmsg);
@@ -465,7 +465,7 @@ int main (int argc, char * argv[])
   tree = pll_binary_utree_load(bin_file,
                                BLOCK_ID_TREE,
                                &bin_attributes,
-                               PLL_BINARY_ACCESS_SEEK);
+                               PLL_BIN_ACCESS_SEEK);
   if (!tree)
     fatal("Error loading tree!\n");
 

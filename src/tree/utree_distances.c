@@ -304,7 +304,7 @@ static int compare_splits (pll_split_t s1,
   for (i=0; i<split_len; ++i)
   {
     if (s1[i] != s2[i])
-      return s1[i] - s2[i];
+      return (int) (s1[i] - s2[i]);
   }
   return 0;
 }
@@ -314,13 +314,13 @@ static int compare_splits (pll_split_t s1,
  */
 static int _cmp_splits (const void * a, const void * b)
 {
-  pll_split_t * s1 = (pll_split_t *) a;
-  pll_split_t * s2 = (pll_split_t *) b;
+  const pll_split_t * s1 = (const pll_split_t *) a;
+  const pll_split_t * s2 = (const pll_split_t *) b;
   unsigned int limit = 10000; /* max_taxa = split_size * 10^4 */
   int i = 0;
   for(;((*s1)[i]==(*s2)[i]) && limit;--limit,++i);
   assert(limit);
-  return((*s1)[i]-(*s2)[i]);
+  return (int) ((*s1)[i]-(*s2)[i]);
 }
 
 static void normalize_split(pll_split_t split, unsigned int n_tips)
