@@ -205,7 +205,19 @@ PLL_EXPORT unsigned int pll_utree_rf_distance(pll_utree_t * t1,
                                               pll_utree_t * t2,
                                               unsigned int n_tips);
 
-PLL_EXPORT unsigned int pll_utree_rf_split_distance(pll_split_t * s1,
+/* check that node ids and tip labels agree in both trees */
+PLL_EXPORT int pll_utree_consistency_check(pll_utree_t * t1,
+                                           pll_utree_t * t2,
+                                           unsigned int n_tips);
+
+/* if 2 different trees are parsed from newick node ids migh have been set
+   in a different order, so this function sets node ids in t2 such that
+   node ids and tip labels agree in both trees */
+PLL_EXPORT int pll_utree_consistency_set(pll_utree_t * t1,
+                                         pll_utree_t * t2,
+                                         unsigned int n_tips);
+
+PLL_EXPORT unsigned int pll_utree_split_rf_distance(pll_split_t * s1,
                                                     pll_split_t * s2,
                                                     unsigned int n_tips);
 
@@ -213,7 +225,7 @@ PLL_EXPORT pll_split_t * pll_utree_split_create(pll_utree_t * tree,
                                                 unsigned int n_tips,
                                                 unsigned int * n_splits);
 
-PLL_EXPORT void pll_utree_show_split(pll_split_t split, unsigned int n_tips);
+PLL_EXPORT void pll_utree_split_show(pll_split_t split, unsigned int n_tips);
 
 PLL_EXPORT void pll_utree_split_destroy(pll_split_t * split_list);
 

@@ -19,8 +19,152 @@ struct cb_split_params
   unsigned int tip_count;
   unsigned int split_size;
   unsigned int split_len;
+  unsigned int split_count;  /* number of splits already set */
+  int *id_to_split;          /* map between node/subnode ids and splits */
 };
 
+/*
+  Before node id is set in pll, we assume that the very first field in
+  node->data is an unsigned int containing the node id.
+ */
+static int get_utree_node_id(pll_utree_t * node)
+{
+  return *(unsigned int *)(node->data);
+}
+
+/*
+  Before subnode id is set in pll, we assume that the second field in
+  node->data is an unsigned int containing the node id.
+ */
+static int get_utree_subnode_id(pll_utree_t * node)
+{
+  int subnode_id = *((unsigned int *)(node->data)+1);
+  assert(subnode_id < 3);
+  return subnode_id;
+}
+
+/*
+  The position of the node in the map of branches to splits is computed
+  according to the node id and the subnode id as displacement.
+ */
+static int get_utree_splitmap_id(pll_utree_t * node, int n_tips)
+{
+  int node_id = get_utree_node_id(node);
+  assert(node_id >= n_tips);
+  return (3*(node_id - n_tips) + get_utree_subnode_id(node));
+}
+
+/*
+  Before node id is set in pll, we assume that the very first field in
+  node->data is an unsigned int containing the node id.
+ */
+static void set_utree_node_id(pll_utree_t * node, unsigned int node_id)
+{
+  *(unsigned int *)(node->data) = node_id;
+}
+
+/**
+ * Check whether tip node indices in 2 trees are consistent to each other.
+ *
+ * Data pointers must contain the node index at first position
+ * @param  t1 first tree
+ * @param  t2 second tree
+ * @return true, if tip node indices are consistent
+ */
+PLL_EXPORT int pll_utree_consistency_check(pll_utree_t * t1,
+                                           pll_utree_t * t2,
+                                           unsigned int n_tips)
+{
+  unsigned int i;
+  unsigned int node_id;
+  int retval = PLL_SUCCESS;
+  pll_utree_t ** tipnodes;
+  char ** tipnames;
+
+  tipnodes = (pll_utree_t **) calloc ((size_t) n_tips, sizeof(pll_utree_t *));
+  pll_utree_query_tipnodes (t1, tipnodes);
+  tipnames = (char **) malloc (n_tips * sizeof(char *));
+
+  /* fill names table */
+  for (i = 0; i < n_tips; ++i)
+  {
+    node_id = get_utree_node_id(tipnodes[i]);
+    tipnames[node_id] = tipnodes[i]->label;
+  }
+
+  /* check names consistency */
+  pll_utree_query_tipnodes (t2, tipnodes);
+  for (i = 0; i < n_tips; ++i)
+  {
+    node_id = get_utree_node_id(tipnodes[i]);
+    if (strcmp(tipnames[node_id], tipnodes[i]->label))
+    {
+      retval = PLL_FAILURE;
+      break;
+    }
+  }
+
+  free(tipnames);
+  free(tipnodes);
+  return retval;
+}
+
+/**
+ * Set t2 tip node indices consistent with t1.
+ *
+ * Data pointers must contain the node index at first position
+ * @param  t1 reference tree
+ * @param  t2 second tree
+ * @return true, if success
+ */
+PLL_EXPORT int pll_utree_consistency_set(pll_utree_t * t1,
+                                            pll_utree_t * t2,
+                                            unsigned int n_tips)
+{
+  unsigned int i, j;
+  unsigned int node_id;
+  int retval = PLL_SUCCESS, checkval;
+  pll_utree_t ** tipnodes;
+  char ** tipnames;
+
+  tipnodes = (pll_utree_t **) calloc ((size_t) n_tips, sizeof(pll_utree_t *));
+  pll_utree_query_tipnodes (t1, tipnodes);
+  tipnames = (char **) malloc (n_tips * sizeof(char *));
+
+  /* fill names table */
+  for (i = 0; i < n_tips; ++i)
+  {
+    node_id = get_utree_node_id(tipnodes[i]);
+    tipnames[node_id] = tipnodes[i]->label;
+  }
+
+  /* set names consistency */
+  pll_utree_query_tipnodes (t2, tipnodes);
+  for (i = 0; i < n_tips; ++i)
+  {
+    node_id = get_utree_node_id(tipnodes[i]);
+    pll_utree_t * tipnode = tipnodes[i];
+    checkval = 0;
+    for (j = 0; j < n_tips; ++j)
+    {
+      if (!strcmp(tipnames[j], tipnode->label))
+      {
+        checkval = 1;
+        set_utree_node_id(tipnode, j);
+        break;
+      }
+    }
+    if (!checkval)
+    {
+      retval = PLL_FAILURE;
+      break;
+    }
+  }
+
+  free(tipnames);
+  free(tipnodes);
+  return retval;
+}
 
 /******************************************************************************/
 /* discrete operations */
@@ -32,25 +176,28 @@ PLL_EXPORT unsigned int pll_utree_rf_distance(pll_utree_t * t1,
   unsigned int n_splits;
   unsigned int rf_distance;
 
+  /* reset pll_error */
+  pll_errno = 0;
+
   /* split both trees */
   pll_split_t * s1 = pll_utree_split_create(t1, n_tips, &n_splits);
   pll_split_t * s2 = pll_utree_split_create(t2, n_tips, &n_splits);
 
   /* compute distance */
-  rf_distance = pll_utree_rf_split_distance(s1, s2, n_tips);
+  rf_distance = pll_utree_split_rf_distance(s1, s2, n_tips);
 
   /* clean up */
   pll_utree_split_destroy(s1);
   pll_utree_split_destroy(s2);
 
-  assert(rf_distance < 2*(n_tips-3));
+  assert(rf_distance <= 2*(n_tips-3));
   return rf_distance;
 }
 
 /*
  * Precondition: splits must be normalized and sorted!
  */
-PLL_EXPORT unsigned int pll_utree_rf_split_distance(pll_split_t * s1,
+PLL_EXPORT unsigned int pll_utree_split_rf_distance(pll_split_t * s1,
                                                     pll_split_t * s2,
                                                     unsigned int n_tips)
 {
@@ -95,7 +242,7 @@ PLL_EXPORT unsigned int pll_utree_rf_split_distance(pll_split_t * s1,
 /******************************************************************************/
 /* tree split functions */
 
-PLL_EXPORT void pll_utree_show_split(pll_split_t split, unsigned int n_tips)
+PLL_EXPORT void pll_utree_split_show(pll_split_t split, unsigned int n_tips)
 {
   unsigned int split_size = sizeof(pll_split_base_t) * 8;
   unsigned int split_offset = n_tips % split_size;
@@ -111,7 +258,7 @@ PLL_EXPORT void pll_utree_show_split(pll_split_t split, unsigned int n_tips)
 }
 
 /*
- * Note: This function returns the splits according to the p-matrix indices at the tips!
+ * Note: This function returns the splits according to the node indices at the tips!
  */
 PLL_EXPORT pll_split_t * pll_utree_split_create(pll_utree_t * tree,
                                                 unsigned int n_tips,
@@ -150,12 +297,20 @@ PLL_EXPORT pll_split_t * pll_utree_split_create(pll_utree_t * tree,
   split_data.split_size  = split_size;
   split_data.splits      = split_list;
   split_data.tip_count   = n_tips;
+  split_data.split_count = 0;
+  /* reserve positions for node and subnode ids */
+  split_data.id_to_split = (int *) malloc(sizeof(int) * 3 * (n_tips - 2));
+
+  for (i=0; i<3*(n_tips-2);++i)
+    split_data.id_to_split[i] = -1;
 
   /* traverse for computing the scripts */
   pll_utree_traverse_apply(tree,
                            0,
                            &cb_get_splits,
                            &split_data);
+
+  assert(split_data.split_count == n_splits);
 
   /* normalize the splits such that first position is set */
   for (i=0; i<n_splits;++i)
@@ -228,7 +383,7 @@ static inline void merge_split(pll_split_t to,
 /**
  * Callback function for computing the splits at each branch
  * The splits will be stored in data->splits
- * at positions given by p-matrix index
+ * at positions given by node index
  */
 static int cb_get_splits(pll_utree_t * node, void *data)
 {
@@ -238,46 +393,59 @@ static int cb_get_splits(pll_utree_t * node, void *data)
   unsigned int tip_count     = split_data->tip_count;
   unsigned int split_size    = split_data->split_size;
   unsigned int split_len     = split_data->split_len;
-  unsigned int my_index      = node->pmatrix_index - tip_count,
-           child_index;
+  unsigned int my_split_id, child_split_id;
+  unsigned int my_map_id, back_map_id;
   unsigned int tip_id, split_id;
 
-  if (!(pll_utree_is_tip(node) || node->pmatrix_index < tip_count))
+  if (!(pll_utree_is_tip(node) || pll_utree_is_tip(node->back)))
   {
-    /**
-     * If the assertion below fails, probably the p-matrix assignments is not
-     * suitable for this function.
-     */
-    assert(my_index < (tip_count - 3));
+    my_map_id   = get_utree_splitmap_id(node, tip_count);
+    back_map_id = get_utree_splitmap_id(node->back, tip_count);
+    my_split_id = split_data->split_count;
 
-    current_split = split_data->splits[my_index];
+    /* check if the split for the branch was already set */
+    /* note that tree traversals visit the virtual root branch twice */
+    if (split_data->id_to_split[my_map_id] >= 0)
+    {
+      return 1;
+    }
 
-    /* add left */
+    assert(my_split_id < (tip_count - 3));
+    split_data->id_to_split[my_map_id] = my_split_id;
+    split_data->id_to_split[back_map_id] = my_split_id;
+
+    /* get current split to fill */
+    current_split = split_data->splits[my_split_id];
+    /* increase number of splits */
+    split_data->split_count++;
+
+    /* add the split from left branch */
     if (!pll_utree_is_tip(node->next->back))
     {
-      child_index   = node->next->pmatrix_index - tip_count;
-      assert(node->next->pmatrix_index >= tip_count && child_index < (tip_count - 3));
-      clone_split(current_split, split_data->splits[child_index], split_len);
+      child_split_id
+        = split_data->id_to_split[get_utree_splitmap_id(node->next, tip_count)];
+      clone_split(current_split, split_data->splits[child_split_id], split_len);
     }
     else
     {
-      tip_id     = node->next->pmatrix_index;
+      tip_id     = get_utree_node_id(node->next->back);
       assert(tip_id < tip_count);
       split_id   = tip_id / split_size;
       tip_id    %= split_size;
       current_split[split_id] = (1 << tip_id);
     }
 
-    /* add right */
+    /* add the split from right branch */
     if (!pll_utree_is_tip(node->next->next->back))
     {
-      child_index   = node->next->next->pmatrix_index - tip_count;
-      assert(node->next->next->pmatrix_index >= tip_count && child_index < (tip_count - 3));
-      merge_split(current_split, split_data->splits[child_index], split_len);
+      child_split_id
+        = split_data->id_to_split[get_utree_splitmap_id(
+            node->next->next, tip_count)];
+      merge_split(current_split, split_data->splits[child_split_id], split_len);
     }
     else
     {
-      tip_id     = node->next->next->pmatrix_index;
+      tip_id     = get_utree_node_id(node->next->next->back);
       assert(tip_id < tip_count);
       split_id   = tip_id / split_size;
       tip_id    %= split_size;
