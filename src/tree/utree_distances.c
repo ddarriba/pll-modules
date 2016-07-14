@@ -309,8 +309,8 @@ PLL_EXPORT pll_split_t * pll_utree_split_create(pll_utree_t * tree,
                            0,
                            &cb_get_splits,
                            &split_data);
-
   assert(split_data.split_count == n_splits);
+  free(split_data.id_to_split);  
 
   /* normalize the splits such that first position is set */
   for (i=0; i<n_splits;++i)
