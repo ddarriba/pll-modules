@@ -1022,8 +1022,8 @@ PLL_EXPORT double pll_optimize_branch_lengths_local (
     params.branch_length_max = (branch_length_max>0)?
                                  branch_length_max:
                                  PLL_OPT_MAX_BRANCH_LEN;
-    params.tolerance         = (tolerance>0)?
-                                 tolerance:
+    params.tolerance         = (branch_length_min>0)?
+                                 branch_length_min/10.0:
                                  PLL_OPT_TOL_BRANCH_LEN;
     params.sumtable          = 0;
 
