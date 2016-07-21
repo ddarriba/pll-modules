@@ -315,6 +315,7 @@ PLL_EXPORT pll_utree_t * pll_utree_create_random(unsigned int n_taxa,
 
   unsigned int next_branch_id = n_taxa;
   unsigned int rand_branch_id;
+  unsigned int node_id = 0;
 
   /* allocate tips */
   for (i=0; i<n_taxa; ++i)
@@ -323,6 +324,7 @@ PLL_EXPORT pll_utree_t * pll_utree_create_random(unsigned int n_taxa,
     nodes[i]->clv_index = i;
     nodes[i]->scaler_index = PLL_SCALE_BUFFER_NONE;
     nodes[i]->pmatrix_index = i;
+    nodes[i]->node_index = node_id++;
 
     if (names)
     {
@@ -342,7 +344,12 @@ PLL_EXPORT pll_utree_t * pll_utree_create_random(unsigned int n_taxa,
     nodes[i]->scaler_index -= n_taxa;
     nodes[i]->next->scaler_index -= n_taxa;
     nodes[i]->next->next->scaler_index -= n_taxa;
+
+    nodes[i]->node_index = node_id++;
+    nodes[i]->next->node_index = node_id++;
+    nodes[i]->next->next->node_index = node_id++;
   }
+  assert(node_id == n_tip_nodes + n_inner_nodes * 3);
 
   /* set an inner node as return value */
   new_tree = nodes[n_taxa];
