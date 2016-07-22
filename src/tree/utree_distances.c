@@ -13,6 +13,8 @@ static int compare_splits (pll_split_t s1,
                            pll_split_t s2,
                            unsigned int split_len);
 
+static int get_utree_splitmap_id(pll_utree_t * node, int n_tips);
+
 struct cb_split_params
 {
   pll_split_t * splits;
@@ -22,46 +24,6 @@ struct cb_split_params
   unsigned int split_count;  /* number of splits already set */
   int *id_to_split;          /* map between node/subnode ids and splits */
 };
-
-/*
-  Before node id is set in pll, we assume that the very first field in
-  node->data is an unsigned int containing the node id.
- */
-static int get_utree_node_id(pll_utree_t * node)
-{
-  return *(unsigned int *)(node->data);
-}
-
-/*
-  Before subnode id is set in pll, we assume that the second field in
-  node->data is an unsigned int containing the node id.
- */
-static int get_utree_subnode_id(pll_utree_t * node)
-{
-  int subnode_id = *((unsigned int *)(node->data)+1);
-  assert(subnode_id < 3);
-  return subnode_id;
-}
-
-/*
-  The position of the node in the map of branches to splits is computed
-  according to the node id and the subnode id as displacement.
- */
-static int get_utree_splitmap_id(pll_utree_t * node, int n_tips)
-{
-  int node_id = get_utree_node_id(node);
-  assert(node_id >= n_tips);
-  return (3*(node_id - n_tips) + get_utree_subnode_id(node));
-}
-
-/*
-  Before node id is set in pll, we assume that the very first field in
-  node->data is an unsigned int containing the node id.
- */
-static void set_utree_node_id(pll_utree_t * node, unsigned int node_id)
-{
-  *(unsigned int *)(node->data) = node_id;
-}
 
 /**
  * Check whether tip node indices in 2 trees are consistent to each other.
@@ -88,7 +50,7 @@ PLL_EXPORT int pll_utree_consistency_check(pll_utree_t * t1,
   /* fill names table */
   for (i = 0; i < n_tips; ++i)
   {
-    node_id = get_utree_node_id(tipnodes[i]);
+    node_id = tipnodes[i]->node_index;
     tipnames[node_id] = tipnodes[i]->label;
   }
 
@@ -96,7 +58,7 @@ PLL_EXPORT int pll_utree_consistency_check(pll_utree_t * t1,
   pll_utree_query_tipnodes (t2, tipnodes);
   for (i = 0; i < n_tips; ++i)
   {
-    node_id = get_utree_node_id(tipnodes[i]);
+    node_id = tipnodes[i]->node_index;
     if (strcmp(tipnames[node_id], tipnodes[i]->label))
     {
       retval = PLL_FAILURE;
@@ -134,7 +96,7 @@ PLL_EXPORT int pll_utree_consistency_set(pll_utree_t * t1,
   /* fill names table */
   for (i = 0; i < n_tips; ++i)
   {
-    node_id = get_utree_node_id(tipnodes[i]);
+    node_id = tipnodes[i]->node_index;
     tipnames[node_id] = tipnodes[i]->label;
   }
 
@@ -142,7 +104,7 @@ PLL_EXPORT int pll_utree_consistency_set(pll_utree_t * t1,
   pll_utree_query_tipnodes (t2, tipnodes);
   for (i = 0; i < n_tips; ++i)
   {
-    node_id = get_utree_node_id(tipnodes[i]);
+    // node_id = get_utree_node_id(tipnodes[i]);
     pll_utree_t * tipnode = tipnodes[i];
     checkval = 0;
     for (j = 0; j < n_tips; ++j)
@@ -150,7 +112,8 @@ PLL_EXPORT int pll_utree_consistency_set(pll_utree_t * t1,
       if (!strcmp(tipnames[j], tipnode->label))
       {
         checkval = 1;
-        set_utree_node_id(tipnode, j);
+        tipnode->node_index = j;
+        tipnode->node_index = j;
         break;
       }
     }
@@ -310,7 +273,7 @@ PLL_EXPORT pll_split_t * pll_utree_split_create(pll_utree_t * tree,
                            &cb_get_splits,
                            &split_data);
   assert(split_data.split_count == n_splits);
-  free(split_data.id_to_split);  
+  free(split_data.id_to_split);
 
   /* normalize the splits such that first position is set */
   for (i=0; i<n_splits;++i)
@@ -428,7 +391,7 @@ static int cb_get_splits(pll_utree_t * node, void *data)
     }
     else
     {
-      tip_id     = get_utree_node_id(node->next->back);
+      tip_id     = node->next->back->node_index;
       assert(tip_id < tip_count);
       split_id   = tip_id / split_size;
       tip_id    %= split_size;
@@ -445,7 +408,7 @@ static int cb_get_splits(pll_utree_t * node, void *data)
     }
     else
     {
-      tip_id     = get_utree_node_id(node->next->next->back);
+      tip_id     = node->next->next->back->node_index;
       assert(tip_id < tip_count);
       split_id   = tip_id / split_size;
       tip_id    %= split_size;
@@ -508,4 +471,15 @@ static void normalize_split(pll_split_t split, unsigned int n_tips)
     unsigned int mask = (1<<split_offset) - 1;
     split[split_len - 1] &= mask;
   }
+}
+
+/*
+  The position of the node in the map of branches to splits is computed
+  according to the node id.
+ */
+static int get_utree_splitmap_id(pll_utree_t * node, int n_tips)
+{
+  int node_id = node->node_index;
+  assert(node_id >= n_tips);
+  return node_id - n_tips;
 }
