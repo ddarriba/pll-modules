@@ -67,6 +67,6 @@ P-matrix for branch length 0.166920
 Initial Log-L: -39.4699910695
 Tree (reference): (TIP 1:0.105361,TIP 2:0.166920,INNER:0.166920):0.0;
 
--Log-L returned by BL-opt:       27.4480477383
- Log-L recomputed after BL-opt: -27.4480477383
-Tree (optimized): (TIP 1:14.137582,TIP 2:0.000426,INNER:0.000263):0.0;
+-Log-L returned by BL-opt:       27.4474486530
+ Log-L recomputed after BL-opt: -27.4474486530
+Tree (optimized): (TIP 1:14.137582,TIP 2:0.000426,INNER:0.000110):0.0;

@@ -82,6 +82,6 @@ Compute lnL
 Initial Log-L: -13.4600969315
 Tree (reference): (TIP 1:0.105361,TIP 2:0.166920,TIP 3:0.166920):0.0;
 
--Log-L returned by BL-opt:       12.4900074981
- Log-L recomputed after BL-opt: -12.4900074981
-Tree (optimized): (TIP 1:0.296993,TIP 2:0.000426,TIP 3:0.501578):0.0;
+-Log-L returned by BL-opt:       12.4899955504
+ Log-L recomputed after BL-opt: -12.4899955504
+Tree (optimized): (TIP 1:0.297042,TIP 2:0.000426,TIP 3:0.501595):0.0;
