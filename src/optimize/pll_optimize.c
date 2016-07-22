@@ -1044,8 +1044,6 @@ PLL_EXPORT double pll_optimize_branch_lengths_local (
     iters = smoothings;
     while (iters)
     {
-      double new_lnl = lnl;
-
       lnl = pll_compute_edge_loglikelihood (partition,
                                             tree->back->clv_index,
                                             tree->back->scaler_index,
@@ -1055,20 +1053,26 @@ PLL_EXPORT double pll_optimize_branch_lengths_local (
                                             params_indices,
                                             NULL);
 
+      double new_lnl = lnl;
+
       /* iterate on first edge */
+      params.tree = tree;
       recomp_iterative (&params, &new_lnl, radius, keep_update);
       assert(new_lnl >= lnl);
 
       /* iterate on second edge */
-      params.tree = params.tree->back;
+      params.tree = tree->back;
       recomp_iterative (&params, &new_lnl, radius-1, keep_update);
       assert(new_lnl >= lnl);
 
-      lnl = new_lnl;
       iters --;
+
+      DBG("pll_optimize_branch_lengths_local: iters %d, old: %f, new: %f\n", iters, lnl, new_lnl);
 
       /* check convergence */
       if (fabs (new_lnl - lnl) < tolerance) iters = 0;
+
+      lnl = new_lnl;
     }
 
     pll_aligned_free(params.sumtable);
