@@ -234,6 +234,9 @@ PLL_EXPORT void pll_utree_split_destroy(pll_split_t * split_list);
 /* Additional utilities */
 /* functions at pll_tree.c */
 
+PLL_EXPORT int pll_utree_set_clv_minimal(pll_utree_t * root,
+                                         unsigned int n_tips);
+
 PLL_EXPORT int pll_utree_traverse_apply(pll_utree_t * root,
                                         int (*cb_pre_trav)(pll_utree_t *, void *),
                                         int (*cb_post_trav)(pll_utree_t *, void *),

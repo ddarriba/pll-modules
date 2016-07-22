@@ -523,7 +523,76 @@ PLL_EXPORT double pll_utree_compute_lk(pll_partition_t * partition,
   return logl;
 }
 
+struct clv_set_data
+{
+  int * set_indices;
+  int max_index;
+  int n_tips;
+};
 
+static int cb_set_clv_minimal(pll_utree_t * node, void * data)
+{
+  int i, next_index;
+  struct clv_set_data * clv_data = (struct clv_set_data *)data;
+  int * v = 0;
+
+  if (!pll_utree_is_tip(node))
+  {
+    /* find next free position */
+    v = clv_data->set_indices;
+    next_index = -1;
+
+    for (i=0; i<clv_data->max_index; ++i)
+    {
+      if (!v[i])
+      {
+        next_index = i;
+        v[i] = 1;
+        break;
+      }
+    }
+    assert(next_index != -1);
+
+    /* set clv index */
+    node->clv_index =
+      node->next->clv_index =
+      node->next->next->clv_index =
+       (unsigned int)(next_index + clv_data->n_tips);
+    /* set scaler index */
+    node->scaler_index =
+       node->next->scaler_index =
+       node->next->next->scaler_index =
+        (unsigned int)(next_index + clv_data->n_tips);
+
+    /* free indices from children */
+    if (!pll_utree_is_tip(node->next->back))
+    {
+      v[node->next->back->clv_index - clv_data->n_tips] = 0;
+    }
+    if (!pll_utree_is_tip(node->next->next->back))
+    {
+      v[node->next->next->back->clv_index - clv_data->n_tips] = 0;
+    }
+  }
+
+  /* continue */
+  return 1;
+}
+
+PLL_EXPORT int pll_utree_set_clv_minimal(pll_utree_t * root,
+                                         unsigned int n_tips)
+{
+  int n_clvs = (int) ceil(log2(n_tips)) + 2;
+  int * set_indices = (int *) calloc(n_clvs, sizeof(int));
+  struct clv_set_data data;
+  data.set_indices = set_indices;
+  data.max_index   = n_clvs;
+  data.n_tips      = n_tips;
+  pll_utree_traverse_apply(root, 0, cb_set_clv_minimal, (void *) &data);
+  free(set_indices);
+
+  return PLL_SUCCESS;
+}
 
 /******************************************************************************/
 /* Static functions */
