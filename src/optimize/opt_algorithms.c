@@ -40,11 +40,10 @@ PLL_EXPORT double pll_minimize_newton(double x1,
                                       double x2,
                                       double tolerance,
                                       unsigned int max_iters,
-                                      double *score,
                                       void * params,
-                                      double (deriv_func)(void *,
-                                                          double,
-                                                          double *, double *))
+                                      void (deriv_func)(void *,
+                                                        double,
+                                                        double *, double *))
 {
   unsigned int i;
   double df, dx, dxold, f;
@@ -109,7 +108,7 @@ PLL_EXPORT double pll_minimize_newton(double x1,
 
     if (rts < x1) rts = x1;
 
-    *score = deriv_func((void *)params, rts, &f, &df);
+    deriv_func((void *)params, rts, &f, &df);
 
     if (!isfinite(f) || !isfinite(df))
     {

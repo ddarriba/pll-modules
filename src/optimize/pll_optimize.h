@@ -149,11 +149,10 @@ PLL_EXPORT double pll_minimize_newton(double x1,
                                       double x2,
                                       double tolerance,
                                       unsigned int max_iters,
-                                      double *score,
                                       void *params,
-                                      double (deriv_func)(void *,
-                                                          double,
-                                                          double *, double *));
+                                      void (deriv_func)(void *,
+                                                        double,
+                                                        double *, double *));
 
 /* core L-BFGS-B optimization function */
 PLL_EXPORT double pll_minimize_lbfgsb(double *x,
@@ -194,9 +193,9 @@ PLL_EXPORT void pll_minimize_em( double *w,
 /******************************************************************************/
 
 /* functions in pll_optimize.c */
-PLL_EXPORT double pll_derivative_func(void * parameters,
-                                      double proposal,
-                                      double *df, double *ddf);
+PLL_EXPORT void pll_derivative_func(void * parameters,
+                                    double proposal,
+                                    double *df, double *ddf);
 
 /* high level optimization functions */
 PLL_EXPORT double pll_optimize_parameters_onedim(pll_optimize_options_t * p,
