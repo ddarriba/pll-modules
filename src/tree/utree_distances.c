@@ -113,7 +113,6 @@ PLL_EXPORT int pll_utree_consistency_set(pll_utree_t * t1,
       {
         checkval = 1;
         tipnode->node_index = j;
-        tipnode->node_index = j;
         break;
       }
     }
@@ -435,7 +434,7 @@ static int compare_splits (pll_split_t s1,
   for (i=0; i<split_len; ++i)
   {
     if (s1[i] != s2[i])
-      return (int) (s1[i] - s2[i]);
+      return (int) (s1[i] > s2[i]?1:-1);
   }
   return 0;
 }
@@ -451,7 +450,7 @@ static int _cmp_splits (const void * a, const void * b)
   int i = 0;
   for(;((*s1)[i]==(*s2)[i]) && limit;--limit,++i);
   assert(limit);
-  return (int) ((*s1)[i]-(*s2)[i]);
+  return (int) ((*s1)[i]>(*s2)[i]?1:-1);
 }
 
 static void normalize_split(pll_split_t split, unsigned int n_tips)
