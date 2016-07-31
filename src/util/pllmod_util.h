@@ -34,16 +34,73 @@
 #define PLLMOD_PROT_FREQS_COUNT 20
 
 /* error codes for UTIL libpll module (5001-6000)*/
-#define PLLMOD_ERROR_UNKNOWN_MODEL                5001
+#define PLLMOD_ERROR_MODEL_UNKNOWN                5001
+#define PLLMOD_ERROR_MODEL_INVALID_DEF            5002
+#define PLLMOD_ERROR_MIXTURE_INVALID_SIZE         5011
+#define PLLMOD_ERROR_MIXTURE_INVALID_COMPONENT    5012
 
+/* rate heterogeneity mode */
+#define PLLMOD_MIXTYPE_FIXED      (0)
+#define PLLMOD_MIXTYPE_GAMMA      (1<<0)
+#define PLLMOD_MIXTYPE_FREE       (1<<1)
+
+/* Substitution model definition */
+typedef struct subst_model
+{
+  char * name;            /* name of the model */
+  int states;             /* number of states in this model */
+  const double * rates;   /* model substitution rates; NULL = optimize */
+  const double * freqs;   /* model base frequencies; NULL = optimize */
+  int * rate_sym;         /* substitution matrix symmetries: AC AG AT CG CT GT */
+  int * freq_sym;         /* base frequencies symmetries: A C G T */
+} pllmod_subst_model_t;
+
+/* Substitution model definition */
+typedef struct mixture_model
+{
+  char * name;                     /* name of the model                      */
+  unsigned int ncomp;              /* number of mixture components           */
+  pllmod_subst_model_t ** models;  /* list of mixture components             */
+  double * mix_rates;              /* fixed mixture rates; NULL = optimize   */
+  double * mix_weights;            /* fixed mixture weights; NULL = optimize */
+  int mix_type;                    /* component rates: fixed, gamma or free  */
+} pllmod_mixture_model_t;
+
+/* general model management functions */
+PLL_EXPORT pllmod_subst_model_t * pllmod_util_model_create_custom(const char * name,
+                                                                  unsigned int states,
+                                                                  const double * rates,
+                                                                  const double * freqs,
+                                                                  const char * rate_sym_str,
+                                                                  const char * freq_sym_str);
+PLL_EXPORT void pllmod_util_model_destroy(pllmod_subst_model_t * model);
+PLL_EXPORT pllmod_subst_model_t * pllmod_util_model_clone(const pllmod_subst_model_t * src);
+PLL_EXPORT int * pllmod_util_model_string_to_sym(const char * s);
+
+PLL_EXPORT pllmod_mixture_model_t * pllmod_util_model_mixture_create(const char * name,
+                                                                     unsigned int ncomp,
+                                                                     pllmod_subst_model_t ** const models,
+                                                                     const double * mix_rates,
+                                                                     const double * mix_weights,
+                                                                     int mix_type);
+PLL_EXPORT void pllmod_util_model_mixture_destroy(pllmod_mixture_model_t * mixture);
+PLL_EXPORT pllmod_mixture_model_t * pllmod_util_model_mixture_clone(const pllmod_mixture_model_t * src);
+
+/* functions for working with built-in DNA models */
+PLL_EXPORT unsigned int pllmod_util_model_count_dna();
+PLL_EXPORT char ** pllmod_util_model_names_dna();
+PLL_EXPORT int pllmod_util_model_exists_dna(const char * model_name);
+PLL_EXPORT pllmod_subst_model_t * pllmod_util_model_info_dna(const char * model_name);
 
 /* functions for working with built-in protein models */
-PLL_EXPORT unsigned int pllmod_util_get_protein_model_count();
-PLL_EXPORT const char ** pllmod_util_get_protein_model_names();
-PLL_EXPORT int pllmod_util_protein_model_exists(const char * model_name);
-PLL_EXPORT const double * pllmod_util_get_protein_model_rates(const char * model_name);
-PLL_EXPORT const double * pllmod_util_get_protein_model_freqs(const char * model_name);
-PLL_EXPORT unsigned int pllmod_util_get_protein_model_matrix_count(const char * model_name);
-PLL_EXPORT int pllmod_util_set_protein_model(pll_partition_t * partition, const char * model_name, int model_freqs);
+PLL_EXPORT unsigned int pllmod_util_model_count_protein();
+PLL_EXPORT char ** pllmod_util_model_names_protein();
+PLL_EXPORT int pllmod_util_model_exists_protein(const char * model_name);
+PLL_EXPORT pllmod_subst_model_t * pllmod_util_model_info_protein(const char * model_name);
+PLL_EXPORT int pllmod_util_model_set_proteinl(pll_partition_t * partition, const char * model_name, int model_freqs);
+
+PLL_EXPORT int pllmod_util_model_exists_protmix(const char * model_name);
+PLL_EXPORT pllmod_mixture_model_t * pllmod_util_model_info_protmix(const char * model_name);
+PLL_EXPORT int pllmod_util_model_set_protmix(pll_partition_t * partition, const char * model_name, int model_freqs);
 
 #endif
