@@ -233,13 +233,13 @@ static int set_x_to_parameters(pll_optimize_options_t * params,
     cur_index = 0;
     for (i = 0; i < (rate_cats); ++i)
     {
-      if (i != params->highest_freq_state)
+      if (i != params->highest_weight_state)
       {
         weights[i] = xptr[cur_index] / sum_ratios;
         cur_index++;
       }
     }
-    weights[params->highest_freq_state] = 1.0 / sum_ratios;
+    weights[params->highest_weight_state] = 1.0 / sum_ratios;
     pll_set_category_weights (partition, weights);
     free (weights);
     xptr += (rate_cats - 1);
@@ -945,11 +945,12 @@ PLL_EXPORT double pll_optimize_branch_lengths_local (
                                           tree->pmatrix_index,
                                           params_indices,
                                           NULL);
+
+    DBG("pll_optimize_branch_lengths_local: iters %d, old: %f, new: %f\n", iters, lnl, new_lnl);
+
     assert(new_lnl >= lnl);
 
     iters --;
-
-    DBG("pll_optimize_branch_lengths_local: iters %d, old: %f, new: %f\n", iters, lnl, new_lnl);
 
     /* check convergence */
     if (fabs (new_lnl - lnl) < tolerance) iters = 0;
