@@ -945,13 +945,12 @@ PLL_EXPORT double pll_optimize_branch_lengths_local (
                                           tree->pmatrix_index,
                                           params_indices,
                                           NULL);
-    if(new_lnl < lnl)
-      printf("diff %e\n", new_lnl-lnl);
-    // assert(new_lnl >= lnl);
-
-    iters --;
 
     DBG("pll_optimize_branch_lengths_local: iters %d, old: %f, new: %f\n", iters, lnl, new_lnl);
+
+    assert(new_lnl >= lnl);
+
+    iters --;
 
     /* check convergence */
     if (fabs (new_lnl - lnl) < tolerance) iters = 0;

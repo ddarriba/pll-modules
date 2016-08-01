@@ -44,7 +44,7 @@ PROG=libpll_util.so
 
 all: $(PROG)
 
-OBJS=pllmod_prot_models.o $(DEPS)
+OBJS=models.o models_dna.o models_aa.o $(DEPS)
 
 $(PROG): $(OBJS)
 	$(CC) -shared $(SONAMEFLAGS) -o $@ $+
