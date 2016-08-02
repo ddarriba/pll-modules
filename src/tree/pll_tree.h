@@ -245,7 +245,10 @@ PLL_EXPORT int pll_utree_traverse_apply(pll_utree_t * root,
 PLL_EXPORT int pll_utree_is_tip(pll_utree_t * node);
 
 PLL_EXPORT void pll_utree_set_length(pll_utree_t * edge,
-                                            double length);
+                                     double length);
+
+PLL_EXPORT void pll_utree_scale_branches(pll_utree_t * tree,
+                                         double branch_length_scaler);
 
 PLL_EXPORT double pll_utree_compute_lk(pll_partition_t * partition,
                                        pll_utree_t * tree,

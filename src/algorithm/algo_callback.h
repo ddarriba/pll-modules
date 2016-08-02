@@ -18,22 +18,22 @@
     Exelixis Lab, Heidelberg Instutute for Theoretical Studies
     Schloss-Wolfsbrunnenweg 35, D-69118 Heidelberg, Germany
 */
-#ifndef PLL_ALGORITHM_H_
-#define PLL_ALGORITHM_H_
+#ifndef ALGO_CALLBACK_H_
+#define ALGO_CALLBACK_H_
 
-#include "pll_optimize.h"
-#include "pll_tree.h"
+#include "pllmod_algorithm.h"
 
-#define PLLMOD_ALGO_MAX_WEIGHTS         20
-#define PLLMOD_ALGO_MIN_WEIGHT_RATIO   0.1
-#define PLLMOD_ALGO_MAX_WEIGHT_RATIO   0.1
-#define PLLMOD_ALGO_BFGS_FACTR         1e9
+struct rate_weights_params {
+  pll_partition_t * partition;
+  pll_utree_t * tree;
+  unsigned int * params_indices;
+  unsigned int highest_weight_state;
+};
 
-PLL_EXPORT double pllmod_algo_opt_rates_weights (pll_partition_t * partition,
-                                                 pll_utree_t * tree,
-                                                 unsigned int * params_indices,
-                                                 double min_rate,
-                                                 double max_rate,
-                                                 double tolerance);
+/* optimize free rates */
+double target_rates_func(void *p, double *x);
 
-#endif
+/* optimize free weights */
+double target_weights_func(void *p, double *x);
+
+#endif /* ALGO_CALLBACK_H_ */

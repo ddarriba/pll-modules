@@ -153,6 +153,7 @@ static int set_x_to_parameters(pll_optimize_options_t * params,
       }
     }
     freqs[params->highest_freq_state] = 1.0 / sum_ratios;
+    
     pll_set_frequencies (partition,
                          params_index,
                          freqs);

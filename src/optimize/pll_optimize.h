@@ -25,7 +25,6 @@
 #define PLL_H_
 #include "pll.h"
 #endif
-//#include <search.h>
 
 /* Parameters mask */
 #define PLL_PARAMETER_SUBST_RATES         (1<<0)

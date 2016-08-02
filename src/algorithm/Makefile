@@ -43,7 +43,8 @@ PROG=libpll_algorithm.so
 
 all: $(PROG)
 
-OBJS=pllmod_algorithm.o
+OBJS=pllmod_algorithm.o \
+		 algo_callback.o
 
 $(PROG): $(OBJS)
 	$(CC) -shared $(SONAMEFLAGS) -o $@ $+

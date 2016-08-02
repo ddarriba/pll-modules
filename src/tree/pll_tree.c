@@ -29,9 +29,9 @@ static int rtree_rollback_NNI(pll_tree_rollback_t * rollback_info);
 static int utree_rollback_TBR(pll_tree_rollback_t * rollback_info);
 static int utree_rollback_SPR(pll_tree_rollback_t * rollback_info);
 static int utree_rollback_NNI(pll_tree_rollback_t * rollback_info);
-static int utree_find_node_in_subtree(pll_utree_t * root,
-                                                 pll_utree_t * node);
+static int utree_find_node_in_subtree(pll_utree_t * root, pll_utree_t * node);
 static int cb_update_matrices_partials(pll_utree_t * node, void *data);
+static void scale_branch_length_recursive (pll_utree_t * tree, double factor);
 
 struct cb_params
 {
@@ -492,6 +492,20 @@ PLL_EXPORT void pll_utree_set_length(pll_utree_t * edge,
   edge->length = edge->back->length = length;
 }
 
+PLL_EXPORT void pll_utree_scale_branches(pll_utree_t * tree,
+                                         double branch_length_scaler)
+{
+  /* scale branch lengths */
+  scale_branch_length_recursive(tree, branch_length_scaler);
+  if (tree->back->next)
+  {
+    scale_branch_length_recursive(tree->back->next->back,
+                                  branch_length_scaler);
+    scale_branch_length_recursive(tree->back->next->next->back,
+                                  branch_length_scaler);
+  }
+}
+
 /**
  * compute the likelihood on a utree structure
  * if update_pmatrices or update_partials are set, p-matrices and CLVs are
@@ -739,4 +753,23 @@ static int cb_update_matrices_partials(pll_utree_t * node, void *data)
   }
 
   return PLL_SUCCESS;
+}
+
+/*
+ * scale all branches in a subtree
+ */
+static void scale_branch_length_recursive (pll_utree_t * tree,
+                                           double factor)
+{
+  if (tree)
+  {
+    tree->length *= factor;
+    tree->back->length *= factor;
+
+    if (tree->next)
+    {
+      scale_branch_length_recursive (tree->next->back, factor);
+      scale_branch_length_recursive (tree->next->next->back, factor);
+    }
+  }
 }
