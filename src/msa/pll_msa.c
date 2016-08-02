@@ -263,8 +263,11 @@ PLL_EXPORT double * pll_msa_empirical_subst_rates(pll_partition_t * partition)
         subst_rates[k - 1] = 50.0;
     }
   }
-
   subst_rates[k - 1] = 1.0;
+
+  free (state_freq);
+  free (pair_rates);
+  
   return subst_rates;
 }
 
