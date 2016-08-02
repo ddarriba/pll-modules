@@ -23,12 +23,35 @@
 
 #include "pllmod_algorithm.h"
 
+struct freqs_params {
+  pll_partition_t * partition;
+  pll_utree_t * tree;
+  unsigned int * params_indices;    /* indices for computing the likelihood */
+  unsigned int params_index;        /* index of the frequencies to optimize */
+  unsigned int highest_freq_state;  /* index of the highest frequency */
+};
+
+struct algo_subst_params {
+  pll_partition_t * partition;
+  pll_utree_t * tree;
+  int * symmetries;                 /* substitution parameters symmetries */
+  int subst_free_params;            /* number of free parameters */
+  unsigned int * params_indices;    /* indices for computing the likelihood */
+  unsigned int params_index;        /* index of the parameter to optimize */
+};
+
 struct rate_weights_params {
   pll_partition_t * partition;
   pll_utree_t * tree;
-  unsigned int * params_indices;
-  unsigned int highest_weight_state;
+  unsigned int * params_indices;     /* indices for computing the likelihood */
+  unsigned int highest_weight_state; /* index of the highest weight */
 };
+
+/* optimize frequencies */
+double target_freqs_func(void *p, double *x);
+
+/* optimize substitution rates  */
+double target_subst_params_func(void *p, double *x);
 
 /* optimize free rates */
 double target_rates_func(void *p, double *x);
