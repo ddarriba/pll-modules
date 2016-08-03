@@ -21,7 +21,11 @@
 #include "pll_optimize.h"
 #include "lbfgsb/lbfgsb.h"
 
-#define UPDATE_SCALERS 1
+/* evaluate the likelihood score after each single branch optimization and
+ * reset to the original branch if it is not improved */
+#ifndef CHECK_PERBRANCH_IMPR
+#define CHECK_PERBRANCH_IMPR 0
+#endif
 
 /*
  * Note: Compile with flag _ULTRACHECK for checking pre/postconditions
@@ -734,7 +738,6 @@ static void update_partials_and_scalers(pll_partition_t * partition,
   op.child2_matrix_index = left_child->back->pmatrix_index;
   op.child2_scaler_index = left_child->back->scaler_index;
 
-#if(UPDATE_SCALERS)
   /* update scalers */
   if (parent->scaler_index != PLL_SCALE_BUFFER_NONE)
   {
@@ -752,7 +755,6 @@ static void update_partials_and_scalers(pll_partition_t * partition,
                   0);
     }
   }
-#endif
   pll_update_partials (partition, &op, 1);
 }
 
@@ -763,7 +765,9 @@ static int recomp_iterative (pll_newton_tree_params_t * params,
                               int keep_update)
 {
   pll_utree_t *tr_p, *tr_q, *tr_z;
+#if(CHECK_PERBRANCH_IMPR)
   double eval_loglikelihood;
+#endif
   double xmin,    /* min branch length */
          xguess,  /* initial guess */
          xmax,    /* max branch length */
@@ -807,6 +811,7 @@ static int recomp_iterative (pll_newton_tree_params_t * params,
                              &(tr_p->pmatrix_index),
                              &xres,1);
 
+#if(CHECK_PERBRANCH_IMPR)
     /* check and compare likelihood */
     eval_loglikelihood = pll_compute_edge_loglikelihood (params->partition,
                                                       tr_p->clv_index,
@@ -822,10 +827,11 @@ static int recomp_iterative (pll_newton_tree_params_t * params,
     {
       /* fix new score */
       *loglikelihood_score = eval_loglikelihood;
-
+#endif
       /* update branch length in the tree structure */
       tr_p->length = xres;
       tr_p->back->length = tr_p->length;
+#if(CHECK_PERBRANCH_IMPR)
     }
     else
     {
@@ -836,6 +842,7 @@ static int recomp_iterative (pll_newton_tree_params_t * params,
                                &tr_p->length,1);
 
     }
+#endif
   }
   else
   {
