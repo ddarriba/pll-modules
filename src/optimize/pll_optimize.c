@@ -153,7 +153,7 @@ static int set_x_to_parameters(pll_optimize_options_t * params,
       }
     }
     freqs[params->highest_freq_state] = 1.0 / sum_ratios;
-    
+
     pll_set_frequencies (partition,
                          params_index,
                          freqs);
@@ -341,7 +341,8 @@ static unsigned int count_n_free_variables (pll_optimize_options_t * params)
     int n_subst_rates = partition->states * (partition->states - 1) / 2;
     num_variables +=
         params->subst_params_symmetries ?
-            (unsigned int) v_int_max (params->subst_params_symmetries, n_subst_rates) :
+            (unsigned int) v_int_max (params->subst_params_symmetries,
+                                      n_subst_rates) :
             (unsigned int) n_subst_rates - 1;
   }
   if (params->which_parameters & PLL_PARAMETER_FREQUENCIES)
@@ -758,9 +759,16 @@ static void update_partials_and_scalers(pll_partition_t * partition,
 /* if keep_update, P-matrices are updated after each branch length opt */
 static int recomp_iterative (pll_newton_tree_params_t * params,
                               int radius,
+                              double * loglikelihood_score,
                               int keep_update)
 {
   pll_utree_t *tr_p, *tr_q, *tr_z;
+  double eval_loglikelihood;
+  double xmin,    /* min branch length */
+         xguess,  /* initial guess */
+         xmax,    /* max branch length */
+         xtol,    /* tolerance */
+         xres;    /* optimal found branch length */
 
   tr_p = params->tree;
   tr_q = params->tree->next;
@@ -769,14 +777,14 @@ static int recomp_iterative (pll_newton_tree_params_t * params,
   /* check branch length integrity */
   assert(d_equals(tr_p->length, tr_p->back->length));
 
-  double xmin, xguess, xmax, xtol;
-
+  /* prepare sumtable for current branch */
   pll_update_sumtable (params->partition,
                        tr_p->clv_index,
                        tr_p->back->clv_index,
                        params->params_indices,
                        params->sumtable);
 
+  /* set N-R parameters */
   xmin = params->branch_length_min;
   xmax = params->branch_length_max;
   xtol = params->tolerance;
@@ -784,9 +792,9 @@ static int recomp_iterative (pll_newton_tree_params_t * params,
   if (xguess < xmin || xguess > xmax)
     xguess = PLL_OPT_DEFAULT_BRANCH_LEN;
 
-  double xres = pll_minimize_newton (xmin, xguess, xmax, xtol,
-                                     10, params,
-                                     utree_derivative_func);
+  xres = pll_minimize_newton (xmin, xguess, xmax, xtol,
+                              10, params,
+                              utree_derivative_func);
 
   if (pll_errno)
     return PLL_FAILURE;
@@ -798,11 +806,43 @@ static int recomp_iterative (pll_newton_tree_params_t * params,
                              params->params_indices,
                              &(tr_p->pmatrix_index),
                              &xres,1);
-  }
 
-  /* update branch length in the tree structure */
-  tr_p->length = xres;
-  tr_p->back->length = tr_p->length;
+    /* check and compare likelihood */
+    eval_loglikelihood = pll_compute_edge_loglikelihood (params->partition,
+                                                      tr_p->clv_index,
+                                                      tr_p->scaler_index,
+                                                      tr_p->back->clv_index,
+                                                      tr_p->back->scaler_index,
+                                                      tr_p->pmatrix_index,
+                                                      params->params_indices,
+                                                      NULL);
+
+    /* check if the optimal found value improves the likelihood score */
+    if (eval_loglikelihood >= *loglikelihood_score)
+    {
+      /* fix new score */
+      *loglikelihood_score = eval_loglikelihood;
+
+      /* update branch length in the tree structure */
+      tr_p->length = xres;
+      tr_p->back->length = tr_p->length;
+    }
+    else
+    {
+      /* reset branch length */
+      pll_update_prob_matrices(params->partition,
+                               params->params_indices,
+                               &(tr_p->pmatrix_index),
+                               &tr_p->length,1);
+
+    }
+  }
+  else
+  {
+    /* update branch length in the tree structure */
+    tr_p->length = xres;
+    tr_p->back->length = tr_p->length;
+  }
 
   DBG(" Optimized branch %3d - %3d (%.6f)\n",
       tr_p->clv_index, tr_p->back->clv_index, tr_p->length);
@@ -823,7 +863,10 @@ static int recomp_iterative (pll_newton_tree_params_t * params,
     pll_newton_tree_params_t params_cpy;
     memcpy(&params_cpy, params, sizeof(pll_newton_tree_params_t));
     params_cpy.tree = tr_q->back;
-    if (!recomp_iterative (&params_cpy, radius-1, keep_update))
+    if (!recomp_iterative (&params_cpy,
+                           radius-1,
+                           loglikelihood_score,
+                           keep_update))
       return PLL_FAILURE;
 
     /* update children 'Z'
@@ -838,7 +881,10 @@ static int recomp_iterative (pll_newton_tree_params_t * params,
 
    /* eval */
     params_cpy.tree = tr_z->back;
-    if (!recomp_iterative (&params_cpy, radius-1, keep_update))
+    if (!recomp_iterative (&params_cpy,
+                           radius-1,
+                           loglikelihood_score,
+                           keep_update))
       return PLL_FAILURE;
 
     /* reset to initial state
@@ -869,7 +915,7 @@ PLL_EXPORT double pll_optimize_branch_lengths_local (
                                               int keep_update)
 {
   unsigned int iters;
-  double lnl = 0.0, new_lnl;
+  double loglikelihood = 0.0, new_loglikelihood;
   unsigned int sites_alloc;
 
   /**
@@ -879,14 +925,14 @@ PLL_EXPORT double pll_optimize_branch_lengths_local (
    */
 
   /* get the initial likelihood score */
-  lnl = pll_compute_edge_loglikelihood (partition,
-                                        tree->back->clv_index,
-                                        tree->back->scaler_index,
-                                        tree->clv_index,
-                                        tree->scaler_index,
-                                        tree->pmatrix_index,
-                                        params_indices,
-                                        NULL);
+  loglikelihood = pll_compute_edge_loglikelihood (partition,
+                                                  tree->back->clv_index,
+                                                  tree->back->scaler_index,
+                                                  tree->clv_index,
+                                                  tree->scaler_index,
+                                                  tree->pmatrix_index,
+                                                  params_indices,
+                                                  NULL);
 
   /* set parameters for N-R optimization */
   pll_newton_tree_params_t params;
@@ -921,48 +967,49 @@ PLL_EXPORT double pll_optimize_branch_lengths_local (
   iters = smoothings;
   while (iters)
   {
-    new_lnl = lnl;
+    new_loglikelihood = loglikelihood;
 
     /* iterate on first edge */
     params.tree = tree;
-    if (!recomp_iterative (&params, radius, keep_update))
+    if (!recomp_iterative (&params, radius, &new_loglikelihood, keep_update))
     {
       return PLL_FAILURE;
     }
 
     /* iterate on second edge */
     params.tree = tree->back;
-    if (!recomp_iterative (&params, radius-1, keep_update))
+    if (!recomp_iterative (&params, radius-1, &new_loglikelihood, keep_update))
     {
       return PLL_FAILURE;
     }
 
     /* compute likelihood after optimization */
-    new_lnl = pll_compute_edge_loglikelihood (partition,
-                                          tree->back->clv_index,
-                                          tree->back->scaler_index,
-                                          tree->clv_index,
-                                          tree->scaler_index,
-                                          tree->pmatrix_index,
-                                          params_indices,
-                                          NULL);
+    new_loglikelihood = pll_compute_edge_loglikelihood (partition,
+                                                        tree->back->clv_index,
+                                                        tree->back->scaler_index,
+                                                        tree->clv_index,
+                                                        tree->scaler_index,
+                                                        tree->pmatrix_index,
+                                                        params_indices,
+                                                        NULL);
 
-    DBG("pll_optimize_branch_lengths_local: iters %d, old: %f, new: %f\n", iters, lnl, new_lnl);
+    DBG("pll_optimize_branch_lengths_local: iters %d, old: %f, new: %f\n",
+        iters, loglikelihood, new_loglikelihood);
 
-    assert(new_lnl >= lnl);
+    assert(new_loglikelihood >= loglikelihood);
 
     iters --;
 
     /* check convergence */
-    if (fabs (new_lnl - lnl) < tolerance) iters = 0;
+    if (fabs (new_loglikelihood - loglikelihood) < tolerance) iters = 0;
 
-    lnl = new_lnl;
+    loglikelihood = new_loglikelihood;
   }
 
   /* deallocate sumtable */
   pll_aligned_free(params.sumtable);
 
-  return -1*lnl;
+  return -1*loglikelihood;
 } /* pll_optimize_branch_lengths_local */
 
 PLL_EXPORT double pll_optimize_branch_lengths_iterative (
@@ -975,17 +1022,17 @@ PLL_EXPORT double pll_optimize_branch_lengths_iterative (
                                               int smoothings,
                                               int keep_update)
 {
-  double lnl;
-  lnl = pll_optimize_branch_lengths_local (partition,
-                                           tree,
-                                           params_indices,
-                                           branch_length_min,
-                                           branch_length_max,
-                                           tolerance,
-                                           smoothings,
-                                           -1,
-                                           keep_update);
-  return lnl;
+  double loglikelihood;
+  loglikelihood = pll_optimize_branch_lengths_local (partition,
+                                                     tree,
+                                                     params_indices,
+                                                     branch_length_min,
+                                                     branch_length_max,
+                                                     tolerance,
+                                                     smoothings,
+                                                     -1,
+                                                     keep_update);
+  return loglikelihood;
 } /* pll_optimize_branch_lengths_iterative */
 
 PLL_EXPORT void pll_derivative_func(void * parameters,

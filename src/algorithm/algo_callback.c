@@ -33,6 +33,9 @@ double target_freqs_func(void *p, double *x)
   }
   freqs[highest_freq_state] = 1.0 / sum_ratios;
 
+  /* important!! invalidate eigen-decomposition */
+  partition->eigen_decomp_valid[params_index] = 0;
+
   /* compute negative score */
   score = -1 * pll_utree_compute_lk(partition,
                                     tree,
