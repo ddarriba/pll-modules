@@ -165,7 +165,68 @@ PLL_EXPORT double pllmod_algo_opt_subst_rates (pll_partition_t * partition,
   free(lb);
   free(ub);
   free(bt);
-  
+
+  return cur_logl;
+}
+
+PLL_EXPORT double pllmod_algo_opt_alpha (pll_partition_t * partition,
+                                         pll_utree_t * tree,
+                                         unsigned int * params_indices,
+                                         double min_alpha,
+                                         double max_alpha,
+                                         double *alpha,
+                                         double tolerance)
+{
+  double cur_logl;
+  double f2x;
+  double xres;
+
+  struct default_params opt_params;
+  opt_params.partition      = partition;
+  opt_params.tree           = tree;
+  opt_params.params_indices = params_indices;
+
+  xres = pll_minimize_brent(min_alpha, *alpha, max_alpha,
+                            tolerance,
+                            &cur_logl,
+                            &f2x,
+                            (void *) &opt_params,
+                            &target_alpha_func);
+
+  cur_logl = target_alpha_func(&opt_params, xres);
+  *alpha = xres;
+
+  return cur_logl;
+}
+
+PLL_EXPORT double pllmod_algo_opt_pinv (pll_partition_t * partition,
+                                        pll_utree_t * tree,
+                                        unsigned int * params_indices,
+                                        double min_pinv,
+                                        double max_pinv,
+                                        double tolerance)
+{
+  double cur_logl;
+  double f2x;
+  double xres;
+  double start_pinv;
+  struct default_params opt_params;
+  opt_params.partition      = partition;
+  opt_params.tree           = tree;
+  opt_params.params_indices = params_indices;
+  start_pinv = partition->prop_invar[params_indices[0]];
+
+  xres = pll_minimize_brent(min_pinv,
+                            start_pinv,
+                            max_pinv,
+                            tolerance,
+                            &cur_logl,
+                            &f2x,
+                            (void *) &opt_params,
+                            &target_pinv_func);
+
+  cur_logl = target_pinv_func(&opt_params, xres);
+
   return cur_logl;
 }
 

@@ -23,6 +23,12 @@
 
 #include "pllmod_algorithm.h"
 
+struct default_params {
+  pll_partition_t * partition;
+  pll_utree_t * tree;
+  unsigned int * params_indices;     /* indices for computing the likelihood */
+};
+
 struct freqs_params {
   pll_partition_t * partition;
   pll_utree_t * tree;
@@ -52,6 +58,12 @@ double target_freqs_func(void *p, double *x);
 
 /* optimize substitution rates  */
 double target_subst_params_func(void *p, double *x);
+
+/* optimize alpha and discrete rate categories */
+double target_alpha_func(void *p, double x);
+
+/* optimize proportion of invariant sites */
+double target_pinv_func(void *p, double x);
 
 /* optimize free rates */
 double target_rates_func(void *p, double *x);

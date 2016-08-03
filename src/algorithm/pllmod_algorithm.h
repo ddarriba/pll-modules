@@ -53,6 +53,21 @@ PLL_EXPORT double pllmod_algo_opt_subst_rates (pll_partition_t * partition,
                                                double max_rate,
                                                double tolerance);
 
+PLL_EXPORT double pllmod_algo_opt_alpha (pll_partition_t * partition,
+                                         pll_utree_t * tree,
+                                         unsigned int * params_indices,
+                                         double min_alpha,
+                                         double max_alpha,
+                                         double *alpha,
+                                         double tolerance);
+
+PLL_EXPORT double pllmod_algo_opt_pinv (pll_partition_t * partition,
+                                        pll_utree_t * tree,
+                                        unsigned int * params_indices,
+                                        double min_pinv,
+                                        double max_pinv,
+                                        double tolerance);
+
 /*
  * Optimize free rates and rate weights together, linked to `partition->rate_cats`.
  * Uses 2 step L-BFGS-B algorithm.

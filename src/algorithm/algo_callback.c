@@ -96,6 +96,55 @@ double target_subst_params_func(void *p, double *x)
   return score;
 }
 
+double target_alpha_func(void *p, double x)
+{
+  struct default_params * params = (struct default_params *) p;
+  pll_partition_t * partition   = params->partition;
+  pll_utree_t * tree            = params->tree;
+  unsigned int * params_indices = params->params_indices;
+
+  /* update rate categories */
+  if (!pll_compute_gamma_cats (x,
+                               partition->rate_cats,
+                               partition->rates))
+  {
+    return PLL_FAILURE;
+  }
+
+  /* compute negative score */
+  double score = -1 *
+                 pll_utree_compute_lk(partition,
+                                      tree,
+                                      params_indices,
+                                      1,   /* update pmatrices */
+                                      1);  /* update partials */
+  return score;
+}
+
+double target_pinv_func(void *p, double x)
+{
+  struct default_params * params = (struct default_params *) p;
+  pll_partition_t * partition   = params->partition;
+  pll_utree_t * tree            = params->tree;
+  unsigned int * params_indices = params->params_indices;
+  unsigned int i;
+
+  /* update proportion of invariant sites */
+  for (i=0; i<partition->rate_cats; ++i)
+    pll_update_invariant_sites_proportion(partition,
+                                          params_indices[i],
+                                          x);
+
+  /* compute negative score */
+  double score = -1 *
+                 pll_utree_compute_lk(partition,
+                                      tree,
+                                      params_indices,
+                                      1,   /* update pmatrices */
+                                      1);  /* update partials */
+  return score;
+}
+
 double target_rates_func(void *p, double *x)
 {
   struct rate_weights_params * params = (struct rate_weights_params *) p;
