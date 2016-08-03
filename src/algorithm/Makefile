@@ -35,7 +35,8 @@ else
 endif
 
 AR = ar
-CFLAGS = -D_GNU_SOURCE -fPIC $(PROFILING) -msse3 -O3 -I../../libs/libpll/src $(WARN)
+CFLAGS = -D_GNU_SOURCE -fPIC $(PROFILING) -msse3 -O3 $(WARN)
+CFLAGS += -I../../libs/libpll/src -I../tree -I../optimize
 LINKFLAGS=$(PROFILING)
 LIBS=-lpll_optimize -lpll_tree -lpll -lm
 

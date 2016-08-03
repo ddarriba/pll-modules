@@ -23,8 +23,8 @@
 
 /* evaluate the likelihood score after each single branch optimization and
  * reset to the original branch if it is not improved */
-#ifndef CHECK_PERBRANCH_IMPR
-#define CHECK_PERBRANCH_IMPR 0
+#ifndef NOCHECK_PERBRANCH_IMPR
+#define CHECK_PERBRANCH_IMPR 1
 #endif
 
 /*
