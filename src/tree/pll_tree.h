@@ -252,7 +252,7 @@ PLL_EXPORT void pll_utree_scale_branches(pll_utree_t * tree,
 
 PLL_EXPORT double pll_utree_compute_lk(pll_partition_t * partition,
                                        pll_utree_t * tree,
-                                       unsigned int * params_indices,
+                                       const unsigned int * params_indices,
                                        int update_pmatrices,
                                        int update_partials);
 
