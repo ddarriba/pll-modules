@@ -24,6 +24,7 @@ PLL_EXPORT double * pll_msa_empirical_frequencies(pll_partition_t * partition)
 {
   unsigned int i, j, k, n;
   unsigned int states         = partition->states;
+  unsigned int states_padded  = partition->states_padded;
   unsigned int sites          = partition->sites;
   unsigned int rate_cats      = partition->rate_cats;
   unsigned int tips           = partition->tips;
@@ -82,7 +83,8 @@ PLL_EXPORT double * pll_msa_empirical_frequencies(pll_partition_t * partition)
   {
     for (i = 0; i < tips; ++i)
     {
-      for (n = 0, j = 0; j < sites * states * rate_cats; j += (states * rate_cats), ++n)
+      for (n = 0, j = 0; j < sites * states_padded * rate_cats;
+                                         j += (states_padded * rate_cats), ++n)
       {
         double sum_site = 0.0;
         for (k = 0; k < states; ++k)
@@ -118,6 +120,7 @@ PLL_EXPORT double * pll_msa_empirical_subst_rates(pll_partition_t * partition)
 {
   unsigned int i, j, k, n;
   unsigned int states              = partition->states;
+  unsigned int states_padded       = partition->states_padded;
   unsigned int sites               = partition->sites;
   unsigned int tips                = partition->tips;
   unsigned int rate_cats           = partition->rate_cats;
@@ -211,7 +214,8 @@ PLL_EXPORT double * pll_msa_empirical_subst_rates(pll_partition_t * partition)
   else
   {
     unsigned int cur_site = 0;
-    for (n = 0; n < sites * states * rate_cats; n += (states * rate_cats))
+    for (n = 0; n < sites * states_padded * rate_cats;
+                                              n += (states_padded * rate_cats))
     {
       memset (state_freq, 0, sizeof(unsigned) * (states));
       for (i = 0; i < tips; ++i)
