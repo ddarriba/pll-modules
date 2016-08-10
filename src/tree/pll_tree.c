@@ -615,6 +615,59 @@ PLL_EXPORT int pll_utree_set_clv_minimal(pll_utree_t * root,
   return PLL_SUCCESS;
 }
 
+static int rtree_traverse_apply(pll_rtree_t * node,
+                                int (*cb_pre_trav)(pll_rtree_t *, void *),
+                                int (*cb_in_trav)(pll_rtree_t *, void *),
+                                int (*cb_post_trav)(pll_rtree_t *, void *),
+                                void *data)
+{
+  int retval = 1;
+
+  if (cb_pre_trav && !cb_pre_trav(node,  data))
+    return PLL_FAILURE;
+
+  if (node->left)
+  {
+    retval &= rtree_traverse_apply(node->left,
+                                   cb_pre_trav,
+                                   cb_in_trav,
+                                   cb_post_trav,
+                                   data);
+
+    if (cb_in_trav && !cb_in_trav(node,  data))
+      return PLL_FAILURE;
+
+    retval &= rtree_traverse_apply(node->right,
+                                   cb_pre_trav,
+                                   cb_in_trav,
+                                   cb_post_trav,
+                                   data);
+  }
+
+  if (cb_post_trav)
+    retval &= cb_post_trav(node,  data);
+
+  return retval;
+}
+
+PLL_EXPORT int pll_rtree_traverse_apply(pll_rtree_t * root,
+                                        int (*cb_pre_trav)(pll_rtree_t *, void *),
+                                        int (*cb_in_trav)(pll_rtree_t *, void *),
+                                        int (*cb_post_trav)(pll_rtree_t *, void *),
+                                        void *data)
+{
+  int retval = 1;
+
+  if (!root->left || !root->right) return PLL_FAILURE;
+
+  retval &= rtree_traverse_apply(root,
+                                 cb_pre_trav,
+                                 cb_in_trav,
+                                 cb_post_trav,
+                                 data);
+
+  return retval;
+}
 /******************************************************************************/
 /* Static functions */
 

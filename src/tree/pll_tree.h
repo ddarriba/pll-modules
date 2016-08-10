@@ -256,4 +256,10 @@ PLL_EXPORT double pll_utree_compute_lk(pll_partition_t * partition,
                                        int update_pmatrices,
                                        int update_partials);
 
+PLL_EXPORT int pll_rtree_traverse_apply(pll_rtree_t * root,
+                                        int (*cb_pre_trav)(pll_rtree_t *, void *),
+                                        int (*cb_in_trav)(pll_rtree_t *, void *),
+                                        int (*cb_post_trav)(pll_rtree_t *, void *),
+                                        void *data);
+
 #endif /* PLL_TREE_H_ */
