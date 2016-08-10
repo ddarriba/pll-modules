@@ -37,11 +37,11 @@ double target_freqs_func(void *p, double *x)
   partition->eigen_decomp_valid[params_index] = 0;
 
   /* compute negative score */
-  score = -1 * pll_utree_compute_lk(partition,
-                                    tree,
-                                    params_indices,
-                                    1,   /* update pmatrices */
-                                    1);  /* update partials */
+  score = -1 * pllmod_utree_compute_lk(partition,
+                                       tree,
+                                       params_indices,
+                                       1,   /* update pmatrices */
+                                       1);  /* update partials */
   return score;
 }
 
@@ -88,11 +88,11 @@ double target_subst_params_func(void *p, double *x)
 
   /* compute negative score */
   double score = -1 *
-                 pll_utree_compute_lk(partition,
-                                      tree,
-                                      params_indices,
-                                      1,   /* update pmatrices */
-                                      1);  /* update partials */
+                 pllmod_utree_compute_lk(partition,
+                                         tree,
+                                         params_indices,
+                                         1,   /* update pmatrices */
+                                         1);  /* update partials */
   return score;
 }
 
@@ -113,11 +113,11 @@ double target_alpha_func(void *p, double x)
 
   /* compute negative score */
   double score = -1 *
-                 pll_utree_compute_lk(partition,
-                                      tree,
-                                      params_indices,
-                                      1,   /* update pmatrices */
-                                      1);  /* update partials */
+                 pllmod_utree_compute_lk(partition,
+                                         tree,
+                                         params_indices,
+                                         1,   /* update pmatrices */
+                                         1);  /* update partials */
   return score;
 }
 
@@ -137,11 +137,11 @@ double target_pinv_func(void *p, double x)
 
   /* compute negative score */
   double score = -1 *
-                 pll_utree_compute_lk(partition,
-                                      tree,
-                                      params_indices,
-                                      1,   /* update pmatrices */
-                                      1);  /* update partials */
+                 pllmod_utree_compute_lk(partition,
+                                         tree,
+                                         params_indices,
+                                         1,   /* update pmatrices */
+                                         1);  /* update partials */
   return score;
 }
 
@@ -157,11 +157,11 @@ double target_rates_func(void *p, double *x)
 
   /* compute negative score */
   double score = -1 *
-                 pll_utree_compute_lk(partition,
-                                      tree,
-                                      params_indices,
-                                      1,   /* update pmatrices */
-                                      1);  /* update partials */
+                 pllmod_utree_compute_lk(partition,
+                                         tree,
+                                         params_indices,
+                                         1,   /* update pmatrices */
+                                         1);  /* update partials */
   return score;
 }
 
@@ -195,11 +195,11 @@ double target_weights_func(void *p, double *x)
   // memcpy(partition->rate_weights, weights, partition->rate_cats*sizeof(double));
 
   /* compute negative score */
-  score = -1 * pll_utree_compute_lk(partition,
-                                    tree,
-                                    params_indices,
-                                    0,   /* update pmatrices */
-                                    0);  /* update partials */
+  score = -1 * pllmod_utree_compute_lk(partition,
+                                       tree,
+                                       params_indices,
+                                       0,   /* update pmatrices */
+                                       0);  /* update partials */
 
   return score;
 }

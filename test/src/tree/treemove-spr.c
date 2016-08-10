@@ -99,7 +99,7 @@ static void apply_move (pll_utree_t * edge, pll_utree_t * tree,
                         pll_tree_rollback_t * rollback_stack,
                         int * rollback_stack_top)
 {
-  if (!pll_utree_SPR (edge, tree, &rollback_stack[++(*rollback_stack_top)]))
+  if (!pllmod_utree_spr (edge, tree, &rollback_stack[++(*rollback_stack_top)]))
   {
     printf ("Error %d: %s\n", pll_errno, pll_errmsg);
     exit (1);
@@ -118,7 +118,7 @@ static void apply_move (pll_utree_t * edge, pll_utree_t * tree,
 static void undo_move (pll_tree_rollback_t * rollback_stack,
                        int * rollback_stack_top)
 {
-  pll_tree_rollback (&rollback_stack[(*rollback_stack_top)--]);
+  pllmod_tree_rollback (&rollback_stack[(*rollback_stack_top)--]);
 }
 
 /* branch lengths not present in the newick file get a value of 0.000001 */
@@ -354,8 +354,15 @@ int main (int argc, char * argv[])
     printf ("Obtaining random inner edge\n");
     prune_edge = innernodes[(unsigned int) rand () % inner_nodes_count];
 
-    pll_utree_nodes_at_node_dist (prune_edge, nodes_at_dist, &n_nodes_at_dist,
-                                  0, distance);
+    pllmod_utree_nodes_at_node_dist (prune_edge, nodes_at_dist, &n_nodes_at_dist,
+                                     2, distance);
+    if(n_nodes_at_dist == 0)
+    {
+      prune_edge = prune_edge->back;
+      pllmod_utree_nodes_at_node_dist (prune_edge, nodes_at_dist, &n_nodes_at_dist,
+                                    2, distance);
+    }
+    assert(n_nodes_at_dist > 0);
     do
     {
       regraft_edge = nodes_at_dist[(unsigned int) rand () % n_nodes_at_dist];
@@ -367,6 +374,8 @@ int main (int argc, char * argv[])
     printf ("Tree regraft at %s-%s\n", regraft_edge->label,
             regraft_edge->back->label);
 
+    printf("Apply %s-%s ; %s-%s\n", prune_edge->label,prune_edge->back->label,regraft_edge->label,regraft_edge->back->label);
+
     apply_move (prune_edge, regraft_edge, rollback_stack, &rollback_stack_top);
 
     logl = evaluate_likelihood (partition, prune_edge, travbuffer,
@@ -377,8 +386,16 @@ int main (int argc, char * argv[])
     printf ("Obtaining random inner edge\n");
     prune_edge = innernodes[(unsigned int) rand () % inner_nodes_count];
 
-    pll_utree_nodes_at_node_dist (prune_edge, nodes_at_dist, &n_nodes_at_dist,
-                                  0, distance);
+    pllmod_utree_nodes_at_node_dist (prune_edge, nodes_at_dist, &n_nodes_at_dist,
+                                     2, distance);
+    if(n_nodes_at_dist == 0)
+    {
+      prune_edge = prune_edge->back;
+      pllmod_utree_nodes_at_node_dist (prune_edge, nodes_at_dist, &n_nodes_at_dist,
+                                       2, distance);
+    }
+    assert(n_nodes_at_dist > 0);
+
     do
     {
       regraft_edge = nodes_at_dist[(unsigned int) rand () % n_nodes_at_dist];

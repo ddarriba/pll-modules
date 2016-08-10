@@ -316,12 +316,12 @@ int main (int argc, char * argv[])
       continue;
 
     /* find nodes at a certain distance */
-    pll_utree_nodes_at_node_dist (bisect_edge, nodes_at_dist, &n_nodes_at_dist,
+    pllmod_utree_nodes_at_node_dist (bisect_edge, nodes_at_dist, &n_nodes_at_dist,
                                   distance, distance);
     if (!n_nodes_at_dist)
       continue;
     reconnect.edge.utree.parent = nodes_at_dist[rand () % n_nodes_at_dist];
-    pll_utree_nodes_at_node_dist (bisect_edge->back, nodes_at_dist,
+    pllmod_utree_nodes_at_node_dist (bisect_edge->back, nodes_at_dist,
                                   &n_nodes_at_dist, distance, distance);
     if (!n_nodes_at_dist)
           continue;
@@ -341,7 +341,7 @@ int main (int argc, char * argv[])
           reconnect.edge.utree.child->back->label);
   reconnect.length = 0.555;
 
-  if (!pll_utree_TBR (bisect_edge, &reconnect, 0))
+  if (!pllmod_utree_tbr (bisect_edge, &reconnect, 0))
     fatal ("TBR move cannot be applied");
 
   tree = reconnect.edge.utree.parent;
@@ -367,11 +367,11 @@ int main (int argc, char * argv[])
                                &ops_count);
   show_tree (reconnect.edge.utree.child, SHOW_ASCII_TREE);
 
-  logl = pll_utree_compute_lk(partition,
-                       tree,
-                       params_indices,
-                       1,
-                       1);
+  logl = pllmod_utree_compute_lk(partition,
+                          tree,
+                          params_indices,
+                          1,
+                          1);
 
   /* compute marginal likelihoods */
   printf("\nMarginal likelihoods:\n");

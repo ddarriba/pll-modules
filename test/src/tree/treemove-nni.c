@@ -18,7 +18,6 @@
     Exelixis Lab, Heidelberg Instutute for Theoretical Studies
     Schloss-Wolfsbrunnenweg 35, D-69118 Heidelberg, Germany
 */
-#include "pll_tree.h"
 #include "../common.h"
 
 #include <stdarg.h>
@@ -114,7 +113,7 @@ static double evaluate_likelihood(pll_partition_t *partition,
 static void apply_move(pll_utree_t * edge,
                        int type)
 {
-  pll_utree_NNI(edge, type, 0);
+  pll_utree_nni(edge, type, 0);
 
   show_tree(edge, SHOW_ASCII_TREE);
 
@@ -359,7 +358,7 @@ int main (int argc, char *argv[])
 
     printf ("Tree move at %s-%s\n", nni_edge->label, nni_edge->back->label);
 
-    apply_move(nni_edge, PLL_NNI_LEFT);
+    apply_move(nni_edge, PLL_UTREE_MOVE_NNI_LEFT);
 
     logl = evaluate_likelihood(partition, nni_edge, travbuffer,
                         matrix_indices, branch_lengths,
@@ -367,7 +366,7 @@ int main (int argc, char *argv[])
     printf ("Log-L[M1] at %s-%s: %f\n", nni_edge->label, nni_edge->back->label, logl);
 
     /* second move */
-    apply_move(nni_edge, PLL_NNI_RIGHT);
+    apply_move(nni_edge, PLL_UTREE_MOVE_NNI_RIGHT);
 
     logl = evaluate_likelihood(partition, nni_edge, travbuffer,
                         matrix_indices, branch_lengths,
@@ -375,7 +374,7 @@ int main (int argc, char *argv[])
     printf ("Log-L[M2] at %s-%s: %f\n", nni_edge->label, nni_edge->back->label, logl);
 
     /* rollback */
-    apply_move(nni_edge, PLL_NNI_LEFT);
+    apply_move(nni_edge, PLL_UTREE_MOVE_NNI_LEFT);
 
     logl_end = logl = evaluate_likelihood(partition, nni_edge, travbuffer,
                         matrix_indices, branch_lengths,

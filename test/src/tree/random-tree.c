@@ -85,7 +85,8 @@ int main (int argc, char * argv[])
    /* fix RNG seed to arbitrary number */
    srand(42);
 
-   pll_utree_t * tree = pll_utree_create_random(n_taxa, (const char **)header);
+   pll_utree_t * tree = pllmod_utree_create_random(n_taxa,
+                                                   (const char **)header);
    for (i=0; i<n_taxa; ++i)
      free(header[i]);
 

@@ -37,9 +37,9 @@ static void utree_nodes_at_dist(pll_utree_t * node,
  * @param[out] child_subtree  edge corresponding to the 'edge->back' subtree
  * @return PLL_SUCCESS if OK
  */
-PLL_EXPORT int pll_utree_bisect(pll_utree_t * edge,
-                                pll_utree_t ** parent_subtree,
-                                pll_utree_t ** child_subtree)
+PLL_EXPORT int pllmod_utree_bisect(pll_utree_t * edge,
+                                   pll_utree_t ** parent_subtree,
+                                   pll_utree_t ** child_subtree)
 {
   assert(parent_subtree);
   assert(child_subtree);
@@ -55,9 +55,9 @@ PLL_EXPORT int pll_utree_bisect(pll_utree_t * edge,
   (*parent_subtree) = edge->next->back;
   aux_tree = edge->next->next->back;
 
-  pll_utree_connect_nodes(*parent_subtree,
-                      aux_tree,
-                      (*parent_subtree)->length + aux_tree->length);
+  pllmod_utree_connect_nodes(*parent_subtree,
+                             aux_tree,
+                             (*parent_subtree)->length + aux_tree->length);
 
   edge->next->pmatrix_index = edge->next->next->pmatrix_index;
 
@@ -65,9 +65,9 @@ PLL_EXPORT int pll_utree_bisect(pll_utree_t * edge,
   (*child_subtree) = c_edge->next->back;
   aux_tree = c_edge->next->next->back;
 
-  pll_utree_connect_nodes(*child_subtree,
-                      aux_tree,
-                      (*child_subtree)->length + aux_tree->length);
+  pllmod_utree_connect_nodes(*child_subtree,
+                             aux_tree,
+                             (*child_subtree)->length + aux_tree->length);
 
   c_edge->next->pmatrix_index = c_edge->next->next->pmatrix_index;
 
@@ -92,8 +92,8 @@ PLL_EXPORT int pll_utree_bisect(pll_utree_t * edge,
  *
  * @return the new created edge
  */
-PLL_EXPORT pll_tree_edge_t pll_utree_reconnect(pll_tree_edge_t * edge,
-                                               pll_utree_t * pruned_edge)
+PLL_EXPORT pll_tree_edge_t pllmod_utree_reconnect(pll_tree_edge_t * edge,
+                                                  pll_utree_t * pruned_edge)
 {
   /* create and connect 2 new nodes */
   pll_utree_t *parent_node, *child_node;
@@ -103,33 +103,33 @@ PLL_EXPORT pll_tree_edge_t pll_utree_reconnect(pll_tree_edge_t * edge,
   child_node  = pruned_edge->back;
   assert(parent_node->back == child_node && child_node->back == parent_node);
 
-  assert(!pll_utree_is_tip(parent_node));
-  assert(!pll_utree_is_tip(child_node));
+  assert(!pllmod_utree_is_tip(parent_node));
+  assert(!pllmod_utree_is_tip(child_node));
 
   pll_tree_edge_t new_edge;
   new_edge.edge.utree.child = child_node;
   new_edge.length = edge->length;
 
   /* set length */
-  pll_utree_set_length(parent_node, edge->length);
+  pllmod_utree_set_length(parent_node, edge->length);
 
   /* reconnect parent close to edge.parent */
-  pll_utree_connect_nodes(parent_node->next->next,
-                          edge->edge.utree.parent->back,
-                          edge->edge.utree.parent->back->length);
-  //parent_node->next->pmatrix_index = parent_pmatrix_index;
-  pll_utree_connect_nodes(edge->edge.utree.parent,
-                          parent_node->next,
-                          0);
+  pllmod_utree_connect_nodes(parent_node->next->next,
+                             edge->edge.utree.parent->back,
+                             edge->edge.utree.parent->back->length);
+
+  pllmod_utree_connect_nodes(edge->edge.utree.parent,
+                             parent_node->next,
+                             0);
 
   /* reconnect child close to edge.child */
-  pll_utree_connect_nodes(child_node->next->next,
-                          edge->edge.utree.child->back,
-                          edge->edge.utree.child->back->length);
+  pllmod_utree_connect_nodes(child_node->next->next,
+                             edge->edge.utree.child->back,
+                             edge->edge.utree.child->back->length);
 
-  pll_utree_connect_nodes(edge->edge.utree.child,
-                          child_node->next,
-                          0);
+  pllmod_utree_connect_nodes(edge->edge.utree.child,
+                             child_node->next,
+                             0);
 
   return new_edge;
 }
@@ -152,7 +152,7 @@ PLL_EXPORT pll_tree_edge_t pll_utree_reconnect(pll_tree_edge_t * edge,
  * @param edge the edge to prune
  * @return the new connected edge, if the operation was applied correctly
  */
-PLL_EXPORT pll_utree_t * pll_utree_prune(pll_utree_t * edge)
+PLL_EXPORT pll_utree_t * pllmod_utree_prune(pll_utree_t * edge)
 {
   pll_utree_t *edge1, *edge2;
 
@@ -167,7 +167,7 @@ PLL_EXPORT pll_utree_t * pll_utree_prune(pll_utree_t * edge)
   /* connect adjacent subtrees together */
   edge1 = edge->next->back;
   edge2 = edge->next->next->back;
-  pll_utree_connect_nodes(edge1, edge2, edge1->length + edge2->length);
+  pllmod_utree_connect_nodes(edge1, edge2, edge1->length + edge2->length);
 
   /* disconnect pruned edge */
   edge->next->back = edge->next->next->back = NULL;
@@ -195,8 +195,8 @@ PLL_EXPORT pll_utree_t * pll_utree_prune(pll_utree_t * edge)
  * @param tree the tree to connect `edge` to
  * @return true, if the operation was applied correctly
  */
-PLL_EXPORT int pll_utree_regraft(pll_utree_t * edge,
-                                 pll_utree_t * tree)
+PLL_EXPORT int pllmod_utree_regraft(pll_utree_t * edge,
+                                    pll_utree_t * tree)
 {
   pll_utree_t *edge1, *edge2;
   double new_length;
@@ -219,8 +219,8 @@ PLL_EXPORT int pll_utree_regraft(pll_utree_t * edge,
   edge1      = tree;
   edge2      = tree->back;
   new_length = tree->length/2;
-  pll_utree_connect_nodes(edge1, edge->next,       new_length);
-  pll_utree_connect_nodes(edge->next->next, edge2, new_length);
+  pllmod_utree_connect_nodes(edge1, edge->next,       new_length);
+  pllmod_utree_connect_nodes(edge->next->next, edge2, new_length);
 
   return PLL_SUCCESS;
 }
@@ -233,14 +233,14 @@ PLL_EXPORT int pll_utree_regraft(pll_utree_t * edge,
  *
  * @return true, if the move was applied correctly
  */
-PLL_EXPORT int pll_utree_interchange(pll_utree_t * node1,
-                                     pll_utree_t * node2)
+PLL_EXPORT int pllmod_utree_interchange(pll_utree_t * node1,
+                                        pll_utree_t * node2)
 {
   pll_utree_t *next1 = node2->back;
   pll_utree_t *next2 = node1->back;
 
-  pll_utree_connect_nodes(next1, node1, next1->length);
-  pll_utree_connect_nodes(next2, node2, next2->length);
+  pllmod_utree_connect_nodes(next1, node1, next1->length);
+  pllmod_utree_connect_nodes(next2, node2, next2->length);
 
   return PLL_SUCCESS;
 }
@@ -263,7 +263,7 @@ PLL_EXPORT int pll_utree_interchange(pll_utree_t * node1,
  *
  * @return the new node
  */
-PLL_EXPORT pll_utree_t * pll_utree_create_node(unsigned int clv_index,
+PLL_EXPORT pll_utree_t * pllmod_utree_create_node(unsigned int clv_index,
                                                int scaler_index,
                                                char * label,
                                                void * data)
@@ -293,7 +293,7 @@ PLL_EXPORT pll_utree_t * pll_utree_create_node(unsigned int clv_index,
  * @param[in] length     the branch length
  *
  */
-PLL_EXPORT int pll_utree_connect_nodes(pll_utree_t * parent,
+PLL_EXPORT int pllmod_utree_connect_nodes(pll_utree_t * parent,
                                        pll_utree_t * child,
                                        double length)
 {
@@ -302,7 +302,7 @@ PLL_EXPORT int pll_utree_connect_nodes(pll_utree_t * parent,
 
   parent->back = child;
   child->back = parent;
-  pll_utree_set_length(parent, length);
+  pllmod_utree_set_length(parent, length);
 
   /* PMatrix index is set to parent node */
   child->pmatrix_index = parent->pmatrix_index;
@@ -325,11 +325,11 @@ PLL_EXPORT int pll_utree_connect_nodes(pll_utree_t * parent,
  * @param[in] min_distance the minimum distance to check
  * @param[in] max_distance the maximum distance to check
  */
-PLL_EXPORT int pll_utree_nodes_at_node_dist(pll_utree_t * node,
-                                            pll_utree_t ** outbuffer,
-                                            unsigned int * n_nodes,
-                                            unsigned int min_distance,
-                                            unsigned int max_distance)
+PLL_EXPORT int pllmod_utree_nodes_at_node_dist(pll_utree_t * node,
+                                               pll_utree_t ** outbuffer,
+                                               unsigned int * n_nodes,
+                                               unsigned int min_distance,
+                                               unsigned int max_distance)
 {
   if (!node->next)
   {
@@ -355,6 +355,7 @@ PLL_EXPORT int pll_utree_nodes_at_node_dist(pll_utree_t * node,
                2
     */
 
+
   utree_nodes_at_dist(node, outbuffer, n_nodes, min_distance, max_distance, 0);
 
   return PLL_SUCCESS;
@@ -371,11 +372,11 @@ PLL_EXPORT int pll_utree_nodes_at_node_dist(pll_utree_t * node,
  * @param[in] max_distance the maximum distance to check
  */
 
-PLL_EXPORT int pll_utree_nodes_at_edge_dist(pll_utree_t * edge,
-                                            pll_utree_t ** outbuffer,
-                                            unsigned int * n_nodes,
-                                            unsigned int min_distance,
-                                            unsigned int max_distance)
+PLL_EXPORT int pllmod_utree_nodes_at_edge_dist(pll_utree_t * edge,
+                                               pll_utree_t ** outbuffer,
+                                               unsigned int * n_nodes,
+                                               unsigned int min_distance,
+                                               unsigned int max_distance)
 {
   unsigned int depth = 0;
 

@@ -32,17 +32,6 @@
  */
 #define PLL_TREE_DEFAULT_BRANCH_LENGTH 0.1
 
-/* NNI moves type
- *
- *   \edge       /left (next)
- *    \         /
- *     x------->
- *    /         \
- *   /           \right (next->next)
- */
-#define PLL_NNI_LEFT    1
-#define PLL_NNI_RIGHT   2
-
 /* error codes (for this module, 3000-4000) ; B = 2^10+2^11*/
 /* TBR errors (B + {2^2,2^1,2^0}) */
 #define PLL_ERROR_TBR_LEAF_BISECTION   3073 // B + {001}
@@ -129,137 +118,142 @@ typedef struct
 /* Topological rearrangements */
 /* functions at pll_tree.c */
 
-PLL_EXPORT int pll_utree_TBR(pll_utree_t * b_edge,
-                             pll_tree_edge_t * r_edge,
-                             pll_tree_rollback_t * rollback_info);
+PLL_EXPORT int pllmod_utree_tbr(pll_utree_t * b_edge,
+                                pll_tree_edge_t * r_edge,
+                                pll_tree_rollback_t * rollback_info);
 
-PLL_EXPORT int pll_utree_SPR(pll_utree_t * p_edge,
-                             pll_utree_t * r_edge,
-                             pll_tree_rollback_t * rollback_info);
+PLL_EXPORT int pllmod_utree_spr(pll_utree_t * p_edge,
+                                pll_utree_t * r_edge,
+                                pll_tree_rollback_t * rollback_info);
 
 /* type = {PLL_NNI_NEXT, PLL_NNI_NEXTNEXT} */
-PLL_EXPORT int pll_utree_NNI(pll_utree_t * edge,
-                             int type,
-                             pll_tree_rollback_t * rollback_info);
+PLL_EXPORT int pllmod_utree_nni(pll_utree_t * edge,
+                                int type,
+                                pll_tree_rollback_t * rollback_info);
 
-PLL_EXPORT int pll_tree_rollback(pll_tree_rollback_t * rollback_info);
+PLL_EXPORT int pllmod_tree_rollback(pll_tree_rollback_t * rollback_info);
 
 
 
 /* Topological operations */
 /* functions at utree_operations.c */
 
-PLL_EXPORT int pll_utree_bisect(pll_utree_t * edge,
-                                pll_utree_t ** parent_subtree,
-                                pll_utree_t ** child_subtree);
+PLL_EXPORT int pllmod_utree_bisect(pll_utree_t * edge,
+                                   pll_utree_t ** parent_subtree,
+                                   pll_utree_t ** child_subtree);
 
-PLL_EXPORT pll_tree_edge_t pll_utree_reconnect(pll_tree_edge_t * edge,
-                                               pll_utree_t * pruned_edge);
+PLL_EXPORT pll_tree_edge_t pllmod_utree_reconnect(pll_tree_edge_t * edge,
+                                                  pll_utree_t * pruned_edge);
 
-PLL_EXPORT pll_utree_t * pll_utree_prune(pll_utree_t * edge);
+PLL_EXPORT pll_utree_t * pllmod_utree_prune(pll_utree_t * edge);
 
-PLL_EXPORT int pll_utree_regraft(pll_utree_t * edge,
-                                 pll_utree_t * tree);
+PLL_EXPORT int pllmod_utree_regraft(pll_utree_t * edge,
+                                    pll_utree_t * tree);
 
-PLL_EXPORT int pll_utree_interchange(pll_utree_t * edge1,
-                                     pll_utree_t * edge2);
+PLL_EXPORT int pllmod_utree_interchange(pll_utree_t * edge1,
+                                        pll_utree_t * edge2);
 
-PLL_EXPORT pll_utree_t * pll_utree_create_node(unsigned int clv_index,
-                                           int scaler_index,
-                                           char * label,
-                                           void * data);
+PLL_EXPORT pll_utree_t * pllmod_utree_create_node(unsigned int clv_index,
+                                                  int scaler_index,
+                                                  char * label,
+                                                  void * data);
 
-PLL_EXPORT int pll_utree_connect_nodes(pll_utree_t * parent,
-                                       pll_utree_t * child,
-                                       double length);
+PLL_EXPORT int pllmod_utree_connect_nodes(pll_utree_t * parent,
+                                          pll_utree_t * child,
+                                           double length);
 
 
 
 /* Topological search */
 /* functions at utree_operations.c */
 
-PLL_EXPORT int pll_utree_nodes_at_node_dist(pll_utree_t * node,
+PLL_EXPORT int pllmod_utree_nodes_at_node_dist(pll_utree_t * node,
                                             pll_utree_t ** outbuffer,
                                             unsigned int * n_nodes,
                                             unsigned int min_distance,
                                             unsigned int max_distance);
 
-PLL_EXPORT int pll_utree_nodes_at_edge_dist(pll_utree_t * edge,
-                                            pll_utree_t ** outbuffer,
-                                            unsigned int * n_nodes,
-                                            unsigned int min_distance,
-                                            unsigned int max_distance);
+PLL_EXPORT int pllmod_utree_nodes_at_edge_dist(pll_utree_t * edge,
+                                               pll_utree_t ** outbuffer,
+                                               unsigned int * n_nodes,
+                                               unsigned int min_distance,
+                                               unsigned int max_distance);
 
 /* Tree construction */
 /* functions at pll_tree.c */
 
-PLL_EXPORT pll_utree_t * pll_utree_create_random(unsigned int n_taxa,
-                                                 const char * const* names);
+PLL_EXPORT pll_utree_t * pllmod_utree_create_random(unsigned int n_taxa,
+                                                    const char * const* names);
 
 
 
 /* Discrete operations */
 /* functions at utree_distances.c */
 
-PLL_EXPORT unsigned int pll_utree_rf_distance(pll_utree_t * t1,
-                                              pll_utree_t * t2,
-                                              unsigned int n_tips);
+PLL_EXPORT unsigned int pllmod_utree_rf_distance(pll_utree_t * t1,
+                                                 pll_utree_t * t2,
+                                                 unsigned int n_tips);
 
 /* check that node ids and tip labels agree in both trees */
-PLL_EXPORT int pll_utree_consistency_check(pll_utree_t * t1,
-                                           pll_utree_t * t2,
-                                           unsigned int n_tips);
+PLL_EXPORT int pllmod_utree_consistency_check(pll_utree_t * t1,
+                                              pll_utree_t * t2,
+                                              unsigned int n_tips);
 
 /* if 2 different trees are parsed from newick node ids migh have been set
    in a different order, so this function sets node ids in t2 such that
    node ids and tip labels agree in both trees */
-PLL_EXPORT int pll_utree_consistency_set(pll_utree_t * t1,
-                                         pll_utree_t * t2,
-                                         unsigned int n_tips);
+PLL_EXPORT int pllmod_utree_consistency_set(pll_utree_t * t1,
+                                            pll_utree_t * t2,
+                                            unsigned int n_tips);
 
-PLL_EXPORT unsigned int pll_utree_split_rf_distance(pll_split_t * s1,
-                                                    pll_split_t * s2,
-                                                    unsigned int n_tips);
+PLL_EXPORT unsigned int pllmod_utree_split_rf_distance(pll_split_t * s1,
+                                                       pll_split_t * s2,
+                                                       unsigned int n_tips);
 
-PLL_EXPORT pll_split_t * pll_utree_split_create(pll_utree_t * tree,
-                                                unsigned int n_tips,
-                                                unsigned int * n_splits);
+PLL_EXPORT pll_split_t * pllmod_utree_split_create(pll_utree_t * tree,
+                                                   unsigned int n_tips,
+                                                   unsigned int * n_splits);
 
-PLL_EXPORT void pll_utree_split_show(pll_split_t split, unsigned int n_tips);
+PLL_EXPORT void pllmod_utree_split_show(pll_split_t split, unsigned int n_tips);
 
-PLL_EXPORT void pll_utree_split_destroy(pll_split_t * split_list);
+PLL_EXPORT void pllmod_utree_split_destroy(pll_split_t * split_list);
 
 
 
 /* Additional utilities */
 /* functions at pll_tree.c */
 
-PLL_EXPORT int pll_utree_set_clv_minimal(pll_utree_t * root,
+PLL_EXPORT int pllmod_utree_set_clv_minimal(pll_utree_t * root,
                                          unsigned int n_tips);
 
-PLL_EXPORT int pll_utree_traverse_apply(pll_utree_t * root,
-                                        int (*cb_pre_trav)(pll_utree_t *, void *),
-                                        int (*cb_post_trav)(pll_utree_t *, void *),
+PLL_EXPORT int pllmod_utree_traverse_apply(pll_utree_t * root,
+                                        int (*cb_pre_trav)(pll_utree_t *,
+                                                           void *),
+                                        int (*cb_post_trav)(pll_utree_t *,
+                                                            void *),
                                         void *data);
 
-PLL_EXPORT int pll_utree_is_tip(pll_utree_t * node);
+PLL_EXPORT int pllmod_utree_is_tip(pll_utree_t * node);
 
-PLL_EXPORT void pll_utree_set_length(pll_utree_t * edge,
+PLL_EXPORT void pllmod_utree_set_length(pll_utree_t * edge,
                                      double length);
 
-PLL_EXPORT void pll_utree_scale_branches(pll_utree_t * tree,
+PLL_EXPORT void pllmod_utree_scale_branches(pll_utree_t * tree,
                                          double branch_length_scaler);
 
-PLL_EXPORT double pll_utree_compute_lk(pll_partition_t * partition,
+PLL_EXPORT double pllmod_utree_compute_lk(pll_partition_t * partition,
                                        pll_utree_t * tree,
                                        const unsigned int * params_indices,
                                        int update_pmatrices,
                                        int update_partials);
 
-PLL_EXPORT int pll_rtree_traverse_apply(pll_rtree_t * root,
-                                        int (*cb_pre_trav)(pll_rtree_t *, void *),
-                                        int (*cb_in_trav)(pll_rtree_t *, void *),
-                                        int (*cb_post_trav)(pll_rtree_t *, void *),
-                                        void *data);
+PLL_EXPORT int pllmod_rtree_traverse_apply(pll_rtree_t * root,
+                                           int (*cb_pre_trav)(pll_rtree_t *,
+                                                              void *),
+                                           int (*cb_in_trav)(pll_rtree_t *,
+                                                             void *),
+                                           int (*cb_post_trav)(pll_rtree_t *,
+                                                               void *),
+                                           void *data);
 
 #endif /* PLL_TREE_H_ */

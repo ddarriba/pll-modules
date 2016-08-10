@@ -299,15 +299,15 @@ PLL_EXPORT double pllmod_algo_opt_rates_weights (pll_partition_t * partition,
     rates[i] *= rate_scaler;
 
   /* scale branch lengths such that likelihood is conserved */
-  pll_utree_scale_branches(tree, sum_weightrates);
+  pllmod_utree_scale_branches(tree, sum_weightrates);
 
   /* update pmatrices and partials according to the new branches */
   cur_logl = -1 *
-             pll_utree_compute_lk(partition,
-                                  tree,
-                                  params_indices,
-                                  1,   /* update pmatrices */
-                                  1);  /* update partials */
+             pllmod_utree_compute_lk(partition,
+                                     tree,
+                                     params_indices,
+                                     1,   /* update pmatrices */
+                                     1);  /* update partials */
 
   free(x);
   free(lb);

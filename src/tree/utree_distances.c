@@ -33,9 +33,9 @@ struct cb_split_params
  * @param  t2 second tree
  * @return true, if tip node indices are consistent
  */
-PLL_EXPORT int pll_utree_consistency_check(pll_utree_t * t1,
-                                           pll_utree_t * t2,
-                                           unsigned int n_tips)
+PLL_EXPORT int pllmod_utree_consistency_check(pll_utree_t * t1,
+                                              pll_utree_t * t2,
+                                              unsigned int n_tips)
 {
   unsigned int i;
   unsigned int node_id;
@@ -79,7 +79,7 @@ PLL_EXPORT int pll_utree_consistency_check(pll_utree_t * t1,
  * @param  t2 second tree
  * @return true, if success
  */
-PLL_EXPORT int pll_utree_consistency_set(pll_utree_t * t1,
+PLL_EXPORT int pllmod_utree_consistency_set(pll_utree_t * t1,
                                             pll_utree_t * t2,
                                             unsigned int n_tips)
 {
@@ -131,7 +131,7 @@ PLL_EXPORT int pll_utree_consistency_set(pll_utree_t * t1,
 /******************************************************************************/
 /* discrete operations */
 
-PLL_EXPORT unsigned int pll_utree_rf_distance(pll_utree_t * t1,
+PLL_EXPORT unsigned int pllmod_utree_rf_distance(pll_utree_t * t1,
                                               pll_utree_t * t2,
                                               unsigned int n_tips)
 {
@@ -142,15 +142,15 @@ PLL_EXPORT unsigned int pll_utree_rf_distance(pll_utree_t * t1,
   pll_errno = 0;
 
   /* split both trees */
-  pll_split_t * s1 = pll_utree_split_create(t1, n_tips, &n_splits);
-  pll_split_t * s2 = pll_utree_split_create(t2, n_tips, &n_splits);
+  pll_split_t * s1 = pllmod_utree_split_create(t1, n_tips, &n_splits);
+  pll_split_t * s2 = pllmod_utree_split_create(t2, n_tips, &n_splits);
 
   /* compute distance */
-  rf_distance = pll_utree_split_rf_distance(s1, s2, n_tips);
+  rf_distance = pllmod_utree_split_rf_distance(s1, s2, n_tips);
 
   /* clean up */
-  pll_utree_split_destroy(s1);
-  pll_utree_split_destroy(s2);
+  pllmod_utree_split_destroy(s1);
+  pllmod_utree_split_destroy(s2);
 
   assert(rf_distance <= 2*(n_tips-3));
   return rf_distance;
@@ -159,9 +159,9 @@ PLL_EXPORT unsigned int pll_utree_rf_distance(pll_utree_t * t1,
 /*
  * Precondition: splits must be normalized and sorted!
  */
-PLL_EXPORT unsigned int pll_utree_split_rf_distance(pll_split_t * s1,
-                                                    pll_split_t * s2,
-                                                    unsigned int n_tips)
+PLL_EXPORT unsigned int pllmod_utree_split_rf_distance(pll_split_t * s1,
+                                                       pll_split_t * s2,
+                                                       unsigned int n_tips)
 {
   unsigned int n_splits = n_tips - 3;
   unsigned int split_size = (sizeof(pll_split_base_t) * 8);
@@ -204,7 +204,7 @@ PLL_EXPORT unsigned int pll_utree_split_rf_distance(pll_split_t * s1,
 /******************************************************************************/
 /* tree split functions */
 
-PLL_EXPORT void pll_utree_split_show(pll_split_t split, unsigned int n_tips)
+PLL_EXPORT void pllmod_utree_split_show(pll_split_t split, unsigned int n_tips)
 {
   unsigned int split_size = sizeof(pll_split_base_t) * 8;
   unsigned int split_offset = n_tips % split_size;
@@ -222,9 +222,9 @@ PLL_EXPORT void pll_utree_split_show(pll_split_t split, unsigned int n_tips)
 /*
  * Note: This function returns the splits according to the node indices at the tips!
  */
-PLL_EXPORT pll_split_t * pll_utree_split_create(pll_utree_t * tree,
-                                                unsigned int n_tips,
-                                                unsigned int * _n_splits)
+PLL_EXPORT pll_split_t * pllmod_utree_split_create(pll_utree_t * tree,
+                                                   unsigned int n_tips,
+                                                   unsigned int * _n_splits)
 {
   unsigned int i;
   unsigned int n_splits, split_len, split_size;
@@ -267,10 +267,10 @@ PLL_EXPORT pll_split_t * pll_utree_split_create(pll_utree_t * tree,
     split_data.id_to_split[i] = -1;
 
   /* traverse for computing the scripts */
-  pll_utree_traverse_apply(tree,
-                           0,
-                           &cb_get_splits,
-                           &split_data);
+  pllmod_utree_traverse_apply(tree,
+                              0,
+                              &cb_get_splits,
+                              &split_data);
   assert(split_data.split_count == n_splits);
   free(split_data.id_to_split);
 
@@ -289,8 +289,8 @@ PLL_EXPORT pll_split_t * pll_utree_split_create(pll_utree_t * tree,
     if (compare_splits(split_list[i], split_list[i-1], split_len) <= 0)
     {
       printf("Error %d %d\n", i, _cmp_splits(&split_list[i], &split_list[i-1]));
-      pll_utree_show_split(split_list[i], n_tips);
-      pll_utree_show_split(split_list[i-1], n_tips);
+      pllmod_utree_show_split(split_list[i], n_tips);
+      pllmod_utree_show_split(split_list[i-1], n_tips);
     }
 #endif
 
@@ -312,7 +312,7 @@ PLL_EXPORT pll_split_t * pll_utree_split_create(pll_utree_t * tree,
   return split_list;
 }
 
-PLL_EXPORT void pll_utree_split_destroy(pll_split_t * split_list)
+PLL_EXPORT void pllmod_utree_split_destroy(pll_split_t * split_list)
 {
   free(split_list[0]);
   free(split_list);
@@ -359,7 +359,7 @@ static int cb_get_splits(pll_utree_t * node, void *data)
   unsigned int my_map_id, back_map_id;
   unsigned int tip_id, split_id;
 
-  if (!(pll_utree_is_tip(node) || pll_utree_is_tip(node->back)))
+  if (!(pllmod_utree_is_tip(node) || pllmod_utree_is_tip(node->back)))
   {
     my_map_id   = get_utree_splitmap_id(node, tip_count);
     back_map_id = get_utree_splitmap_id(node->back, tip_count);
@@ -382,7 +382,7 @@ static int cb_get_splits(pll_utree_t * node, void *data)
     split_data->split_count++;
 
     /* add the split from left branch */
-    if (!pll_utree_is_tip(node->next->back))
+    if (!pllmod_utree_is_tip(node->next->back))
     {
       child_split_id
         = split_data->id_to_split[get_utree_splitmap_id(node->next, tip_count)];
@@ -398,7 +398,7 @@ static int cb_get_splits(pll_utree_t * node, void *data)
     }
 
     /* add the split from right branch */
-    if (!pll_utree_is_tip(node->next->next->back))
+    if (!pllmod_utree_is_tip(node->next->next->back))
     {
       child_split_id
         = split_data->id_to_split[get_utree_splitmap_id(
