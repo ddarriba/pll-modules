@@ -145,7 +145,7 @@ int main(int argc, char * argv[])
   printf("Tree (reference): %s\n", newick);
   free(newick);
 
-  double test_logl = pll_optimize_branch_lengths_local (partition,
+  double test_logl = pllmod_opt_optimize_branch_lengths_local (partition,
                                      tree[2].back,
                                      params_indices,
                                      1e-4, /* min branch length */

@@ -26,8 +26,8 @@
 #include "pll.h"
 #endif
 
-PLL_EXPORT double * pll_msa_empirical_frequencies(pll_partition_t * partition);
-PLL_EXPORT double * pll_msa_empirical_subst_rates(pll_partition_t * partition);
-PLL_EXPORT double pll_msa_empirical_invariant_sites(pll_partition_t *partition);
+PLL_EXPORT double * pllmod_msa_empirical_frequencies(pll_partition_t * partition);
+PLL_EXPORT double * pllmod_msa_empirical_subst_rates(pll_partition_t * partition);
+PLL_EXPORT double pllmod_msa_empirical_invariant_sites(pll_partition_t *partition);
 
 #endif /* PLL_MSATREE_H_ */

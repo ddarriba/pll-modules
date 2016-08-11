@@ -20,6 +20,7 @@
  */
 #include "pll_optimize.h"
 #include "lbfgsb/lbfgsb.h"
+#include "../pllmod_common.h"
 
 static inline int is_nan(double v)
 {
@@ -35,15 +36,15 @@ static inline int d_equals(double a, double b)
 /* NEWTON-RAPHSON OPTIMIZATION */
 /******************************************************************************/
 
-PLL_EXPORT double pll_minimize_newton(double x1,
-                                      double xguess,
-                                      double x2,
-                                      double tolerance,
-                                      unsigned int max_iters,
-                                      void * params,
-                                      void (deriv_func)(void *,
-                                                        double,
-                                                        double *, double *))
+PLL_EXPORT double pllmod_opt_minimize_newton(double x1,
+                                            double xguess,
+                                            double x2,
+                                            double tolerance,
+                                            unsigned int max_iters,
+                                            void * params,
+                                            void (deriv_func)(void *,
+                                                              double,
+                                                              double *, double *))
 {
   unsigned int i;
   double df, dx, dxold, f;
@@ -63,8 +64,8 @@ PLL_EXPORT double pll_minimize_newton(double x1,
   DBG("[NR deriv] BL=%f   f=%f  df=%f  nextBL=%f\n", rts, f, df, rts-f/df);
   if (!isfinite(f) || !isfinite(df))
   {
-    snprintf (pll_errmsg, 200, "wrong likelihood derivatives");
-    pll_errno = PLL_OPT_ERROR_NEWTON_DERIV;
+    pllmod_set_error(PLLMOD_OPT_ERROR_NEWTON_DERIV,
+                     "wrong likelihood derivatives");
     return -INFINITY;
   }
   if (df >= 0.0 && fabs (f) < tolerance)
@@ -112,8 +113,8 @@ PLL_EXPORT double pll_minimize_newton(double x1,
 
     if (!isfinite(f) || !isfinite(df))
     {
-      snprintf (pll_errmsg, 200, "Wrong likelihood derivatives [it]");
-      pll_errno = PLL_OPT_ERROR_NEWTON_DERIV;
+      pllmod_set_error(PLLMOD_OPT_ERROR_NEWTON_DERIV,
+                       "Wrong likelihood derivatives [it]");
       return -INFINITY;
     }
 
@@ -128,8 +129,8 @@ PLL_EXPORT double pll_minimize_newton(double x1,
       xh = rts;
   }
 
-  snprintf(pll_errmsg, 200, "Exceeded maximum number of iterations");
-  pll_errno = PLL_OPT_ERROR_NEWTON_LIMIT;
+  pllmod_set_error(PLLMOD_OPT_ERROR_NEWTON_LIMIT,
+                   "Exceeded maximum number of iterations");
   return -INFINITY;
 }
 
@@ -137,17 +138,17 @@ PLL_EXPORT double pll_minimize_newton(double x1,
 /* L-BFGS-B OPTIMIZATION */
 /******************************************************************************/
 
-PLL_EXPORT double pll_minimize_lbfgsb (double * x,
-                                       double * xmin,
-                                       double * xmax,
-                                       int * bound,
-                                       unsigned int n,
-                                       double factr,
-                                       double pgtol,
-                                       void * params,
-                                       double (*target_funk)(
-                                               void *,
-                                               double *))
+PLL_EXPORT double pllmod_opt_minimize_lbfgsb (double * x,
+                                             double * xmin,
+                                             double * xmax,
+                                             int * bound,
+                                             unsigned int n,
+                                             double factr,
+                                             double pgtol,
+                                             void * params,
+                                             double (*target_funk)(
+                                                     void *,
+                                                     double *))
 {
   unsigned int i;
 
@@ -187,8 +188,8 @@ PLL_EXPORT double pll_minimize_lbfgsb (double * x,
 
   if (!(wa && iwa && g))
   {
-    pll_errno = PLL_ERROR_MEM_ALLOC;
-    snprintf (pll_errmsg, 200, "Cannot allocate memory for l-bfgs-b variables");
+    pllmod_set_error(PLL_ERROR_MEM_ALLOC,
+                     "Cannot allocate memory for l-bfgs-b variables");
     if (g)
       free (g);
     if (iwa)
@@ -254,13 +255,12 @@ PLL_EXPORT double pll_minimize_lbfgsb (double * x,
     /* set errno only if it was not set by some inner function */
     if (!pll_errno)
     {
-      pll_errno = PLL_OPT_ERROR_LBFGSB_UNKNOWN;
-      snprintf(pll_errmsg, 200, "Unknown LBFGSB error");
+      pllmod_set_error(PLLMOD_OPT_ERROR_LBFGSB_UNKNOWN, "Unknown LBFGSB error");
     }
   }
 
   return score;
-} /* pll_minimize_lbfgsb */
+} /* pllmod_opt_minimize_lbfgsb */
 
 /******************************************************************************/
 /* BRENT'S OPTIMIZATION */
@@ -273,12 +273,12 @@ PLL_EXPORT double pll_minimize_lbfgsb (double * x,
 #define SIGN(a,b) ((b) >= 0.0 ? fabs(a) : -fabs(a))
 
 static double brent_opt (double ax, double bx, double cx, double tol,
-                             double *foptx, double *f2optx, double fax,
-                             double fbx, double fcx,
-                             void * params,
-                             double (*target_funk)(
-                                 void *,
-                                 double))
+                         double *foptx, double *f2optx, double fax,
+                         double fbx, double fcx,
+                         void * params,
+                         double (*target_funk)(
+                             void *,
+                             double))
 {
   int iter;
   double a, b, d = 0, etemp, fu, fv, fw, fx, p, q, r, tol1, tol2, u, v, w, x,
@@ -402,16 +402,16 @@ static double brent_opt (double ax, double bx, double cx, double tol,
  * Bui Quang Minh, Minh Anh Thi Nguyen, and Arndt von Haeseler (2013)
  * Ultrafast approximation for phylogenetic bootstrap.
  * Mol. Biol. Evol., 30:1188-1195. (free reprint, DOI: 10.1093/molbev/mst024) */
-PLL_EXPORT double pll_minimize_brent(double xmin,
-                                     double xguess,
-                                     double xmax,
-                                     double xtol,
-                                     double *fx,
-                                     double *f2x,
-                                     void * params,
-                                     double (*target_funk)(
-                                         void *,
-                                         double))
+PLL_EXPORT double pllmod_opt_minimize_brent(double xmin,
+                                           double xguess,
+                                           double xmax,
+                                           double xtol,
+                                           double *fx,
+                                           double *f2x,
+                                           void * params,
+                                           double (*target_funk)(
+                                               void *,
+                                               double))
 {
   double eps, optx, ax, bx, cx, fa, fb, fc;
   int outbounds_ax, outbounds_cx;
@@ -463,15 +463,15 @@ PLL_EXPORT double pll_minimize_brent(double xmin,
 /* EXPECTATION-MAXIMIZATION (EM)     */
 /* Wang, Li, Susko, and Roger (2008) */
 /******************************************************************************/
-PLL_EXPORT void pll_minimize_em( double *w,
-                                 unsigned int w_count,
-                                 double *sitecat_lh,
-                                 unsigned int *site_w,
-                                 unsigned int l,
-                                 void * params,
-                                 double (*update_sitecatlk_funk)(
-                                     void *,
-                                     double *))
+PLL_EXPORT void pllmod_opt_minimize_em(double *w,
+                                       unsigned int w_count,
+                                       double *sitecat_lh,
+                                       unsigned int *site_w,
+                                       unsigned int l,
+                                       void * params,
+                                       double (*update_sitecatlk_funk)(
+                                           void *,
+                                           double *))
 {
   unsigned int i, c;
   unsigned int max_steps = 10;

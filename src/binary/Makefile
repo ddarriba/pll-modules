@@ -38,13 +38,15 @@ AR = ar
 CFLAGS = -D_GNU_SOURCE -DHAVE_AVX -fPIC $(PROFILING) -msse3 -O3 -I../../libs/libpll/src $(WARN)
 LINKFLAGS=$(PROFILING)
 LIBS=-lpll -lm
+DEPS=../pllmod_common.o
 
 PROG=libpll_binary.so
 
 all: $(PROG)
 
 OBJS=binary_io_operations.o \
-		 pll_binary.o
+		 pll_binary.o \
+		 $(DEPS)
 
 $(PROG): $(OBJS)
 	$(CC) -shared $(SONAMEFLAGS) -o $@ $+

@@ -64,7 +64,7 @@ PLL_EXPORT int pllmod_utree_tbr(pll_utree_t * b_edge,
   /* 1. bisection point must not be a leaf branch */
   if (!(b_edge->next && b_edge->back->next))
   {
-    pllmod_set_error(PLL_ERROR_TBR_LEAF_BISECTION, "attempting to bisect at a leaf node");
+    pllmod_set_error(PLLMOD_TREE_ERROR_TBR_LEAF_BISECTION, "attempting to bisect at a leaf node");
     return PLL_FAILURE;
   }
 
@@ -78,7 +78,7 @@ PLL_EXPORT int pllmod_utree_tbr(pll_utree_t * b_edge,
       b_edge->back == r_edge->edge.utree.child ||
       b_edge->back == r_edge->edge.utree.child->back)
   {
-    pllmod_set_error(PLL_ERROR_TBR_OVERLAPPED_NODES, "TBR nodes are overlapped");
+    pllmod_set_error(PLLMOD_TREE_ERROR_TBR_OVERLAPPED_NODES, "TBR nodes are overlapped");
     return PLL_FAILURE;
   }
 
@@ -90,14 +90,14 @@ PLL_EXPORT int pllmod_utree_tbr(pll_utree_t * b_edge,
       !(utree_find_node_in_subtree(b_edge->back, r_edge->edge.utree.parent) &&
         utree_find_node_in_subtree(b_edge, r_edge->edge.utree.child)))
   {
-    pllmod_set_error(PLL_ERROR_TBR_SAME_SUBTREE, "TBR reconnection in same subtree");
+    pllmod_set_error(PLLMOD_TREE_ERROR_TBR_SAME_SUBTREE, "TBR reconnection in same subtree");
     return PLL_FAILURE;
   }
 
   /* save rollback information */
   if (rollback_info)
   {
-    rollback_info->rearrange_type     = PLL_REARRANGE_TBR;
+    rollback_info->rearrange_type     = PLLMOD_TREE_REARRANGE_TBR;
     rollback_info->rooted             = 0;
     rollback_info->TBR.bisect_edge    = (void *) b_edge;
     rollback_info->TBR.reconn_edge.edge.utree.parent = b_edge->next->next;
@@ -143,14 +143,14 @@ PLL_EXPORT int pllmod_utree_spr(pll_utree_t * p_edge,
   if (pllmod_utree_is_tip(p_edge))
   {
     /* invalid move */
-    pllmod_set_error(PLL_ERROR_SPR_INVALID_NODE, "Attempting to prune a leaf branch");
+    pllmod_set_error(PLLMOD_TREE_ERROR_SPR_INVALID_NODE, "Attempting to prune a leaf branch");
     return PLL_FAILURE;
   }
 
   /* save rollback information */
   if (rollback_info)
   {
-    rollback_info->rearrange_type     = PLL_REARRANGE_SPR;
+    rollback_info->rearrange_type     = PLLMOD_TREE_REARRANGE_SPR;
     rollback_info->rooted             = 0;
     rollback_info->SPR.prune_edge     = (void *) p_edge;
     rollback_info->SPR.regraft_edge   = (void *) p_edge->next->back;
@@ -187,20 +187,20 @@ PLL_EXPORT int pllmod_utree_nni(pll_utree_t * edge,
   if (!(type == PLL_UTREE_MOVE_NNI_LEFT || type == PLL_UTREE_MOVE_NNI_RIGHT))
   {
     /* invalid move */
-    pllmod_set_error(PLL_ERROR_NNI_INVALID_MOVE, "Invalid NNI move type");
+    pllmod_set_error(PLLMOD_TREE_ERROR_NNI_INVALID_MOVE, "Invalid NNI move type");
     return PLL_FAILURE;
   }
   if (pllmod_utree_is_tip(edge) || pllmod_utree_is_tip(edge->back))
   {
     /* invalid move */
-    pllmod_set_error(PLL_ERROR_INTERCHANGE_LEAF, "Attempting to apply NNI on a leaf branch");
+    pllmod_set_error(PLLMOD_TREE_ERROR_INTERCHANGE_LEAF, "Attempting to apply NNI on a leaf branch");
     return PLL_FAILURE;
   }
 
   /* save rollback information */
   if (rollback_info)
   {
-    rollback_info->rearrange_type     = PLL_REARRANGE_NNI;
+    rollback_info->rearrange_type     = PLLMOD_TREE_REARRANGE_NNI;
     rollback_info->rooted             = 0;
     rollback_info->NNI.edge           = (void *) edge;
     rollback_info->NNI.type           = type;
@@ -222,7 +222,7 @@ PLL_EXPORT int pllmod_tree_rollback(pll_tree_rollback_t * rollback_info)
   int retval = PLL_FAILURE;
   switch (rollback_info->rearrange_type)
   {
-    case PLL_REARRANGE_TBR:
+    case PLLMOD_TREE_REARRANGE_TBR:
       {
         if (rollback_info->rooted)
           retval = rtree_rollback_tbr (rollback_info);
@@ -230,7 +230,7 @@ PLL_EXPORT int pllmod_tree_rollback(pll_tree_rollback_t * rollback_info)
           retval = utree_rollback_tbr (rollback_info);
       }
       break;
-    case PLL_REARRANGE_SPR:
+    case PLLMOD_TREE_REARRANGE_SPR:
       {
         if (rollback_info->rooted)
           retval = rtree_rollback_spr (rollback_info);
@@ -238,7 +238,7 @@ PLL_EXPORT int pllmod_tree_rollback(pll_tree_rollback_t * rollback_info)
           retval = utree_rollback_spr (rollback_info);
       }
       break;
-    case PLL_REARRANGE_NNI:
+    case PLLMOD_TREE_REARRANGE_NNI:
       {
         if (rollback_info->rooted)
           retval = rtree_rollback_nni (rollback_info);
@@ -330,13 +330,13 @@ PLL_EXPORT pll_utree_t * pllmod_utree_create_random(unsigned int n_taxa,
 
   /* build minimal tree with 3 tips and 1 inner node */
   pllmod_utree_connect_nodes(nodes[0], nodes[n_taxa],
-                             PLL_TREE_DEFAULT_BRANCH_LENGTH);
+                             PLLMOD_TREE_DEFAULT_BRANCH_LENGTH);
   branches[n_placed_branches++] = nodes[n_taxa];
   pllmod_utree_connect_nodes(nodes[1], nodes[n_taxa]->next,
-                             PLL_TREE_DEFAULT_BRANCH_LENGTH);
+                             PLLMOD_TREE_DEFAULT_BRANCH_LENGTH);
   branches[n_placed_branches++] = nodes[n_taxa]->next;
   pllmod_utree_connect_nodes(nodes[2], nodes[n_taxa]->next->next,
-                             PLL_TREE_DEFAULT_BRANCH_LENGTH);
+                             PLLMOD_TREE_DEFAULT_BRANCH_LENGTH);
   branches[n_placed_branches++] = nodes[n_taxa]->next->next;
 
   for (i=3; i<n_taxa; ++i)
@@ -351,11 +351,11 @@ PLL_EXPORT pll_utree_t * pllmod_utree_create_random(unsigned int n_taxa,
 
     /* connect tip to selected branch */
     pllmod_utree_connect_nodes(next_branch->back, next_inner,
-                               PLL_TREE_DEFAULT_BRANCH_LENGTH);
+                               PLLMOD_TREE_DEFAULT_BRANCH_LENGTH);
     pllmod_utree_connect_nodes(next_branch, next_inner->next,
-                               PLL_TREE_DEFAULT_BRANCH_LENGTH);
+                               PLLMOD_TREE_DEFAULT_BRANCH_LENGTH);
     pllmod_utree_connect_nodes(next_tip, next_inner->next->next,
-                               PLL_TREE_DEFAULT_BRANCH_LENGTH);
+                               PLLMOD_TREE_DEFAULT_BRANCH_LENGTH);
 
     if (pllmod_utree_is_tip (next_inner->back))
     {
@@ -675,7 +675,7 @@ static int rtree_rollback_nni(pll_tree_rollback_t * rollback_info)
 static int utree_rollback_tbr(pll_tree_rollback_t * rollback_info)
 {
   assert(!rollback_info->rooted);
-  assert(rollback_info->rearrange_type == PLL_REARRANGE_TBR);
+  assert(rollback_info->rearrange_type == PLLMOD_TREE_REARRANGE_TBR);
 
   pll_utree_t * p = (pll_utree_t *) rollback_info->TBR.bisect_edge;
   pll_utree_t * q = p->next->back;
@@ -701,7 +701,7 @@ static int utree_rollback_tbr(pll_tree_rollback_t * rollback_info)
 static int utree_rollback_spr(pll_tree_rollback_t * rollback_info)
 {
   assert(!rollback_info->rooted);
-  assert(rollback_info->rearrange_type == PLL_REARRANGE_SPR);
+  assert(rollback_info->rearrange_type == PLLMOD_TREE_REARRANGE_SPR);
 
   pll_utree_t * p = (pll_utree_t *) rollback_info->SPR.prune_edge;
   pll_utree_t * r = (pll_utree_t *) rollback_info->SPR.regraft_edge;
@@ -724,7 +724,7 @@ static int utree_rollback_spr(pll_tree_rollback_t * rollback_info)
 static int utree_rollback_nni(pll_tree_rollback_t * rollback_info)
 {
   assert(!rollback_info->rooted);
-  assert(rollback_info->rearrange_type == PLL_REARRANGE_NNI);
+  assert(rollback_info->rearrange_type == PLLMOD_TREE_REARRANGE_NNI);
 
   pll_utree_t * p = rollback_info->NNI.edge;
   pll_utree_t * q = p->back;

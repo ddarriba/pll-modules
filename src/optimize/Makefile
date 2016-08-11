@@ -38,6 +38,7 @@ AR = ar
 CFLAGS = -D_GNU_SOURCE -fPIC $(PROFILING) -msse3 -O3 -I../../libs/libpll/src $(WARN)
 LINKFLAGS=$(PROFILING)
 LIBS=-lpll -lm
+DEPS=../pllmod_common.o
 
 PROG=libpll_optimize.so
 
@@ -46,7 +47,8 @@ all: $(PROG)
 OBJS=pll_optimize.o \
   opt_algorithms.o \
 	lbfgsb/lbfgsb.o lbfgsb/linesearch.o lbfgsb/linpack.o \
-	lbfgsb/miniCBLAS.o lbfgsb/subalgorithms.o
+	lbfgsb/miniCBLAS.o lbfgsb/subalgorithms.o \
+	$(DEPS)
 
 $(PROG): $(OBJS)
 	$(CC) -shared $(SONAMEFLAGS) -o $@ $+

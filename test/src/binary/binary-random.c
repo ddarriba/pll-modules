@@ -292,9 +292,9 @@ int main (int argc, char * argv[])
   const char * bin_fname = "test.bin";
 
   printf("** create binary file\n");
-  bin_file = pll_binary_create(bin_fname,
+  bin_file = pllmod_binary_create(bin_fname,
                                &bin_header,
-                               PLL_BIN_ACCESS_RANDOM,
+                               PLLMOD_BIN_ACCESS_RANDOM,
                                10); /* allocate for up to 10 blocks */
 
   if (!bin_file)
@@ -306,23 +306,23 @@ int main (int argc, char * argv[])
 
   /* We save the structures in an arbitrary order */
 
-  /* IMPORTANT! Attribute PLL_BIN_ATTRIB_UPDATE_MAP must be set! */
-  if (!pll_binary_partition_dump(bin_file,
+  /* IMPORTANT! Attribute PLLMOD_BIN_ATTRIB_UPDATE_MAP must be set! */
+  if (!pllmod_binary_partition_dump(bin_file,
                             BLOCK_ID_PARTITION,
                             partition,
-                            PLL_BIN_ATTRIB_PARTITION_DUMP_CLV |
-                            PLL_BIN_ATTRIB_PARTITION_DUMP_WGT |
-                            PLL_BIN_ATTRIB_UPDATE_MAP))
+                            PLLMOD_BIN_ATTRIB_PARTITION_DUMP_CLV |
+                            PLLMOD_BIN_ATTRIB_PARTITION_DUMP_WGT |
+                            PLLMOD_BIN_ATTRIB_UPDATE_MAP))
   {
     printf("Error dumping partition\n");
   }
 
   /* dump tree */
-  if (!pll_binary_utree_dump(bin_file,
+  if (!pllmod_binary_utree_dump(bin_file,
                        BLOCK_ID_TREE,
                        tree,
                        tip_nodes_count,
-                       PLL_BIN_ATTRIB_UPDATE_MAP))
+                       PLLMOD_BIN_ATTRIB_UPDATE_MAP))
   {
     printf("Error dumping tree\n");
   }
@@ -340,11 +340,11 @@ int main (int argc, char * argv[])
     int clv_index;
     clv_index = partition->tips + i;
     assert (clv_index < (partition->tips + partition->clv_buffers));
-    pll_binary_clv_dump(bin_file,
+    pllmod_binary_clv_dump(bin_file,
                         BLOCK_ID_CLV + i,
                         partition,
                         clv_index,
-                        PLL_BIN_ATTRIB_UPDATE_MAP);
+                        PLLMOD_BIN_ATTRIB_UPDATE_MAP);
     memcpy(saved_clvs_ptr,
            partition->clv[clv_index],
            sizeof(double) * clv_size);
@@ -353,7 +353,7 @@ int main (int argc, char * argv[])
 
   printf("** close binary file\n");
 
-  pll_binary_close(bin_file);
+  pllmod_binary_close(bin_file);
 
   // pll_utree_show_ascii(tree, (1<<5)-1);
 
@@ -371,9 +371,9 @@ int main (int argc, char * argv[])
   pll_block_map_t * block_map;
   unsigned int n_blocks;
 
-  bin_file = pll_binary_open(bin_fname, &input_header);
+  bin_file = pllmod_binary_open(bin_fname, &input_header);
 
-  block_map = pll_binary_get_map(bin_file, &n_blocks);
+  block_map = pllmod_binary_get_map(bin_file, &n_blocks);
 
   printf("There are %d blocks in the map\n", n_blocks);
   int partition_offset = 0;
@@ -391,8 +391,8 @@ int main (int argc, char * argv[])
   }
 
   /* For the offset we can use the actual offset (from the block_map),
-     or PLL_BIN_ACCESS_SEEK */
-  partition = pll_binary_partition_load(bin_file,
+     or PLLMOD_BIN_ACCESS_SEEK */
+  partition = pllmod_binary_partition_load(bin_file,
                                         BLOCK_ID_PARTITION,
                                         NULL, /* in order to create a new partition */
                                         &bin_attributes,
@@ -413,12 +413,12 @@ int main (int argc, char * argv[])
     /* reset involved clvs */
     memset(partition->clv[clv_index], 0, sizeof(double) * clv_size);
 
-    if (!pll_binary_clv_load(bin_file,
+    if (!pllmod_binary_clv_load(bin_file,
                         BLOCK_ID_CLV + i,
                         partition,
                         clv_index,
                         &bin_attributes,
-                        PLL_BIN_ACCESS_SEEK))
+                        PLLMOD_BIN_ACCESS_SEEK))
     {
       printf("Error loading CLV %d\n", clv_index);
       printf("%d : %s\n", pll_errno, pll_errmsg);
@@ -462,14 +462,14 @@ int main (int argc, char * argv[])
      fatal("Error: Saved and loaded logL do not agree!!\n");
 
   /* new we try with ACCESS_SEEK instead of the value taken from the map */
-  tree = pll_binary_utree_load(bin_file,
+  tree = pllmod_binary_utree_load(bin_file,
                                BLOCK_ID_TREE,
                                &bin_attributes,
-                               PLL_BIN_ACCESS_SEEK);
+                               PLLMOD_BIN_ACCESS_SEEK);
   if (!tree)
     fatal("Error loading tree!\n");
 
-pll_binary_close(bin_file);
+pllmod_binary_close(bin_file);
 
   if (!pll_utree_traverse(tree,
                           cb_traversal,

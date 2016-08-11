@@ -20,13 +20,14 @@
  */
 #include "pll_binary.h"
 #include "binary_io_operations.h"
+#include "../pllmod_common.h"
 
 /**
  * Notes:
  *     1. Memory alignment could be different when saving and loading the binary
  *        file. Data will be saved without modifying the alignment, but we need
  *        to check if it is the correct one when loading.
- *     2. Binary file should be created using pll_binary_create. This will place
+ *     2. Binary file should be created using pllmod_binary_create. This will place
  *        the header at the beginning of the file. When a block is added, the
  *        header is updated.
  *     3. Random access binary files require some space allocated at the
@@ -58,25 +59,24 @@ static unsigned int get_current_alignment( unsigned int attributes )
   return alignment;
 }
 
-PLL_EXPORT FILE * pll_binary_create(const char * filename,
-                                    pll_binary_header_t * header,
-                                    unsigned int access_type,
-                                    unsigned int n_blocks)
+PLL_EXPORT FILE * pllmod_binary_create(const char * filename,
+                                       pll_binary_header_t * header,
+                                       unsigned int access_type,
+                                       unsigned int n_blocks)
 {
   FILE * file = NULL;
 
   memset(header, 0, sizeof(pll_binary_header_t));
   header->access_type = access_type;
   header->max_blocks = n_blocks;
-  header->map_offset = (access_type == PLL_BIN_ACCESS_RANDOM)?
+  header->map_offset = (access_type == PLLMOD_BIN_ACCESS_RANDOM)?
       n_blocks * sizeof(pll_block_map_t):0;
   header->n_blocks = 0;
 
-  if (access_type == PLL_BIN_ACCESS_RANDOM && n_blocks <= 0)
+  if (access_type == PLLMOD_BIN_ACCESS_RANDOM && n_blocks <= 0)
   {
-    snprintf(pll_errmsg, 200,
+    pllmod_set_error(PLLMOD_BIN_ERROR_INVALID_SIZE,
              "Number of blocks for random access must be greater than 0");
-    pll_errno = PLL_BIN_ERROR_INVALID_SIZE;
     return NULL;
   }
 
@@ -84,23 +84,22 @@ PLL_EXPORT FILE * pll_binary_create(const char * filename,
 
   if (!file)
   {
-    snprintf(pll_errmsg, 200, "Cannot open file for writing");
-    pll_errno = PLL_ERROR_FILE_OPEN;
+    pllmod_set_error(PLL_ERROR_FILE_OPEN, "Cannot open file for writing");
     return NULL;
   }
 
   if (!bin_fwrite(header, sizeof(pll_binary_header_t), 1, file))
   {
-    snprintf(pll_errmsg, 200, "Error writing header to file");
-    pll_errno = PLL_BIN_ERROR_BINARY_IO;
+    pllmod_set_error(PLLMOD_BIN_ERROR_BINARY_IO,
+                     "Error writing header to file");
     fclose(file);
     return NULL;
   }
 
   if(fseek(file, header->map_offset, SEEK_CUR))
   {
-    snprintf(pll_errmsg, 200, "Error seeking through file during creation");
-    pll_errno = PLL_BIN_ERROR_BINARY_IO;
+    pllmod_set_error(PLLMOD_BIN_ERROR_BINARY_IO,
+                     "Error seeking through file during creation");
     fclose(file);
     return NULL;
   }
@@ -108,8 +107,8 @@ PLL_EXPORT FILE * pll_binary_create(const char * filename,
   return file;
 }
 
-PLL_EXPORT FILE * pll_binary_open(const char * filename,
-                                  pll_binary_header_t * header)
+PLL_EXPORT FILE * pllmod_binary_open(const char * filename,
+                                     pll_binary_header_t * header)
 {
   FILE * file;
 
@@ -117,15 +116,14 @@ PLL_EXPORT FILE * pll_binary_open(const char * filename,
 
   if (!file)
   {
-    snprintf(pll_errmsg, 200, "Cannot open file for reading");
-    pll_errno = PLL_ERROR_FILE_OPEN;
+    pllmod_set_error(PLL_ERROR_FILE_OPEN, "Cannot open file for reading");
     return NULL;
   }
 
   if (!bin_fread(header, sizeof(pll_binary_header_t), 1, file))
   {
-    snprintf(pll_errmsg, 200, "Error reading header from file");
-    pll_errno = PLL_BIN_ERROR_BINARY_IO;
+    pllmod_set_error(PLLMOD_BIN_ERROR_BINARY_IO,
+                     "Error reading header from file");
     fclose(file);
     return NULL;
   }
@@ -135,15 +133,15 @@ PLL_EXPORT FILE * pll_binary_open(const char * filename,
   return file;
 }
 
-PLL_EXPORT int pll_binary_close(FILE * bin_file)
+PLL_EXPORT int pllmod_binary_close(FILE * bin_file)
 {
   return fclose(bin_file);
 }
 
-PLL_EXPORT int pll_binary_partition_dump(FILE * bin_file,
-                                         int block_id,
-                                         pll_partition_t * partition,
-                                         unsigned int attributes)
+PLL_EXPORT int pllmod_binary_partition_dump(FILE * bin_file,
+                                            int block_id,
+                                            pll_partition_t * partition,
+                                            unsigned int attributes)
 {
   pll_block_header_t block_header;
   // unsigned long partition_len = partition_size(partition),
@@ -154,7 +152,7 @@ PLL_EXPORT int pll_binary_partition_dump(FILE * bin_file,
 
   /* fill block header */
   block_header.block_id   = block_id;
-  block_header.type       = PLL_BIN_BLOCK_PARTITION;
+  block_header.type       = PLLMOD_BIN_BLOCK_PARTITION;
   block_header.attributes = attributes;
   block_header.block_len  = 0; //partition_len;
   block_header.alignment  = 0;
@@ -197,25 +195,25 @@ PLL_EXPORT int pll_binary_partition_dump(FILE * bin_file,
   return PLL_SUCCESS;
 }
 
-PLL_EXPORT pll_partition_t * pll_binary_partition_load(FILE * bin_file,
-                                                       int block_id,
-                                                       pll_partition_t * partition,
-                                                       unsigned int * attributes,
-                                                       long int offset)
+PLL_EXPORT pll_partition_t * pllmod_binary_partition_load(FILE * bin_file,
+                                                          int block_id,
+                                                          pll_partition_t * partition,
+                                                          unsigned int * attributes,
+                                                          long int offset)
 {
   pll_block_header_t block_header;
   pll_partition_t * local_partition;
-  assert(offset >= 0 || offset == PLL_BIN_ACCESS_SEEK);
+  assert(offset >= 0 || offset == PLLMOD_BIN_ACCESS_SEEK);
   unsigned int sites_alloc;
   unsigned int i;
 
   if (offset != 0)
   {
-    if (offset == PLL_BIN_ACCESS_SEEK)
+    if (offset == PLLMOD_BIN_ACCESS_SEEK)
     {
       /* find offset */
       offset = binary_get_offset (bin_file, block_id);
-      if (offset == PLL_BIN_INVALID_OFFSET)
+      if (offset == PLLMOD_BIN_INVALID_OFFSET)
         return NULL;
     }
 
@@ -226,11 +224,11 @@ PLL_EXPORT pll_partition_t * pll_binary_partition_load(FILE * bin_file,
   if (!binary_block_header_apply(bin_file, &block_header, &bin_fread))
     return NULL;
 
-  if (block_header.type != PLL_BIN_BLOCK_PARTITION)
+  if (block_header.type != PLLMOD_BIN_BLOCK_PARTITION)
   {
-    pll_errno = PLL_BIN_ERROR_BLOCK_MISMATCH;
-    snprintf(pll_errmsg, 200, "Block type is %d and should be %d",
-             block_header.type, PLL_BIN_BLOCK_PARTITION);
+    pllmod_set_error(PLLMOD_BIN_ERROR_BLOCK_MISMATCH,
+                     "Block type is %d and should be %d",
+                     block_header.type, PLLMOD_BIN_BLOCK_PARTITION);
     return NULL;
   }
 
@@ -278,8 +276,7 @@ PLL_EXPORT pll_partition_t * pll_binary_partition_load(FILE * bin_file,
                                  sizeof(unsigned char *));
       if (!local_partition->tipchars)
       {
-        pll_errno = PLL_ERROR_INIT_CHARMAP;
-        snprintf (pll_errmsg, 200,
+        pllmod_set_error(PLL_ERROR_INIT_CHARMAP,
                   "Cannot allocate space for storing tip characters.");
         return PLL_FAILURE;
       }
@@ -287,8 +284,7 @@ PLL_EXPORT pll_partition_t * pll_binary_partition_load(FILE * bin_file,
       if (!(local_partition->charmap = (unsigned char *)calloc(PLL_ASCII_SIZE,
                                                         sizeof(unsigned char))))
       {
-        pll_errno = PLL_ERROR_INIT_CHARMAP;
-        snprintf (pll_errmsg, 200,
+        pllmod_set_error(PLL_ERROR_INIT_CHARMAP,
                   "Cannot allocate charmap for tip-tip precomputation.");
         return PLL_FAILURE;
       }
@@ -296,8 +292,7 @@ PLL_EXPORT pll_partition_t * pll_binary_partition_load(FILE * bin_file,
       if (!(local_partition->tipmap = (unsigned int *)calloc(PLL_ASCII_SIZE,
                                                        sizeof(unsigned int))))
       {
-        pll_errno = PLL_ERROR_INIT_CHARMAP;
-        snprintf (pll_errmsg, 200,
+        pllmod_set_error(PLL_ERROR_INIT_CHARMAP,
                   "Cannot allocate tipmap for tip-tip precomputation.");
         return PLL_FAILURE;
       }
@@ -308,8 +303,7 @@ PLL_EXPORT pll_partition_t * pll_binary_partition_load(FILE * bin_file,
                                                          sizeof(unsigned char));
         if (!local_partition->tipchars[i])
         {
-          pll_errno = PLL_ERROR_INIT_CHARMAP;
-          snprintf (pll_errmsg, 200,
+          pllmod_set_error(PLL_ERROR_INIT_CHARMAP,
                     "Cannot allocate space for storing tip characters.");
           return PLL_FAILURE;
         }
@@ -336,9 +330,8 @@ PLL_EXPORT pll_partition_t * pll_binary_partition_load(FILE * bin_file,
       }
       if (!local_partition->ttlookup)
       {
-        pll_errno = PLL_ERROR_INIT_CHARMAP;
-        snprintf (pll_errmsg, 200,
-                  "Cannot allocate space for storing precomputed tip-tip CLVs.");
+        pllmod_set_error(PLL_ERROR_INIT_CHARMAP,
+                "Cannot allocate space for storing precomputed tip-tip CLVs.");
         return PLL_FAILURE;
       }
     }
@@ -362,11 +355,11 @@ PLL_EXPORT pll_partition_t * pll_binary_partition_load(FILE * bin_file,
 }
 
 
-PLL_EXPORT int pll_binary_clv_dump(FILE * bin_file,
-                                   int block_id,
-                                   pll_partition_t * partition,
-                                   unsigned int clv_index,
-                                   unsigned int attributes)
+PLL_EXPORT int pllmod_binary_clv_dump(FILE * bin_file,
+                                      int block_id,
+                                      pll_partition_t * partition,
+                                      unsigned int clv_index,
+                                      unsigned int attributes)
 {
   int retval;
   pll_block_header_t block_header;
@@ -379,7 +372,7 @@ PLL_EXPORT int pll_binary_clv_dump(FILE * bin_file,
 
   /* fill block header */
   block_header.block_id   = block_id;
-  block_header.type       = PLL_BIN_BLOCK_CLV;
+  block_header.type       = PLLMOD_BIN_BLOCK_CLV;
   block_header.attributes = attributes;
   block_header.block_len  = clv_size * sizeof(double);
   block_header.alignment  = 0;
@@ -405,18 +398,18 @@ PLL_EXPORT int pll_binary_clv_dump(FILE * bin_file,
   return retval;
 }
 
-PLL_EXPORT int pll_binary_clv_load(FILE * bin_file,
-                                   int block_id,
-                                   pll_partition_t * partition,
-                                   unsigned int clv_index,
-                                   unsigned int * attributes,
-                                   long int offset)
+PLL_EXPORT int pllmod_binary_clv_load(FILE * bin_file,
+                                      int block_id,
+                                      pll_partition_t * partition,
+                                      unsigned int clv_index,
+                                      unsigned int * attributes,
+                                      long int offset)
 {
   int retval;
   pll_block_header_t block_header;
 
   assert (partition);
-  assert(offset >= 0 || offset == PLL_BIN_ACCESS_SEEK);
+  assert(offset >= 0 || offset == PLLMOD_BIN_ACCESS_SEEK);
 
   unsigned int sites_alloc = partition->asc_bias_alloc ?
                  partition->sites + partition->states :
@@ -424,14 +417,14 @@ PLL_EXPORT int pll_binary_clv_load(FILE * bin_file,
 
   if (offset != 0)
   {
-    if (offset == PLL_BIN_ACCESS_SEEK)
+    if (offset == PLLMOD_BIN_ACCESS_SEEK)
     {
       /* find offset */
       offset = binary_get_offset (bin_file, block_id);
-      if (offset == PLL_BIN_INVALID_OFFSET)
+      if (offset == PLLMOD_BIN_INVALID_OFFSET)
       {
-        pll_errno = PLL_BIN_ERROR_MISSING_BLOCK;
-        snprintf(pll_errmsg, 200, "Cannot find block with id %d", block_id);
+        pllmod_set_error(PLLMOD_BIN_ERROR_MISSING_BLOCK,
+                      "Cannot find block with id %d", block_id);
         return PLL_FAILURE;
       }
     }
@@ -444,11 +437,11 @@ PLL_EXPORT int pll_binary_clv_load(FILE * bin_file,
   if (!binary_block_header_apply(bin_file, &block_header, &bin_fread))
     return PLL_FAILURE;
 
-  if (block_header.type != PLL_BIN_BLOCK_CLV)
+  if (block_header.type != PLLMOD_BIN_BLOCK_CLV)
   {
-    pll_errno = PLL_BIN_ERROR_BLOCK_MISMATCH;
-    snprintf(pll_errmsg, 200, "Block type is %d and should be %d",
-             block_header.type, PLL_BIN_BLOCK_CLV);
+    pllmod_set_error(PLLMOD_BIN_ERROR_BLOCK_MISMATCH,
+                  "Block type is %d and should be %d",
+                  block_header.type, PLLMOD_BIN_BLOCK_CLV);
     return PLL_FAILURE;
   }
 
@@ -457,8 +450,8 @@ PLL_EXPORT int pll_binary_clv_load(FILE * bin_file,
 
   if (block_header.block_len != (clv_size * sizeof(double)))
   {
-      pll_errno = PLL_BIN_ERROR_BLOCK_LENGTH;
-      snprintf(pll_errmsg, 200, "Wrong block length");
+      pllmod_set_error(PLLMOD_BIN_ERROR_BLOCK_LENGTH,
+                    "Wrong block length");
       return PLL_FAILURE;
   }
 
@@ -479,11 +472,11 @@ static int cb_full_traversal(pll_utree_t * node)
   return 1;
 }
 
-PLL_EXPORT int pll_binary_utree_dump(FILE * bin_file,
-                                     int block_id,
-                                     pll_utree_t * tree,
-                                     unsigned int tip_count,
-                                     unsigned int attributes)
+PLL_EXPORT int pllmod_binary_utree_dump(FILE * bin_file,
+                                        int block_id,
+                                        pll_utree_t * tree,
+                                        unsigned int tip_count,
+                                        unsigned int attributes)
 {
   pll_utree_t ** travbuffer;
   pll_block_header_t block_header;
@@ -504,7 +497,7 @@ PLL_EXPORT int pll_binary_utree_dump(FILE * bin_file,
   assert (trav_size == n_nodes);
 
   block_header.block_id   = block_id;
-  block_header.type       = PLL_BIN_BLOCK_TREE;
+  block_header.type       = PLLMOD_BIN_BLOCK_TREE;
   block_header.attributes = attributes;
   block_header.block_len  = n_utrees * sizeof(pll_utree_t);
   block_header.alignment  = 0;
@@ -551,10 +544,10 @@ PLL_EXPORT int pll_binary_utree_dump(FILE * bin_file,
   return PLL_SUCCESS;
 }
 
-PLL_EXPORT pll_utree_t * pll_binary_utree_load(FILE * bin_file,
-                                               int block_id,
-                                               unsigned int * attributes,
-                                               long int offset)
+PLL_EXPORT pll_utree_t * pllmod_binary_utree_load(FILE * bin_file,
+                                                  int block_id,
+                                                  unsigned int * attributes,
+                                                  long int offset)
 {
   unsigned int i, n_tips, n_tip_check, n_nodes;
   long n_utrees;
@@ -564,15 +557,15 @@ PLL_EXPORT pll_utree_t * pll_binary_utree_load(FILE * bin_file,
   unsigned int tree_stack_top;
   int retval;
 
-  assert(offset >= 0 || offset == PLL_BIN_ACCESS_SEEK);
+  assert(offset >= 0 || offset == PLLMOD_BIN_ACCESS_SEEK);
 
   if (offset != 0)
   {
-    if (offset == PLL_BIN_ACCESS_SEEK)
+    if (offset == PLLMOD_BIN_ACCESS_SEEK)
     {
       /* find offset */
       offset = binary_get_offset (bin_file, block_id);
-      if (offset == PLL_BIN_INVALID_OFFSET)
+      if (offset == PLLMOD_BIN_INVALID_OFFSET)
         return NULL;
     }
 
@@ -584,11 +577,11 @@ PLL_EXPORT pll_utree_t * pll_binary_utree_load(FILE * bin_file,
   if (!binary_block_header_apply(bin_file, &block_header, &bin_fread))
     return NULL;
 
-  if (block_header.type != PLL_BIN_BLOCK_TREE)
+  if (block_header.type != PLLMOD_BIN_BLOCK_TREE)
   {
-    pll_errno = PLL_BIN_ERROR_BLOCK_MISMATCH;
-    snprintf (pll_errmsg, 200, "Block type is %d and should be %d",
-              block_header.type, PLL_BIN_BLOCK_TREE);
+    pllmod_set_error(PLLMOD_BIN_ERROR_BLOCK_MISMATCH,
+                     "Block type is %d and should be %d",
+                     block_header.type, PLLMOD_BIN_BLOCK_TREE);
     return NULL;
   }
 
@@ -661,11 +654,11 @@ PLL_EXPORT pll_utree_t * pll_binary_utree_load(FILE * bin_file,
   return tree;
 }
 
-PLL_EXPORT int pll_binary_custom_dump(FILE * bin_file,
-                                      int block_id,
-                                      void * data,
-                                      size_t size,
-                                      unsigned int attributes)
+PLL_EXPORT int pllmod_binary_custom_dump(FILE * bin_file,
+                                        int block_id,
+                                        void * data,
+                                        size_t size,
+                                        unsigned int attributes)
 {
   int retval;
   pll_block_header_t block_header;
@@ -673,7 +666,7 @@ PLL_EXPORT int pll_binary_custom_dump(FILE * bin_file,
 
   /* dump header */
   block_header.block_id   = block_id;
-  block_header.type       = PLL_BIN_BLOCK_CUSTOM;
+  block_header.type       = PLLMOD_BIN_BLOCK_CUSTOM;
   block_header.attributes = attributes;
   block_header.block_len  = size;
   block_header.alignment  = 0;
@@ -693,8 +686,8 @@ PLL_EXPORT int pll_binary_custom_dump(FILE * bin_file,
   return retval;
 }
 
-PLL_EXPORT pll_block_map_t * pll_binary_get_map(FILE * bin_file,
-                                                unsigned int * n_blocks)
+PLL_EXPORT pll_block_map_t * pllmod_binary_get_map(FILE * bin_file,
+                                                   unsigned int * n_blocks)
 {
   pll_binary_header_t bin_header;
   pll_block_map_t * map;
@@ -722,26 +715,26 @@ PLL_EXPORT pll_block_map_t * pll_binary_get_map(FILE * bin_file,
   return map;
 }
 
-PLL_EXPORT void * pll_binary_custom_load(FILE * bin_file,
-                                         int block_id,
-                                         size_t * size,
-                                         unsigned int * type,
-                                         unsigned int * attributes,
-                                         long int offset)
+PLL_EXPORT void * pllmod_binary_custom_load(FILE * bin_file,
+                                           int block_id,
+                                           size_t * size,
+                                           unsigned int * type,
+                                           unsigned int * attributes,
+                                           long int offset)
 {
   pll_block_header_t block_header;
   unsigned int alignment;
   void * data;
 
-  assert (offset >= 0 || offset == PLL_BIN_ACCESS_SEEK);
+  assert (offset >= 0 || offset == PLLMOD_BIN_ACCESS_SEEK);
 
   if (offset != 0)
   {
-    if (offset == PLL_BIN_ACCESS_SEEK)
+    if (offset == PLLMOD_BIN_ACCESS_SEEK)
     {
       /* find offset */
       offset = binary_get_offset(bin_file, block_id);
-      if (offset == PLL_BIN_INVALID_OFFSET)
+      if (offset == PLLMOD_BIN_INVALID_OFFSET)
         return NULL;
     }
 
@@ -758,7 +751,7 @@ PLL_EXPORT void * pll_binary_custom_load(FILE * bin_file,
   *attributes = block_header.attributes;
 
   /* read data */
-  if (*attributes & PLL_BIN_ATTRIB_ALIGNED)
+  if (*attributes & PLLMOD_BIN_ATTRIB_ALIGNED)
   {
     unsigned int cur_alignment = get_current_alignment(*attributes);
 
@@ -772,16 +765,14 @@ PLL_EXPORT void * pll_binary_custom_load(FILE * bin_file,
 
   if (!data)
   {
-    pll_errno = PLL_ERROR_MEM_ALLOC;
-    snprintf (pll_errmsg, 200,
-              "Cannot allocate space for storing data.");
+    pllmod_set_error(PLL_ERROR_MEM_ALLOC,
+                     "Cannot allocate space for storing data.");
     return PLL_FAILURE;
   }
 
   if (!bin_fread (data, *size, 1, bin_file))
   {
-    pll_errno = PLL_BIN_ERROR_BINARY_IO;
-    snprintf (pll_errmsg, 200, "Error reading data.");
+    pllmod_set_error(PLLMOD_BIN_ERROR_BINARY_IO, "Error reading data.");
     free(data);
     return PLL_FAILURE;
   }

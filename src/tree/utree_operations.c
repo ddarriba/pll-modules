@@ -160,7 +160,7 @@ PLL_EXPORT pll_utree_t * pllmod_utree_prune(pll_utree_t * edge)
   if (!edge->next)
   {
     /* invalid node */
-    pllmod_set_error(PLL_ERROR_SPR_INVALID_NODE, "Attempting to prune a tip node");
+    pllmod_set_error(PLLMOD_TREE_ERROR_SPR_INVALID_NODE, "Attempting to prune a tip node");
     return NULL;
   }
 
@@ -205,13 +205,13 @@ PLL_EXPORT int pllmod_utree_regraft(pll_utree_t * edge,
   if (!edge->next)
       {
         /* invalid node */
-        pllmod_set_error(PLL_ERROR_SPR_INVALID_NODE, "Attempting to regraft a tip node");
+        pllmod_set_error(PLLMOD_TREE_ERROR_SPR_INVALID_NODE, "Attempting to regraft a tip node");
         return PLL_FAILURE;
       }
   if (edge->next->back || edge->next->next->back)
   {
     /* invalid node */
-    pllmod_set_error(PLL_ERROR_SPR_INVALID_NODE, "Attempting to regraft a connected node");
+    pllmod_set_error(PLLMOD_TREE_ERROR_SPR_INVALID_NODE, "Attempting to regraft a connected node");
     return PLL_FAILURE;
   }
 

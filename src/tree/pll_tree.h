@@ -30,30 +30,30 @@
  * PLL Tree utils module
  * Prefix: pll_tree_, pll_utree_, pll_rtree_
  */
-#define PLL_TREE_DEFAULT_BRANCH_LENGTH 0.1
+#define PLLMOD_TREE_DEFAULT_BRANCH_LENGTH 0.1
 
 /* error codes (for this module, 3000-4000) ; B = 2^10+2^11*/
 /* TBR errors (B + {2^2,2^1,2^0}) */
-#define PLL_ERROR_TBR_LEAF_BISECTION   3073 // B + {001}
-#define PLL_ERROR_TBR_OVERLAPPED_NODES 3074 // B + {010}
-#define PLL_ERROR_TBR_SAME_SUBTREE     3075 // B + {011}
-#define PLL_ERROR_TBR_MASK             3079 // B + {111}
+#define PLLMOD_TREE_ERROR_TBR_LEAF_BISECTION   3073 // B + {001}
+#define PLLMOD_TREE_ERROR_TBR_OVERLAPPED_NODES 3074 // B + {010}
+#define PLLMOD_TREE_ERROR_TBR_SAME_SUBTREE     3075 // B + {011}
+#define PLLMOD_TREE_ERROR_TBR_MASK             3079 // B + {111}
 
 /* NNI errors (B + {2^4,2^3}) */
-#define PLL_ERROR_NNI_INVALID_MOVE     3080 // B + {01...}
-#define PLL_ERROR_NNI_MASK             3096 // B + {11...}
+#define PLLMOD_TREE_ERROR_NNI_INVALID_MOVE     3080 // B + {01...}
+#define PLLMOD_TREE_ERROR_NNI_MASK             3096 // B + {11...}
 
 /* SPR errors (B + {2^6,2^5}) */
-#define PLL_ERROR_SPR_INVALID_NODE     3104 // B + {01...}
-#define PLL_ERROR_SPR_MASK             3168 // B + {11...}
+#define PLLMOD_TREE_ERROR_SPR_INVALID_NODE     3104 // B + {01...}
+#define PLLMOD_TREE_ERROR_SPR_MASK             3168 // B + {11...}
 
 /* general errors (B + {2^8,2^7}) */
-#define PLL_ERROR_INTERCHANGE_LEAF     3200 // B + {01...}
-#define PLL_ERROR_INVALID_REARRAGE     3328 // B + {10...}
+#define PLLMOD_TREE_ERROR_INTERCHANGE_LEAF     3200 // B + {01...}
+#define PLLMOD_TREE_ERROR_INVALID_REARRAGE     3328 // B + {10...}
 
-#define PLL_REARRANGE_SPR  0
-#define PLL_REARRANGE_NNI  1
-#define PLL_REARRANGE_TBR  2
+#define PLLMOD_TREE_REARRANGE_SPR  0
+#define PLLMOD_TREE_REARRANGE_NNI  1
+#define PLLMOD_TREE_REARRANGE_TBR  2
 
 typedef unsigned int pll_split_base_t;
 typedef pll_split_base_t * pll_split_t;

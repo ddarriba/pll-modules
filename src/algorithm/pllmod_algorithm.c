@@ -51,14 +51,14 @@ PLL_EXPORT double pllmod_algo_opt_frequencies (pll_partition_t * partition,
     {
       x[cur_index] = frequencies[i]
         / frequencies[opt_params.highest_freq_state];
-      lb[cur_index] = PLL_OPT_MIN_FREQ;
-      ub[cur_index] = PLL_OPT_MAX_FREQ;
-      bt[cur_index] = PLL_LBFGSB_BOUND_BOTH;
+      lb[cur_index] = PLLMOD_OPT_MIN_FREQ;
+      ub[cur_index] = PLLMOD_OPT_MAX_FREQ;
+      bt[cur_index] = PLLMOD_OPT_LBFGSB_BOUND_BOTH;
       cur_index++;
     }
   }
 
-  cur_logl = pll_minimize_lbfgsb(x, lb, ub, bt,
+  cur_logl = pllmod_opt_minimize_lbfgsb(x, lb, ub, bt,
                                  states-1,
                                  PLLMOD_ALGO_BFGS_FACTR, tolerance,
                                  (void *) &opt_params,
@@ -128,7 +128,7 @@ PLL_EXPORT double pllmod_algo_opt_subst_rates (pll_partition_t * partition,
   k = 0;
   for (i = 0; i < subst_free_params; ++i)
   {
-    bt[i] = PLL_LBFGSB_BOUND_BOTH;
+    bt[i] = PLLMOD_OPT_LBFGSB_BOUND_BOTH;
     lb[i] = min_rate;
     ub[i] = max_rate;
 
@@ -156,7 +156,7 @@ PLL_EXPORT double pllmod_algo_opt_subst_rates (pll_partition_t * partition,
       x[i] = (max_rate + min_rate)/2;
   }
 
-  cur_logl = pll_minimize_lbfgsb(x, lb, ub, bt,
+  cur_logl = pllmod_opt_minimize_lbfgsb(x, lb, ub, bt,
                                  subst_free_params,
                                  PLLMOD_ALGO_BFGS_FACTR, tolerance,
                                  (void *) &opt_params, target_subst_params_func);
@@ -186,7 +186,7 @@ PLL_EXPORT double pllmod_algo_opt_alpha (pll_partition_t * partition,
   opt_params.tree           = tree;
   opt_params.params_indices = params_indices;
 
-  xres = pll_minimize_brent(min_alpha, *alpha, max_alpha,
+  xres = pllmod_opt_minimize_brent(min_alpha, *alpha, max_alpha,
                             tolerance,
                             &cur_logl,
                             &f2x,
@@ -216,7 +216,7 @@ PLL_EXPORT double pllmod_algo_opt_pinv (pll_partition_t * partition,
   opt_params.params_indices = params_indices;
   start_pinv = partition->prop_invar[params_indices[0]];
 
-  xres = pll_minimize_brent(min_pinv,
+  xres = pllmod_opt_minimize_brent(min_pinv,
                             start_pinv,
                             max_pinv,
                             tolerance,
@@ -270,7 +270,7 @@ PLL_EXPORT double pllmod_algo_opt_rates_weights (pll_partition_t * partition,
                       bt, lb, ub, rate_cats);
 
     cur_logl = 1
-        * pll_minimize_lbfgsb (x, lb, ub, bt, rate_cats-1,
+        * pllmod_opt_minimize_lbfgsb (x, lb, ub, bt, rate_cats-1,
                                PLLMOD_ALGO_BFGS_FACTR, tolerance,
                                (void *) &opt_params, target_weights_func);
 
@@ -282,7 +282,7 @@ PLL_EXPORT double pllmod_algo_opt_rates_weights (pll_partition_t * partition,
                 min_rate, max_rate,
                 rate_cats);
 
-    cur_logl = pll_minimize_lbfgsb(x, lb, ub, bt,
+    cur_logl = pllmod_opt_minimize_lbfgsb(x, lb, ub, bt,
                                    rate_cats,
                                    PLLMOD_ALGO_BFGS_FACTR, tolerance,
                                    (void *) &opt_params, target_rates_func);
@@ -332,7 +332,7 @@ static void fill_rates   (double *rates,
 
   for (i = 0; i < n_rates; ++i)
   {
-    bt[i] = PLL_LBFGSB_BOUND_BOTH;
+    bt[i] = PLLMOD_OPT_LBFGSB_BOUND_BOTH;
     lb[i] = min_rate;
     ub[i] = max_rate;
 
@@ -362,7 +362,7 @@ static void fill_weights (double *weights,
   {
     if (i != *highest_weight_index)
     {
-      bt[cur_index] = PLL_LBFGSB_BOUND_BOTH;
+      bt[cur_index] = PLLMOD_OPT_LBFGSB_BOUND_BOTH;
 
       double r = weights[i] / weights[*highest_weight_index];
       lb[cur_index] = PLLMOD_ALGO_MIN_WEIGHT_RATIO;

@@ -20,7 +20,7 @@
  */
 #include "pll_msa.h"
 
-PLL_EXPORT double * pll_msa_empirical_frequencies(pll_partition_t * partition)
+PLL_EXPORT double * pllmod_msa_empirical_frequencies(pll_partition_t * partition)
 {
   unsigned int i, j, k, n;
   unsigned int states         = partition->states;
@@ -116,7 +116,7 @@ PLL_EXPORT double * pll_msa_empirical_frequencies(pll_partition_t * partition)
   return frequencies;
 }
 
-PLL_EXPORT double * pll_msa_empirical_subst_rates(pll_partition_t * partition)
+PLL_EXPORT double * pllmod_msa_empirical_subst_rates(pll_partition_t * partition)
 {
   unsigned int i, j, k, n;
   unsigned int states              = partition->states;
@@ -271,11 +271,11 @@ PLL_EXPORT double * pll_msa_empirical_subst_rates(pll_partition_t * partition)
 
   free (state_freq);
   free (pair_rates);
-  
+
   return subst_rates;
 }
 
-PLL_EXPORT double pll_msa_empirical_invariant_sites(pll_partition_t *partition)
+PLL_EXPORT double pllmod_msa_empirical_invariant_sites(pll_partition_t *partition)
 {
   unsigned int n;
   unsigned int n_inv      = 0;

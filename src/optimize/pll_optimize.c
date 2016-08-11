@@ -20,6 +20,7 @@
  */
 #include "pll_optimize.h"
 #include "lbfgsb/lbfgsb.h"
+#include "../pllmod_common.h"
 
 /* evaluate the likelihood score after each single branch optimization and
  * reset to the original branch if it is not improved */
@@ -74,7 +75,7 @@ static int set_x_to_parameters(pll_optimize_options_t * params,
   }
 
   /* update substitution rate parameters */
-  if (params->which_parameters & PLL_PARAMETER_SUBST_RATES)
+  if (params->which_parameters & PLLMOD_OPT_PARAM_SUBST_RATES)
   {
     int * symm;
     int n_subst_rates;
@@ -85,8 +86,7 @@ static int set_x_to_parameters(pll_optimize_options_t * params,
     if ((subst_rates = (double *) malloc (
         (size_t) n_subst_rates * sizeof(double))) == NULL)
     {
-      pll_errno = PLL_ERROR_MEM_ALLOC;
-      snprintf (pll_errmsg, 200,
+      pllmod_set_error(PLL_ERROR_MEM_ALLOC,
                 "Cannot allocate memory for substitution rate parameters");
       return PLL_FAILURE;
     }
@@ -128,7 +128,7 @@ static int set_x_to_parameters(pll_optimize_options_t * params,
   }
 
   /* update stationary frequencies */
-  if (params->which_parameters & PLL_PARAMETER_FREQUENCIES)
+  if (params->which_parameters & PLLMOD_OPT_PARAM_FREQUENCIES)
   {
     unsigned int i;
     unsigned int n_states = partition->states;
@@ -137,8 +137,8 @@ static int set_x_to_parameters(pll_optimize_options_t * params,
     double *freqs;
     if ((freqs = (double *) malloc ((size_t) n_states * sizeof(double))) == NULL)
     {
-      pll_errno = PLL_ERROR_MEM_ALLOC;
-      snprintf (pll_errmsg, 200, "Cannot allocate memory for frequencies");
+      pllmod_set_error(PLL_ERROR_MEM_ALLOC,
+                       "Cannot allocate memory for frequencies");
       return PLL_FAILURE;
     }
 
@@ -165,7 +165,7 @@ static int set_x_to_parameters(pll_optimize_options_t * params,
     xptr += (n_states - 1);
   }
   /* update proportion of invariant sites */
-  if (params->which_parameters & PLL_PARAMETER_PINV)
+  if (params->which_parameters & PLLMOD_OPT_PARAM_PINV)
   {
     assert(!is_nan(xptr[0]));
     unsigned int i;
@@ -181,7 +181,7 @@ static int set_x_to_parameters(pll_optimize_options_t * params,
     xptr++;
   }
   /* update gamma shape parameter */
-  if (params->which_parameters & PLL_PARAMETER_ALPHA)
+  if (params->which_parameters & PLLMOD_OPT_PARAM_ALPHA)
   {
     assert(!is_nan(xptr[0]));
     /* assign discrete rates */
@@ -189,8 +189,7 @@ static int set_x_to_parameters(pll_optimize_options_t * params,
     if ((rate_cats = malloc ((size_t) partition->rate_cats * sizeof(double)))
         == NULL)
     {
-      pll_errno = PLL_ERROR_MEM_ALLOC;
-      snprintf (pll_errmsg, 200,
+      pllmod_set_error(PLL_ERROR_MEM_ALLOC,
                 "Cannot allocate memory for substitution rate categories");
       return PLL_FAILURE;
     }
@@ -207,14 +206,14 @@ static int set_x_to_parameters(pll_optimize_options_t * params,
   }
 
   /* update free rates */
-  if (params->which_parameters & PLL_PARAMETER_FREE_RATES)
+  if (params->which_parameters & PLLMOD_OPT_PARAM_FREE_RATES)
   {
     pll_set_category_rates (partition, xptr);
     xptr += params->lk_params.partition->rate_cats;
   }
 
   /* update rate weights */
-  if (params->which_parameters & PLL_PARAMETER_RATE_WEIGHTS)
+  if (params->which_parameters & PLLMOD_OPT_PARAM_RATE_WEIGHTS)
   {
     unsigned int i;
     unsigned int rate_cats = params->lk_params.partition->rate_cats;
@@ -224,8 +223,7 @@ static int set_x_to_parameters(pll_optimize_options_t * params,
     if ((weights = (double *) malloc ((size_t) rate_cats * sizeof(double)))
         == NULL)
     {
-      pll_errno = PLL_ERROR_MEM_ALLOC;
-      snprintf (pll_errmsg, 200,
+      pllmod_set_error(PLL_ERROR_MEM_ALLOC,
                 "Cannot allocate memory for substitution rate weights");
       return PLL_FAILURE;
     }
@@ -251,7 +249,7 @@ static int set_x_to_parameters(pll_optimize_options_t * params,
   }
 
   /* update all branch lengths */
-  if (params->which_parameters & PLL_PARAMETER_BRANCHES_ALL)
+  if (params->which_parameters & PLLMOD_OPT_PARAM_BRANCHES_ALL)
   {
     /* assign branch lengths */
     memcpy (branch_lengths, xptr, (size_t)n_branches * sizeof(double));
@@ -259,7 +257,7 @@ static int set_x_to_parameters(pll_optimize_options_t * params,
   }
 
   /* update single branch */
-  if (params->which_parameters & PLL_PARAMETER_BRANCHES_SINGLE)
+  if (params->which_parameters & PLLMOD_OPT_PARAM_BRANCHES_SINGLE)
    {
     assert(!is_nan(xptr[0]));
      /* assign branch length */
@@ -340,7 +338,7 @@ static unsigned int count_n_free_variables (pll_optimize_options_t * params)
   pll_partition_t * partition = params->lk_params.partition;
 
   /* count number of variables for dynamic allocation */
-  if (params->which_parameters & PLL_PARAMETER_SUBST_RATES)
+  if (params->which_parameters & PLLMOD_OPT_PARAM_SUBST_RATES)
   {
     int n_subst_rates = partition->states * (partition->states - 1) / 2;
     num_variables +=
@@ -349,17 +347,17 @@ static unsigned int count_n_free_variables (pll_optimize_options_t * params)
                                       n_subst_rates) :
             (unsigned int) n_subst_rates - 1;
   }
-  if (params->which_parameters & PLL_PARAMETER_FREQUENCIES)
+  if (params->which_parameters & PLLMOD_OPT_PARAM_FREQUENCIES)
     num_variables += partition->states - 1;
-  num_variables += (params->which_parameters & PLL_PARAMETER_PINV) != 0;
-  num_variables += (params->which_parameters & PLL_PARAMETER_ALPHA) != 0;
-  if (params->which_parameters & PLL_PARAMETER_FREE_RATES)
+  num_variables += (params->which_parameters & PLLMOD_OPT_PARAM_PINV) != 0;
+  num_variables += (params->which_parameters & PLLMOD_OPT_PARAM_ALPHA) != 0;
+  if (params->which_parameters & PLLMOD_OPT_PARAM_FREE_RATES)
     num_variables += partition->rate_cats;
-  if (params->which_parameters & PLL_PARAMETER_RATE_WEIGHTS)
+  if (params->which_parameters & PLLMOD_OPT_PARAM_RATE_WEIGHTS)
     num_variables += partition->rate_cats - 1;
-  num_variables += (params->which_parameters & PLL_PARAMETER_BRANCHES_SINGLE)
+  num_variables += (params->which_parameters & PLLMOD_OPT_PARAM_BRANCHES_SINGLE)
       != 0;
-  if (params->which_parameters & PLL_PARAMETER_BRANCHES_ALL)
+  if (params->which_parameters & PLLMOD_OPT_PARAM_BRANCHES_ALL)
   {
     unsigned int num_branch_lengths =
         params->lk_params.rooted ?
@@ -380,10 +378,9 @@ static double brent_target(void * p, double x)
   return score;
 }
 
-PLL_EXPORT double pll_optimize_parameters_onedim(
-                                              pll_optimize_options_t * params,
-                                              double umin,
-                                              double umax)
+PLL_EXPORT double pllmod_opt_optimize_onedim(pll_optimize_options_t * params,
+                                             double umin,
+                                             double umax)
 {
   double score = 0;
 
@@ -395,39 +392,41 @@ PLL_EXPORT double pll_optimize_parameters_onedim(
 
   switch (params->which_parameters)
   {
-    case PLL_PARAMETER_ALPHA:
+    case PLLMOD_OPT_PARAM_ALPHA:
       xguess = params->lk_params.alpha_value;
-      xmin   = (umin>0)?umin:PLL_OPT_MIN_ALPHA;
-      xmax   = (umax>0)?umax:PLL_OPT_MAX_ALPHA;
+      xmin   = (umin>0)?umin:PLLMOD_OPT_MIN_ALPHA;
+      xmax   = (umax>0)?umax:PLLMOD_OPT_MAX_ALPHA;
       break;
-    case PLL_PARAMETER_PINV:
+    case PLLMOD_OPT_PARAM_PINV:
       xguess = params->lk_params.partition->prop_invar[params->params_index];
-      xmin   = (umin>0)?umin:PLL_OPT_MIN_PINV;
-      xmax   = (umax>0)?umax:PLL_OPT_MAX_PINV;
+      xmin   = (umin>0)?umin:PLLMOD_OPT_MIN_PINV;
+      xmax   = (umax>0)?umax:PLLMOD_OPT_MAX_PINV;
       break;
-    case PLL_PARAMETER_BRANCHES_SINGLE:
+    case PLLMOD_OPT_PARAM_BRANCHES_SINGLE:
       xguess = params->lk_params.branch_lengths[0];
-      xmin   = (umin>0)?umin:PLL_OPT_MIN_BRANCH_LEN;
-      xmax   = (umax>0)?umax:PLL_OPT_MAX_BRANCH_LEN;
+      xmin   = (umin>0)?umin:PLLMOD_OPT_MIN_BRANCH_LEN;
+      xmax   = (umax>0)?umax:PLLMOD_OPT_MAX_BRANCH_LEN;
       break;
     default:
       /* unavailable or multiple parameter */
       return -INFINITY;
   }
 
-  double xres = pll_minimize_brent(xmin, xguess, xmax,
-                                   params->pgtol,
-                                   &score,
-                                   &f2x,
-                                   (void *) params,
-                                   &brent_target);
+  double xres = pllmod_opt_minimize_brent(xmin, xguess, xmax,
+                                           params->pgtol,
+                                           &score,
+                                           &f2x,
+                                           (void *) params,
+                                           &brent_target);
   set_x_to_parameters(params, &xres);
 
   return score;
 } /* pll_optimize_parameters_onedim */
 
-PLL_EXPORT double pll_optimize_parameters_brent_ranged(pll_optimize_options_t * params,
-                                                double xmin, double xguess, double xmax)
+PLL_EXPORT double pllmod_opt_optimize_brent_ranged(pll_optimize_options_t * params,
+                                                   double xmin,
+                                                   double xguess,
+                                                   double xmax)
 {
   double score = 0;
 
@@ -435,11 +434,11 @@ PLL_EXPORT double pll_optimize_parameters_brent_ranged(pll_optimize_options_t * 
     double f2x;
     assert(xmin <= xguess && xguess <= xmax);
 
-    double xres = pll_minimize_brent(xmin, xguess, xmax,
-                                     params->pgtol,
-                                     &score, &f2x,
-                                     (void *) params,
-                                     &brent_target);
+    double xres = pllmod_opt_minimize_brent(xmin, xguess, xmax,
+                                             params->pgtol,
+                                             &score, &f2x,
+                                             (void *) params,
+                                             &brent_target);
     set_x_to_parameters(params, &xres);
 
     return score;
@@ -449,10 +448,9 @@ PLL_EXPORT double pll_optimize_parameters_brent_ranged(pll_optimize_options_t * 
 /* L-BFGS-B OPTIMIZATION */
 /******************************************************************************/
 
-PLL_EXPORT double pll_optimize_parameters_multidim (
-                                              pll_optimize_options_t * params,
-                                              double *umin,
-                                              double *umax)
+PLL_EXPORT double pllmod_opt_optimize_multidim (pll_optimize_options_t * params,
+                                                double *umin,
+                                                double *umax)
 {
   unsigned int i;
   pll_partition_t * partition = params->lk_params.partition;
@@ -465,8 +463,8 @@ PLL_EXPORT double pll_optimize_parameters_multidim (
   int *bound_type;
 
   /* ensure that the 2 branch optimization modes are not set together */
-  assert(!((params->which_parameters & PLL_PARAMETER_BRANCHES_ALL)
-      && (params->which_parameters & PLL_PARAMETER_BRANCHES_SINGLE)));
+  assert(!((params->which_parameters & PLLMOD_OPT_PARAM_BRANCHES_ALL)
+      && (params->which_parameters & PLLMOD_OPT_PARAM_BRANCHES_SINGLE)));
 
   num_variables = count_n_free_variables (params);
 
@@ -477,8 +475,7 @@ PLL_EXPORT double pll_optimize_parameters_multidim (
 
   if (!(x && lower_bounds && upper_bounds && bound_type))
   {
-    pll_errno = PLL_ERROR_MEM_ALLOC;
-    snprintf (pll_errmsg, 200,
+    pllmod_set_error(PLL_ERROR_MEM_ALLOC,
               "Cannot allocate memory for l-bfgs-b parameters");
     if (x)
       free (x);
@@ -500,7 +497,7 @@ PLL_EXPORT double pll_optimize_parameters_multidim (
     unsigned int check_n = 0;
 
     /* substitution rate parameters */
-    if (params->which_parameters & PLL_PARAMETER_SUBST_RATES)
+    if (params->which_parameters & PLLMOD_OPT_PARAM_SUBST_RATES)
     {
       unsigned int n_subst_rates;
       unsigned int n_subst_free_params;
@@ -520,7 +517,7 @@ PLL_EXPORT double pll_optimize_parameters_multidim (
       int current_rate = 0;
       for (i = 0; i < n_subst_free_params; i++)
       {
-        nbd_ptr[i] = PLL_LBFGSB_BOUND_BOTH;
+        nbd_ptr[i] = PLLMOD_OPT_LBFGSB_BOUND_BOTH;
         unsigned int j = i;
         if (params->subst_params_symmetries)
         {
@@ -535,8 +532,8 @@ PLL_EXPORT double pll_optimize_parameters_multidim (
         }
 
         x[check_n + i] = partition->subst_params[params->params_index][j];
-        l_ptr[i] = ul_ptr?(*(ul_ptr++)):PLL_OPT_MIN_SUBST_RATE;
-        u_ptr[i] = uu_ptr?(*(uu_ptr++)):PLL_OPT_MAX_SUBST_RATE;
+        l_ptr[i] = ul_ptr?(*(ul_ptr++)):PLLMOD_OPT_MIN_SUBST_RATE;
+        u_ptr[i] = uu_ptr?(*(uu_ptr++)):PLLMOD_OPT_MAX_SUBST_RATE;
       }
       nbd_ptr += n_subst_free_params;
       l_ptr += n_subst_free_params;
@@ -545,7 +542,7 @@ PLL_EXPORT double pll_optimize_parameters_multidim (
     }
 
     /* stationary frequency parameters */
-    if (params->which_parameters & PLL_PARAMETER_FREQUENCIES)
+    if (params->which_parameters & PLLMOD_OPT_PARAM_FREQUENCIES)
     {
       unsigned int states = params->lk_params.partition->states;
       unsigned int n_freqs_free_params = states - 1;
@@ -564,11 +561,11 @@ PLL_EXPORT double pll_optimize_parameters_multidim (
       {
         if (i != params->highest_freq_state)
         {
-          nbd_ptr[cur_index] = PLL_LBFGSB_BOUND_BOTH;
+          nbd_ptr[cur_index] = PLLMOD_OPT_LBFGSB_BOUND_BOTH;
           x[check_n + cur_index] = frequencies[i]
               / frequencies[params->highest_freq_state];
-          l_ptr[cur_index] = ul_ptr?(*(ul_ptr++)):PLL_OPT_MIN_FREQ;
-          u_ptr[cur_index] = uu_ptr?(*(uu_ptr++)):PLL_OPT_MAX_FREQ;
+          l_ptr[cur_index] = ul_ptr?(*(ul_ptr++)):PLLMOD_OPT_MIN_FREQ;
+          u_ptr[cur_index] = uu_ptr?(*(uu_ptr++)):PLLMOD_OPT_MAX_FREQ;
           cur_index++;
         }
       }
@@ -579,12 +576,12 @@ PLL_EXPORT double pll_optimize_parameters_multidim (
     }
 
     /* proportion of invariant sites */
-    if (params->which_parameters & PLL_PARAMETER_PINV)
+    if (params->which_parameters & PLLMOD_OPT_PARAM_PINV)
     {
-      *nbd_ptr = PLL_LBFGSB_BOUND_BOTH;
+      *nbd_ptr = PLLMOD_OPT_LBFGSB_BOUND_BOTH;
       x[check_n] = partition->prop_invar[params->params_index];
-      *l_ptr = ul_ptr?(*(ul_ptr++)):PLL_OPT_MIN_PINV + PLL_LBFGSB_ERROR;
-      *u_ptr = uu_ptr?(*(uu_ptr++)):PLL_OPT_MAX_PINV;
+      *l_ptr = ul_ptr?(*(ul_ptr++)):PLLMOD_OPT_MIN_PINV + PLL_LBFGSB_ERROR;
+      *u_ptr = uu_ptr?(*(uu_ptr++)):PLLMOD_OPT_MAX_PINV;
       check_n++;
       nbd_ptr++;
       l_ptr++;
@@ -592,12 +589,12 @@ PLL_EXPORT double pll_optimize_parameters_multidim (
     }
 
     /* gamma shape parameter */
-    if (params->which_parameters & PLL_PARAMETER_ALPHA)
+    if (params->which_parameters & PLLMOD_OPT_PARAM_ALPHA)
     {
-      *nbd_ptr = PLL_LBFGSB_BOUND_BOTH;
+      *nbd_ptr = PLLMOD_OPT_LBFGSB_BOUND_BOTH;
       x[check_n] = params->lk_params.alpha_value;
-      *l_ptr = ul_ptr?(*(ul_ptr++)):PLL_OPT_MIN_ALPHA;
-      *u_ptr = uu_ptr?(*(uu_ptr++)):PLL_OPT_MAX_ALPHA;
+      *l_ptr = ul_ptr?(*(ul_ptr++)):PLLMOD_OPT_MIN_ALPHA;
+      *u_ptr = uu_ptr?(*(uu_ptr++)):PLLMOD_OPT_MAX_ALPHA;
       check_n++;
       nbd_ptr++;
       l_ptr++;
@@ -605,16 +602,16 @@ PLL_EXPORT double pll_optimize_parameters_multidim (
     }
 
     /* update free rates */
-      if (params->which_parameters & PLL_PARAMETER_FREE_RATES)
+      if (params->which_parameters & PLLMOD_OPT_PARAM_FREE_RATES)
       {
         int n_cats = params->lk_params.partition->rate_cats;
         int i;
         for (i=0; i<n_cats; i++)
         {
           x[check_n + i]  = params->lk_params.partition->rates[i];
-          l_ptr[i] = ul_ptr?(*(ul_ptr++)):PLL_OPT_MIN_RATE;
-          u_ptr[i] = uu_ptr?(*(uu_ptr++)):PLL_OPT_MAX_RATE;
-          nbd_ptr[i] = PLL_LBFGSB_BOUND_BOTH;
+          l_ptr[i] = ul_ptr?(*(ul_ptr++)):PLLMOD_OPT_MIN_RATE;
+          u_ptr[i] = uu_ptr?(*(uu_ptr++)):PLLMOD_OPT_MAX_RATE;
+          nbd_ptr[i] = PLLMOD_OPT_LBFGSB_BOUND_BOTH;
         }
         check_n += n_cats;
         nbd_ptr += n_cats;
@@ -622,7 +619,7 @@ PLL_EXPORT double pll_optimize_parameters_multidim (
         u_ptr += n_cats;
       }
 
-      if (params->which_parameters & PLL_PARAMETER_RATE_WEIGHTS)
+      if (params->which_parameters & PLLMOD_OPT_PARAM_RATE_WEIGHTS)
       {
       unsigned int rate_cats = params->lk_params.partition->rate_cats;
       unsigned int n_weights_free_params = rate_cats - 1;
@@ -640,11 +637,11 @@ PLL_EXPORT double pll_optimize_parameters_multidim (
       {
         if (i != params->highest_weight_state)
         {
-          nbd_ptr[cur_index] = PLL_LBFGSB_BOUND_BOTH;
+          nbd_ptr[cur_index] = PLLMOD_OPT_LBFGSB_BOUND_BOTH;
           x[check_n + cur_index] = rate_weights[i]
               / rate_weights[params->highest_weight_state];
-          l_ptr[cur_index] = ul_ptr ? (*(ul_ptr++)) : PLL_OPT_MIN_RATE_WEIGHT;
-          u_ptr[cur_index] = uu_ptr ? (*(uu_ptr++)) : PLL_OPT_MAX_RATE_WEIGHT;
+          l_ptr[cur_index] = ul_ptr ? (*(ul_ptr++)) : PLLMOD_OPT_MIN_RATE_WEIGHT;
+          u_ptr[cur_index] = uu_ptr ? (*(uu_ptr++)) : PLLMOD_OPT_MAX_RATE_WEIGHT;
           cur_index++;
         }
       }
@@ -655,18 +652,18 @@ PLL_EXPORT double pll_optimize_parameters_multidim (
     }
 
     /* topology (UNIMPLEMENTED) */
-    if (params->which_parameters & PLL_PARAMETER_TOPOLOGY)
+    if (params->which_parameters & PLLMOD_OPT_PARAM_TOPOLOGY)
     {
       return PLL_FAILURE;
     }
 
     /* single branch length */
-    if (params->which_parameters & PLL_PARAMETER_BRANCHES_SINGLE)
+    if (params->which_parameters & PLLMOD_OPT_PARAM_BRANCHES_SINGLE)
     {
-        nbd_ptr [check_n]= PLL_LBFGSB_BOUND_LOWER;
+        nbd_ptr [check_n]= PLLMOD_OPT_LBFGSB_BOUND_LOWER;
         x[check_n] = params->lk_params.branch_lengths[0];
-        l_ptr[check_n] = ul_ptr?(*(ul_ptr++)):PLL_OPT_MIN_BRANCH_LEN;
-        u_ptr[check_n] = uu_ptr?(*(uu_ptr++)):PLL_OPT_MAX_BRANCH_LEN;
+        l_ptr[check_n] = ul_ptr?(*(ul_ptr++)):PLLMOD_OPT_MIN_BRANCH_LEN;
+        u_ptr[check_n] = uu_ptr?(*(uu_ptr++)):PLLMOD_OPT_MAX_BRANCH_LEN;
         check_n++;
         nbd_ptr++;
         l_ptr++;
@@ -674,17 +671,17 @@ PLL_EXPORT double pll_optimize_parameters_multidim (
     }
 
     /* all branches */
-    if (params->which_parameters & PLL_PARAMETER_BRANCHES_ALL)
+    if (params->which_parameters & PLLMOD_OPT_PARAM_BRANCHES_ALL)
     {
       unsigned int num_branch_lengths =
           params->lk_params.rooted ?
               (2 * partition->tips - 3) : (2 * partition->tips - 2);
       for (i = 0; i < num_branch_lengths; i++)
       {
-        nbd_ptr[i] = PLL_LBFGSB_BOUND_LOWER;
+        nbd_ptr[i] = PLLMOD_OPT_LBFGSB_BOUND_LOWER;
         x[check_n + i] = params->lk_params.branch_lengths[i];
-        l_ptr[check_n + i] = ul_ptr?(*(ul_ptr++)):PLL_OPT_MIN_BRANCH_LEN;
-        u_ptr[check_n + i] = uu_ptr?(*(uu_ptr++)):PLL_OPT_MAX_BRANCH_LEN;
+        l_ptr[check_n + i] = ul_ptr?(*(ul_ptr++)):PLLMOD_OPT_MIN_BRANCH_LEN;
+        u_ptr[check_n + i] = uu_ptr?(*(uu_ptr++)):PLLMOD_OPT_MAX_BRANCH_LEN;
       }
       check_n += num_branch_lengths;
       nbd_ptr += num_branch_lengths;
@@ -694,7 +691,7 @@ PLL_EXPORT double pll_optimize_parameters_multidim (
     assert(check_n == num_variables);
   }
 
-  score = pll_minimize_lbfgsb(x, lower_bounds, upper_bounds, bound_type,
+  score = pllmod_opt_minimize_lbfgsb(x, lower_bounds, upper_bounds, bound_type,
                               num_variables, params->factr, params->pgtol,
                               params, compute_negative_lnl_unrooted);
 
@@ -708,13 +705,13 @@ PLL_EXPORT double pll_optimize_parameters_multidim (
     score = -INFINITY;
     if (!pll_errno)
     {
-      pll_errno = PLL_OPT_ERROR_LBFGSB_UNKNOWN;
-      snprintf(pll_errmsg, 200, "Unknown LBFGSB error");
+      pllmod_set_error(PLLMOD_OPT_ERROR_LBFGSB_UNKNOWN,
+                       "Unknown LBFGSB error");
     }
   }
 
   return score;
-} /* pll_optimize_parameters_multidim */
+} /* pllmod_opt_optimize_multidim */
 
 /******************************************************************************/
 /* GENERIC */
@@ -794,9 +791,9 @@ static int recomp_iterative (pll_newton_tree_params_t * params,
   xtol = params->tolerance;
   xguess = tr_p->length;
   if (xguess < xmin || xguess > xmax)
-    xguess = PLL_OPT_DEFAULT_BRANCH_LEN;
+    xguess = PLLMOD_OPT_DEFAULT_BRANCH_LEN;
 
-  xres = pll_minimize_newton (xmin, xguess, xmax, xtol,
+  xres = pllmod_opt_minimize_newton (xmin, xguess, xmax, xtol,
                               10, params,
                               utree_derivative_func);
 
@@ -910,7 +907,7 @@ static int recomp_iterative (pll_newton_tree_params_t * params,
 } /* recomp_iterative */
 
 
-PLL_EXPORT double pll_optimize_branch_lengths_local (
+PLL_EXPORT double pllmod_opt_optimize_branch_lengths_local (
                                               pll_partition_t * partition,
                                               pll_utree_t * tree,
                                               const unsigned int * params_indices,
@@ -948,13 +945,13 @@ PLL_EXPORT double pll_optimize_branch_lengths_local (
   params.params_indices    = params_indices;
   params.branch_length_min = (branch_length_min>0)?
                               branch_length_min:
-                              PLL_OPT_MIN_BRANCH_LEN;
+                              PLLMOD_OPT_MIN_BRANCH_LEN;
   params.branch_length_max = (branch_length_max>0)?
                               branch_length_max:
-                              PLL_OPT_MAX_BRANCH_LEN;
+                              PLLMOD_OPT_MAX_BRANCH_LEN;
   params.tolerance         = (branch_length_min>0)?
                               branch_length_min/10.0:
-                              PLL_OPT_TOL_BRANCH_LEN;
+                              PLLMOD_OPT_TOL_BRANCH_LEN;
   params.sumtable          = 0;
 
   /* allocate the sumtable */
@@ -966,8 +963,8 @@ PLL_EXPORT double pll_optimize_branch_lengths_local (
        sites_alloc * partition->rate_cats * partition->states_padded *
        sizeof(double), partition->alignment)) == NULL)
   {
-    pll_errno = PLL_ERROR_MEM_ALLOC;
-    snprintf (pll_errmsg, 200, "Cannot allocate memory for bl opt variables");
+    pllmod_set_error(PLL_ERROR_MEM_ALLOC,
+                     "Cannot allocate memory for bl opt variables");
     return PLL_FAILURE;
   }
 
@@ -1000,7 +997,7 @@ PLL_EXPORT double pll_optimize_branch_lengths_local (
                                                         params_indices,
                                                         NULL);
 
-    DBG("pll_optimize_branch_lengths_local: iters %d, old: %f, new: %f\n",
+    DBG("pllmod_opt_optimize_branch_lengths_local: iters %d, old: %f, new: %f\n",
         iters, loglikelihood, new_loglikelihood);
 
     assert(new_loglikelihood >= loglikelihood);
@@ -1017,9 +1014,9 @@ PLL_EXPORT double pll_optimize_branch_lengths_local (
   pll_aligned_free(params.sumtable);
 
   return -1*loglikelihood;
-} /* pll_optimize_branch_lengths_local */
+} /* pllmod_opt_optimize_branch_lengths_local */
 
-PLL_EXPORT double pll_optimize_branch_lengths_iterative (
+PLL_EXPORT double pllmod_opt_optimize_branch_lengths_iterative (
                                               pll_partition_t * partition,
                                               pll_utree_t * tree,
                                               const unsigned int * params_indices,
@@ -1030,7 +1027,7 @@ PLL_EXPORT double pll_optimize_branch_lengths_iterative (
                                               int keep_update)
 {
   double loglikelihood;
-  loglikelihood = pll_optimize_branch_lengths_local (partition,
+  loglikelihood = pllmod_opt_optimize_branch_lengths_local (partition,
                                                      tree,
                                                      params_indices,
                                                      branch_length_min,
@@ -1040,11 +1037,11 @@ PLL_EXPORT double pll_optimize_branch_lengths_iterative (
                                                      -1,
                                                      keep_update);
   return loglikelihood;
-} /* pll_optimize_branch_lengths_iterative */
+} /* pllmod_opt_optimize_branch_lengths_iterative */
 
-PLL_EXPORT void pll_derivative_func(void * parameters,
-                                      double proposal,
-                                      double *df, double *ddf)
+PLL_EXPORT void pllmod_opt_derivative_func(void * parameters,
+                                          double proposal,
+                                          double *df, double *ddf)
 {
   pll_optimize_options_t * params = (pll_optimize_options_t *) parameters;
   pll_compute_likelihood_derivatives (
