@@ -99,11 +99,11 @@ const int PROT_MODELS_COUNT = sizeof(prot_model_list) / sizeof(pllmod_subst_mode
 /* mixture models */
 const pllmod_subst_model_t * lg4m_matrices[] = {&M_LG4M1, &M_LG4M2, &M_LG4M3, &M_LG4M4};
 const pllmod_mixture_model_t M_LG4M = {"LG4M", 4, (pllmod_subst_model_t **) lg4m_matrices,
-    NULL, NULL, PLLMOD_MIXTYPE_GAMMA };
+    NULL, NULL, PLLMOD_UTIL_MIXTYPE_GAMMA };
 
 const pllmod_subst_model_t * lg4x_matrices[] = {&M_LG4X1, &M_LG4X2, &M_LG4X3, &M_LG4X4};
 const pllmod_mixture_model_t M_LG4X = {"LG4X", 4, (pllmod_subst_model_t **) lg4x_matrices,
-    NULL, NULL, PLLMOD_MIXTYPE_FREE };
+    NULL, NULL, PLLMOD_UTIL_MIXTYPE_FREE };
 
 static const pllmod_mixture_model_t * protmix_model_list[] =
   {
@@ -139,7 +139,7 @@ static int get_mixmodel_index(const char * model_name)
 /**
  * @brief Returns number of available built-in protein evolution models
  */
-PLL_EXPORT unsigned int pllmod_util_model_count_proteinv()
+PLL_EXPORT unsigned int pllmod_util_model_count_protein()
 {
   return PROT_MODELS_COUNT;
 }
@@ -188,7 +188,7 @@ PLL_EXPORT pllmod_subst_model_t * pllmod_util_model_info_protein(const char * mo
     }
   else
     {
-      pllmod_set_error(PLLMOD_ERROR_MODEL_UNKNOWN, "Protein model not found: %s", model_name);
+      pllmod_set_error(PLLMOD_UTIL_ERROR_MODEL_UNKNOWN, "Protein model not found: %s", model_name);
       return NULL;
     }
 }
@@ -216,7 +216,7 @@ PLL_EXPORT int pllmod_util_model_set_protein(pll_partition_t * partition, const 
     }
   else
     {
-      pllmod_set_error(PLLMOD_ERROR_MODEL_UNKNOWN, "Protein model not found: %s", model_name);
+      pllmod_set_error(PLLMOD_UTIL_ERROR_MODEL_UNKNOWN, "Protein model not found: %s", model_name);
       return PLL_FAILURE;
     }
 }
@@ -235,7 +235,7 @@ PLL_EXPORT pllmod_mixture_model_t * pllmod_util_model_info_protmix(const char * 
     }
   else
     {
-      pllmod_set_error(PLLMOD_ERROR_MODEL_UNKNOWN, "Protein mixture model not found: %s", model_name);
+      pllmod_set_error(PLLMOD_UTIL_ERROR_MODEL_UNKNOWN, "Protein mixture model not found: %s", model_name);
       return NULL;
     }
 }
@@ -258,7 +258,7 @@ PLL_EXPORT int pllmod_util_model_set_protmix(pll_partition_t * partition, const 
 
       if (partition->rate_matrices != mixture->ncomp)
         {
-          pllmod_set_error(PLLMOD_ERROR_MIXTURE_INVALID_SIZE,
+          pllmod_set_error(PLLMOD_UTIL_ERROR_MIXTURE_INVALID_SIZE,
                            "Number of partition matrices (%d) differs from the number of mixture components (%d)",
                            partition->rate_matrices, mixture->ncomp);
           return PLL_FAILURE;
@@ -280,7 +280,7 @@ PLL_EXPORT int pllmod_util_model_set_protmix(pll_partition_t * partition, const 
     }
   else
     {
-      pllmod_set_error(PLLMOD_ERROR_MODEL_UNKNOWN, "Protein model not found: %s", model_name);
+      pllmod_set_error(PLLMOD_UTIL_ERROR_MODEL_UNKNOWN, "Protein model not found: %s", model_name);
       return PLL_FAILURE;
     }
 }

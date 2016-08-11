@@ -27,22 +27,16 @@
 #include "pll.h"
 #endif
 
-/* number of substitution rates in protein model matrices */
-#define PLLMOD_PROT_RATES_COUNT 190
-
-/* number of aminoacid frequencies in model specification */
-#define PLLMOD_PROT_FREQS_COUNT 20
-
 /* error codes for UTIL libpll module (5001-6000)*/
-#define PLLMOD_ERROR_MODEL_UNKNOWN                5001
-#define PLLMOD_ERROR_MODEL_INVALID_DEF            5002
-#define PLLMOD_ERROR_MIXTURE_INVALID_SIZE         5011
-#define PLLMOD_ERROR_MIXTURE_INVALID_COMPONENT    5012
+#define PLLMOD_UTIL_ERROR_MODEL_UNKNOWN                5001
+#define PLLMOD_UTIL_ERROR_MODEL_INVALID_DEF            5002
+#define PLLMOD_UTIL_ERROR_MIXTURE_INVALID_SIZE         5011
+#define PLLMOD_UTIL_ERROR_MIXTURE_INVALID_COMPONENT    5012
 
 /* rate heterogeneity mode */
-#define PLLMOD_MIXTYPE_FIXED      (0)
-#define PLLMOD_MIXTYPE_GAMMA      (1<<0)
-#define PLLMOD_MIXTYPE_FREE       (1<<1)
+#define PLLMOD_UTIL_MIXTYPE_FIXED      (0)
+#define PLLMOD_UTIL_MIXTYPE_GAMMA      (1<<0)
+#define PLLMOD_UTIL_MIXTYPE_FREE       (1<<1)
 
 /* Substitution model definition */
 typedef struct subst_model
@@ -67,6 +61,7 @@ typedef struct mixture_model
 } pllmod_mixture_model_t;
 
 /* general model management functions */
+PLL_EXPORT unsigned int pllmod_util_subst_rate_count(unsigned int states);
 PLL_EXPORT pllmod_subst_model_t * pllmod_util_model_create_custom(const char * name,
                                                                   unsigned int states,
                                                                   const double * rates,
@@ -97,10 +92,18 @@ PLL_EXPORT unsigned int pllmod_util_model_count_protein();
 PLL_EXPORT char ** pllmod_util_model_names_protein();
 PLL_EXPORT int pllmod_util_model_exists_protein(const char * model_name);
 PLL_EXPORT pllmod_subst_model_t * pllmod_util_model_info_protein(const char * model_name);
-PLL_EXPORT int pllmod_util_model_set_proteinl(pll_partition_t * partition, const char * model_name, int model_freqs);
+PLL_EXPORT int pllmod_util_model_set_protein(pll_partition_t * partition, const char * model_name, int model_freqs);
 
 PLL_EXPORT int pllmod_util_model_exists_protmix(const char * model_name);
 PLL_EXPORT pllmod_mixture_model_t * pllmod_util_model_info_protmix(const char * model_name);
 PLL_EXPORT int pllmod_util_model_set_protmix(pll_partition_t * partition, const char * model_name, int model_freqs);
+
+
+/* functions for working with built-in genotype models */
+PLL_EXPORT unsigned int pllmod_util_model_count_genotype();
+PLL_EXPORT char ** pllmod_util_model_names_genotype();
+PLL_EXPORT int pllmod_util_model_exists_genotype(const char * model_name);
+PLL_EXPORT pllmod_subst_model_t * pllmod_util_model_info_genotype(const char * model_name);
+
 
 #endif

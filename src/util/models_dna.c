@@ -122,7 +122,7 @@ PLL_EXPORT pllmod_subst_model_t * pllmod_util_model_info_dna(const char * model_
     }
   else
     {
-      pllmod_set_error(PLLMOD_ERROR_MODEL_UNKNOWN, "DNA model not found: %s", model_name);
+      pllmod_set_error(PLLMOD_UTIL_ERROR_MODEL_UNKNOWN, "DNA model not found: %s", model_name);
       return NULL;
     }
 }

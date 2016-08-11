@@ -23,6 +23,12 @@
 #include "pllmod_util.h"
 #include "../pllmod_common.h"
 
+/* Returns the number of substitution rates for a given number of states */
+PLL_EXPORT unsigned int pllmod_util_subst_rate_count(unsigned int states)
+{
+  return states * (states - 1) / 2;
+}
+
 /* @brief Converts string representation of rate symmetries into an array of indices
  *
  *  Identical chars in the input string encode linked rates.
@@ -74,20 +80,20 @@ PLL_EXPORT pllmod_subst_model_t * pllmod_util_model_create_custom(const char * n
 {
   if (states <= 0)
     {
-      pllmod_set_error(PLLMOD_ERROR_MODEL_INVALID_DEF, "Invalid number of states: %d", states);
+      pllmod_set_error(PLLMOD_UTIL_ERROR_MODEL_INVALID_DEF, "Invalid number of states: %d", states);
       return NULL;
     }
 
   const size_t rate_count = states * (states - 1) / 2;
   if (rate_sym_str && strlen(rate_sym_str) != rate_count)
     {
-      pllmod_set_error(PLLMOD_ERROR_MODEL_INVALID_DEF, "Invalid rates symmetry definition: %s", rate_sym_str);
+      pllmod_set_error(PLLMOD_UTIL_ERROR_MODEL_INVALID_DEF, "Invalid rates symmetry definition: %s", rate_sym_str);
       return NULL;
     }
 
   if (freq_sym_str && strlen(freq_sym_str) != states)
     {
-      pllmod_set_error(PLLMOD_ERROR_MODEL_INVALID_DEF, "Invalid freqs symmetry definition: %s", freq_sym_str);
+      pllmod_set_error(PLLMOD_UTIL_ERROR_MODEL_INVALID_DEF, "Invalid freqs symmetry definition: %s", freq_sym_str);
       return NULL;
     }
 
@@ -194,7 +200,7 @@ PLL_EXPORT pllmod_mixture_model_t * pllmod_util_model_mixture_create(const char 
 {
   if (ncomp <= 0)
     {
-      pllmod_set_error(PLLMOD_ERROR_MIXTURE_INVALID_SIZE, "Invalid number of components: %d", ncomp);
+      pllmod_set_error(PLLMOD_UTIL_ERROR_MIXTURE_INVALID_SIZE, "Invalid number of components: %d", ncomp);
       return NULL;
     }
 
@@ -204,7 +210,7 @@ PLL_EXPORT pllmod_mixture_model_t * pllmod_util_model_mixture_create(const char 
     {
       if (models[i]->states != models[0]->states)
         {
-          pllmod_set_error(PLLMOD_ERROR_MIXTURE_INVALID_COMPONENT,
+          pllmod_set_error(PLLMOD_UTIL_ERROR_MIXTURE_INVALID_COMPONENT,
                            "Distinct number of states in mixture components 0 and %d: %d != %d",
                            i, models[0]->states, models[i]->states);
           return NULL;
