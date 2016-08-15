@@ -333,13 +333,13 @@ PLL_EXPORT int pllmod_utree_nodes_at_node_dist(pll_utree_t * node,
 {
   if (!node->next)
   {
-    pllmod_set_error(PLL_ERROR_INVALID_NODE_TYPE, "Internal node expected, but tip node was provided");
+    pllmod_set_error(PLLMOD_ERROR_INVALID_NODE_TYPE, "Internal node expected, but tip node was provided");
     return PLL_FAILURE;
   }
 
   if (max_distance < min_distance)
     {
-      pllmod_set_error(PLL_ERROR_INVALID_RANGE, "Invalid distance range: %d..%d (max_distance < min_distance)",
+      pllmod_set_error(PLLMOD_ERROR_INVALID_RANGE, "Invalid distance range: %d..%d (max_distance < min_distance)",
                        min_distance, max_distance);
       return PLL_FAILURE;
     }
@@ -382,13 +382,13 @@ PLL_EXPORT int pllmod_utree_nodes_at_edge_dist(pll_utree_t * edge,
 
   if (!edge->next)
   {
-    pllmod_set_error(PLL_ERROR_INVALID_NODE_TYPE, "Internal node expected, but tip node was provided");
+    pllmod_set_error(PLLMOD_ERROR_INVALID_NODE_TYPE, "Internal node expected, but tip node was provided");
     return PLL_FAILURE;
   }
 
   if (max_distance < min_distance)
     {
-      pllmod_set_error(PLL_ERROR_INVALID_RANGE, "Invalid distance range: %d..%d (max_distance < min_distance)",
+      pllmod_set_error(PLLMOD_ERROR_INVALID_RANGE, "Invalid distance range: %d..%d (max_distance < min_distance)",
                        min_distance, max_distance);
       return PLL_FAILURE;
     }

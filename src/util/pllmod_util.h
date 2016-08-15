@@ -62,6 +62,9 @@ typedef struct mixture_model
 
 /* general model management functions */
 PLL_EXPORT unsigned int pllmod_util_subst_rate_count(unsigned int states);
+PLL_EXPORT double * pllmod_util_get_equal_freqs(unsigned int states);
+PLL_EXPORT double * pllmod_util_get_equal_rates(unsigned int states);
+
 PLL_EXPORT pllmod_subst_model_t * pllmod_util_model_create_custom(const char * name,
                                                                   unsigned int states,
                                                                   const double * rates,

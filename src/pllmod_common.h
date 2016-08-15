@@ -19,14 +19,15 @@
  Schloss-Wolfsbrunnenweg 35, D-69118 Heidelberg, Germany
  */
 
-#ifndef PLL_MOD_COMMON_H_
-#define PLL_MOD_COMMON_H_
+#ifndef PLLMOD_COMMON_H_
+#define PLLMOD_COMMON_H_
 
-#define PLL_ERRMSG_LEN 200
+#define PLLMOD_ERRMSG_LEN 200
 
 /* common error codes for all libpll modules (1001-2000)*/
-#define PLL_ERROR_INVALID_RANGE                1001
-#define PLL_ERROR_INVALID_NODE_TYPE            1002
+#define PLLMOD_ERROR_INVALID_RANGE                1001
+#define PLLMOD_ERROR_INVALID_NODE_TYPE            1002
+#define PLLMOD_ERROR_MEMALLOC_FAILED              1003
 
 void pllmod_set_error(int errno, const char* errmsg_fmt, ...);
 

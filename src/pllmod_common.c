@@ -9,6 +9,6 @@ void pllmod_set_error(int errno, const char* errmsg_fmt, ...)
 
   va_list args;
   va_start(args, errmsg_fmt);
-  vsnprintf(pll_errmsg, PLL_ERRMSG_LEN, errmsg_fmt, args);
+  vsnprintf(pll_errmsg, PLLMOD_ERRMSG_LEN, errmsg_fmt, args);
   va_end(args);
 }

@@ -29,6 +29,38 @@ PLL_EXPORT unsigned int pllmod_util_subst_rate_count(unsigned int states)
   return states * (states - 1) / 2;
 }
 
+double * pllmod_util_get_equal_freqs(unsigned int states)
+{
+  double * basefreqs = calloc(states, sizeof(double));
+  if (!basefreqs)
+  {
+    pllmod_set_error(PLLMOD_ERROR_MEMALLOC_FAILED, "Cannot allocate memory.");
+    return NULL;
+  }
+
+  unsigned int i;
+  for (i = 0; i < states; ++i)
+    basefreqs[i] = 1. / states;
+  return basefreqs;
+}
+
+double * pllmod_util_get_equal_rates(unsigned int states)
+{
+  const unsigned int rates = pllmod_util_subst_rate_count(states);
+  double * substrates = calloc(rates, sizeof(double));
+  if (!substrates)
+  {
+    pllmod_set_error(PLLMOD_ERROR_MEMALLOC_FAILED, "Cannot allocate memory.");
+    return NULL;
+  }
+
+  unsigned int i;
+  for (i = 0; i < rates; ++i)
+    substrates[i] = 1.;
+  return substrates;
+}
+
+
 /* @brief Converts string representation of rate symmetries into an array of indices
  *
  *  Identical chars in the input string encode linked rates.
