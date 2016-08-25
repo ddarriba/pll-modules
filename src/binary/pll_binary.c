@@ -276,7 +276,7 @@ PLL_EXPORT pll_partition_t * pllmod_binary_partition_load(FILE * bin_file,
                                  sizeof(unsigned char *));
       if (!local_partition->tipchars)
       {
-        pllmod_set_error(PLL_ERROR_INIT_CHARMAP,
+        pllmod_set_error(PLL_ERROR_MEM_ALLOC,
                   "Cannot allocate space for storing tip characters.");
         return PLL_FAILURE;
       }
@@ -284,7 +284,7 @@ PLL_EXPORT pll_partition_t * pllmod_binary_partition_load(FILE * bin_file,
       if (!(local_partition->charmap = (unsigned char *)calloc(PLL_ASCII_SIZE,
                                                         sizeof(unsigned char))))
       {
-        pllmod_set_error(PLL_ERROR_INIT_CHARMAP,
+        pllmod_set_error(PLL_ERROR_MEM_ALLOC,
                   "Cannot allocate charmap for tip-tip precomputation.");
         return PLL_FAILURE;
       }
@@ -292,7 +292,7 @@ PLL_EXPORT pll_partition_t * pllmod_binary_partition_load(FILE * bin_file,
       if (!(local_partition->tipmap = (unsigned int *)calloc(PLL_ASCII_SIZE,
                                                        sizeof(unsigned int))))
       {
-        pllmod_set_error(PLL_ERROR_INIT_CHARMAP,
+        pllmod_set_error(PLL_ERROR_MEM_ALLOC,
                   "Cannot allocate tipmap for tip-tip precomputation.");
         return PLL_FAILURE;
       }
@@ -303,7 +303,7 @@ PLL_EXPORT pll_partition_t * pllmod_binary_partition_load(FILE * bin_file,
                                                          sizeof(unsigned char));
         if (!local_partition->tipchars[i])
         {
-          pllmod_set_error(PLL_ERROR_INIT_CHARMAP,
+          pllmod_set_error(PLL_ERROR_MEM_ALLOC,
                     "Cannot allocate space for storing tip characters.");
           return PLL_FAILURE;
         }
@@ -330,7 +330,7 @@ PLL_EXPORT pll_partition_t * pllmod_binary_partition_load(FILE * bin_file,
       }
       if (!local_partition->ttlookup)
       {
-        pllmod_set_error(PLL_ERROR_INIT_CHARMAP,
+        pllmod_set_error(PLL_ERROR_MEM_ALLOC,
                 "Cannot allocate space for storing precomputed tip-tip CLVs.");
         return PLL_FAILURE;
       }

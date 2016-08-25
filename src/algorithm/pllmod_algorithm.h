@@ -28,6 +28,20 @@
 #define PLLMOD_ALGO_MAX_WEIGHT_RATIO    10
 #define PLLMOD_ALGO_BFGS_FACTR         1e9
 
+#ifdef DEBUG
+    #define DBG(fmt, ...) do { print_info(fmt, ##__VA_ARGS__); } while(0)
+#else
+    #define DBG(fmt, ...)
+#endif
+
+typedef struct cutoff_info
+{
+  double lh_start;
+  double lh_cutoff;
+  double lh_dec_sum;
+  int lh_dec_count;
+} cutoff_info_t;
+
 /*
  * Optimize stationary frequencies for parameters `params_index`.
  */
@@ -78,5 +92,20 @@ PLL_EXPORT double pllmod_algo_opt_rates_weights (pll_partition_t * partition,
                                                  double min_rate,
                                                  double max_rate,
                                                  double tolerance);
+
+
+/* search */
+
+PLL_EXPORT double pllmod_algo_spr_round(pllmod_treeinfo_t * treeinfo,
+                                        int radius_min,
+                                        int radius_max,
+                                        int n_topologies,
+                                        int thorough,
+                                        double bl_min,
+                                        double bl_max,
+                                        int smoothings,
+                                        double epsilon,
+                                        cutoff_info_t * cutoff_info,
+                                        double subtree_cutoff);
 
 #endif

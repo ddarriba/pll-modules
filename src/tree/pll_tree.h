@@ -50,10 +50,13 @@
 /* general errors (B + {2^8,2^7}) */
 #define PLLMOD_TREE_ERROR_INTERCHANGE_LEAF     3200 // B + {01...}
 #define PLLMOD_TREE_ERROR_INVALID_REARRAGE     3328 // B + {10...}
+#define PLLMOD_TREE_ERROR_INVALID_TREE_SIZE    3456 // B + {10...}
 
 #define PLLMOD_TREE_REARRANGE_SPR  0
 #define PLLMOD_TREE_REARRANGE_NNI  1
 #define PLLMOD_TREE_REARRANGE_TBR  2
+
+#define PLLMOD_TREEINFO_PARTITION_ALL -1
 
 typedef unsigned int pll_split_base_t;
 typedef pll_split_base_t * pll_split_t;
@@ -114,6 +117,39 @@ typedef struct
 } pll_tree_rollback_t;
 
 
+typedef struct treeinfo
+{
+  // dimensions
+  size_t tip_count;
+  size_t partition_count;
+
+  /* 0 = unlinked/per-partion branch lengths, 1 = linked/shared */
+  int linked_branches;
+
+  pll_utree_t * root;
+
+  // partitions & partition-specific stuff
+  pll_partition_t ** partitions;
+  double * alphas;
+  unsigned int ** param_indices;
+  int ** subst_matrix_symmetries;
+  double ** branch_lengths;
+
+  // invalidation flags
+  char ** clv_valid;
+  char ** pmatrix_valid;
+
+  // buffers
+  pll_utree_t ** travbuffer;
+  unsigned int * matrix_indices;
+  pll_operation_t * operations;
+
+  // partition on which all operations should be performed
+  int active_partition;
+
+  // general-purpose counter
+  size_t counter;
+} pllmod_treeinfo_t;
 
 /* Topological rearrangements */
 /* functions at pll_tree.c */
@@ -255,5 +291,49 @@ PLL_EXPORT int pllmod_rtree_traverse_apply(pll_rtree_t * root,
                                            int (*cb_post_trav)(pll_rtree_t *,
                                                                void *),
                                            void *data);
+
+/* treeinfo */
+
+PLL_EXPORT pllmod_treeinfo_t * pllmod_treeinfo_create(pll_utree_t * root,
+                                                     unsigned int tips,
+                                                     unsigned int partitions,
+                                                     int linked_branch_lengths);
+
+PLL_EXPORT int pllmod_treeinfo_init_partition(pllmod_treeinfo_t * treeinfo,
+                                           unsigned int partition_index,
+                                           pll_partition_t * partition,
+                                           double alpha,
+                                           const unsigned int * param_indices,
+                                           const int * subst_matrix_symmetries);
+
+PLL_EXPORT int pllmod_treeinfo_set_active_partition(pllmod_treeinfo_t * treeinfo,
+                                                    int partition_index);
+
+PLL_EXPORT void pllmod_treeinfo_set_root(pllmod_treeinfo_t * treeinfo,
+                                         pll_utree_t * root);
+
+PLL_EXPORT void pllmod_treeinfo_set_branch_length(pllmod_treeinfo_t * treeinfo,
+                                                  pll_utree_t * edge,
+                                                  double length);
+
+PLL_EXPORT void pllmod_treeinfo_destroy(pllmod_treeinfo_t * treeinfo);
+
+PLL_EXPORT int pllmod_treeinfo_update_prob_matrices(pllmod_treeinfo_t * treeinfo,
+                                                    int update_all);
+
+PLL_EXPORT void pllmod_treeinfo_invalidate_all(pllmod_treeinfo_t * treeinfo);
+
+PLL_EXPORT int pllmod_treeinfo_validate_clvs(pllmod_treeinfo_t * treeinfo,
+                                             pll_utree_t ** travbuffer,
+                                             unsigned int travbuffer_size);
+
+PLL_EXPORT void pllmod_treeinfo_invalidate_pmatrix(pllmod_treeinfo_t * treeinfo,
+                                                   const pll_utree_t * edge);
+
+PLL_EXPORT void pllmod_treeinfo_invalidate_clv(pllmod_treeinfo_t * treeinfo,
+                                               const pll_utree_t * edge);
+
+PLL_EXPORT double pllmod_treeinfo_compute_loglh(pllmod_treeinfo_t * treeinfo,
+                                                int incremental);
 
 #endif /* PLL_TREE_H_ */

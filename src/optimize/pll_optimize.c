@@ -739,7 +739,7 @@ static void update_partials_and_scalers(pll_partition_t * partition,
   if (parent->scaler_index != PLL_SCALE_BUFFER_NONE)
   {
     int n = partition->sites +
-        ((partition->attributes&PLL_ATTRIB_ASC_BIAS_FLAG)?partition->states:0);
+        ((partition->attributes&PLL_ATTRIB_AB_FLAG)?partition->states:0);
     for (i=0; i<n; i++)
     {
       partition->scale_buffer[parent->scaler_index][i] =
@@ -828,6 +828,7 @@ static int recomp_iterative (pll_newton_tree_params_t * params,
       /* update branch length in the tree structure */
       tr_p->length = xres;
       tr_p->back->length = tr_p->length;
+
 #if(CHECK_PERBRANCH_IMPR)
     }
     else
@@ -877,7 +878,6 @@ static int recomp_iterative (pll_newton_tree_params_t * params,
      * CLV at P is recomputed with children P->back and Q->back
      * Scaler is updated by subtracting Z->back and adding Q->back
      */
-
     update_partials_and_scalers(params->partition,
                       tr_z,
                       tr_q,
@@ -895,7 +895,6 @@ static int recomp_iterative (pll_newton_tree_params_t * params,
      * CLV at P is recomputed with children Q->back and Z->back
      * Scaler is updated by subtracting P->back and adding Z->back
      */
-
     update_partials_and_scalers(params->partition,
                       tr_p,
                       tr_z,
@@ -956,7 +955,7 @@ PLL_EXPORT double pllmod_opt_optimize_branch_lengths_local (
 
   /* allocate the sumtable */
   sites_alloc = partition->sites;
-  if (partition->attributes & PLL_ATTRIB_ASC_BIAS_FLAG)
+  if (partition->attributes & PLL_ATTRIB_AB_FLAG)
     sites_alloc += partition->states;
 
   if ((params.sumtable = (double *) pll_aligned_alloc(

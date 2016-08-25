@@ -44,7 +44,7 @@ PROG=libpll_tree.so
 
 all: $(PROG)
 
-OBJS=pll_tree.o utree_operations.o utree_distances.o $(DEPS)
+OBJS=pll_tree.o utree_operations.o utree_distances.o treeinfo.o $(DEPS)
 
 $(PROG): $(OBJS)
 	$(CC) -shared $(SONAMEFLAGS) -o $@ $+

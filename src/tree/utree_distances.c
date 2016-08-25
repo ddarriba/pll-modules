@@ -1,5 +1,7 @@
 #include "pll_tree.h"
 
+#include "../pllmod_common.h"
+
 static int cb_get_splits(pll_utree_t * node, void *data);
 static inline void clone_split(pll_split_t to,
                          const pll_split_t from,
@@ -44,8 +46,15 @@ PLL_EXPORT int pllmod_utree_consistency_check(pll_utree_t * t1,
   char ** tipnames;
 
   tipnodes = (pll_utree_t **) calloc ((size_t) n_tips, sizeof(pll_utree_t *));
-  pll_utree_query_tipnodes (t1, tipnodes);
   tipnames = (char **) malloc (n_tips * sizeof(char *));
+  if (!(tipnodes && tipnames))
+  {
+    pllmod_set_error(PLL_ERROR_MEM_ALLOC,
+                     "Cannot allocate memory for tipnodes and tipnames\n");
+    return PLL_FAILURE;
+  }
+
+  pll_utree_query_tipnodes (t1, tipnodes);
 
   /* fill names table */
   for (i = 0; i < n_tips; ++i)
@@ -90,8 +99,16 @@ PLL_EXPORT int pllmod_utree_consistency_set(pll_utree_t * t1,
   char ** tipnames;
 
   tipnodes = (pll_utree_t **) calloc ((size_t) n_tips, sizeof(pll_utree_t *));
-  pll_utree_query_tipnodes (t1, tipnodes);
   tipnames = (char **) malloc (n_tips * sizeof(char *));
+
+  if (!(tipnodes && tipnames))
+  {
+    pllmod_set_error(PLL_ERROR_MEM_ALLOC,
+                     "Cannot allocate memory for tipnodes and tipnames\n");
+    return PLL_FAILURE;
+  }
+
+  pll_utree_query_tipnodes (t1, tipnodes);
 
   /* fill names table */
   for (i = 0; i < n_tips; ++i)
@@ -240,6 +257,8 @@ PLL_EXPORT pll_split_t * pllmod_utree_split_create(pll_utree_t * tree,
 
   if (!split_list)
   {
+    pllmod_set_error(PLL_ERROR_MEM_ALLOC,
+                     "Cannot allocate memory for split list\n");
     return NULL;
   }
 
@@ -247,6 +266,8 @@ PLL_EXPORT pll_split_t * pllmod_utree_split_create(pll_utree_t * tree,
 
   if (!splits)
   {
+    pllmod_set_error(PLL_ERROR_MEM_ALLOC,
+                     "Cannot allocate memory for splits\n");
     free (split_list);
     return NULL;
   }
@@ -262,6 +283,13 @@ PLL_EXPORT pll_split_t * pllmod_utree_split_create(pll_utree_t * tree,
   split_data.split_count = 0;
   /* reserve positions for node and subnode ids */
   split_data.id_to_split = (int *) malloc(sizeof(int) * 3 * (n_tips - 2));
+
+  if (!split_data.id_to_split)
+  {
+    pllmod_set_error(PLL_ERROR_MEM_ALLOC,
+                     "Cannot allocate memory for splits\n");
+    return NULL;
+  }
 
   for (i=0; i<3*(n_tips-2);++i)
     split_data.id_to_split[i] = -1;
@@ -300,6 +328,13 @@ PLL_EXPORT pll_split_t * pllmod_utree_split_create(pll_utree_t * tree,
   {
     /* swap */
     void * aux_mem = malloc(sizeof(pll_split_base_t) * split_len);
+    if (!aux_mem)
+    {
+      pllmod_set_error(PLL_ERROR_MEM_ALLOC,
+                       "Cannot allocate memory for auxiliary array\n");
+      return NULL;
+    }
+
     memcpy(aux_mem, aux,           sizeof(pll_split_base_t) * split_len);
     memcpy(aux, split_list[0],     sizeof(pll_split_base_t) * split_len);
     memcpy(split_list[0], aux_mem, sizeof(pll_split_base_t) * split_len);

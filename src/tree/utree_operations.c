@@ -160,7 +160,8 @@ PLL_EXPORT pll_utree_t * pllmod_utree_prune(pll_utree_t * edge)
   if (!edge->next)
   {
     /* invalid node */
-    pllmod_set_error(PLLMOD_TREE_ERROR_SPR_INVALID_NODE, "Attempting to prune a tip node");
+    pllmod_set_error(PLLMOD_TREE_ERROR_SPR_INVALID_NODE,
+                     "Attempting to prune a tip node");
     return NULL;
   }
 
@@ -205,13 +206,15 @@ PLL_EXPORT int pllmod_utree_regraft(pll_utree_t * edge,
   if (!edge->next)
       {
         /* invalid node */
-        pllmod_set_error(PLLMOD_TREE_ERROR_SPR_INVALID_NODE, "Attempting to regraft a tip node");
+        pllmod_set_error(PLLMOD_TREE_ERROR_SPR_INVALID_NODE,
+                         "Attempting to regraft a tip node");
         return PLL_FAILURE;
       }
   if (edge->next->back || edge->next->next->back)
   {
     /* invalid node */
-    pllmod_set_error(PLLMOD_TREE_ERROR_SPR_INVALID_NODE, "Attempting to regraft a connected node");
+    pllmod_set_error(PLLMOD_TREE_ERROR_SPR_INVALID_NODE,
+                     "Attempting to regraft a connected node");
     return PLL_FAILURE;
   }
 
@@ -271,14 +274,33 @@ PLL_EXPORT pll_utree_t * pllmod_utree_create_node(unsigned int clv_index,
   pll_utree_t * new_node = (pll_utree_t *)calloc(1, sizeof(pll_utree_t));
   new_node->next         = (pll_utree_t *)calloc(1, sizeof(pll_utree_t));
   new_node->next->next   = (pll_utree_t *)calloc(1, sizeof(pll_utree_t));
+  if (!(new_node && new_node->next && new_node->next->next))
+  {
+    pllmod_set_error(PLL_ERROR_MEM_ALLOC,
+                     "Cannot allocate memory for new node\n");
+    return NULL;
+  }
+  
   new_node->next->next->next = new_node;
   new_node->label = label;
-  new_node->next->label = new_node->next->next->label = new_node->label;
-  new_node->next->data = new_node->next->next->data = new_node->data = data;
-  new_node->next->length = new_node->next->next->length = new_node->length = 0;
-  new_node->next->clv_index = new_node->next->next->clv_index = new_node->clv_index = clv_index;
-  new_node->next->scaler_index = new_node->next->next->scaler_index = new_node->scaler_index = scaler_index;
-  new_node->back = new_node->next->back = new_node->next->next->back = NULL;
+  new_node->next->label =
+    new_node->next->next->label =
+    new_node->label;
+  new_node->next->data =
+    new_node->next->next->data =
+    new_node->data = data;
+  new_node->next->length =
+    new_node->next->next->length =
+    new_node->length = 0;
+  new_node->next->clv_index =
+    new_node->next->next->clv_index =
+    new_node->clv_index = clv_index;
+  new_node->next->scaler_index =
+    new_node->next->next->scaler_index =
+    new_node->scaler_index = scaler_index;
+  new_node->back =
+    new_node->next->back =
+    new_node->next->next->back = NULL;
   return new_node;
 }
 
@@ -333,14 +355,16 @@ PLL_EXPORT int pllmod_utree_nodes_at_node_dist(pll_utree_t * node,
 {
   if (!node->next)
   {
-    pllmod_set_error(PLLMOD_ERROR_INVALID_NODE_TYPE, "Internal node expected, but tip node was provided");
+    pllmod_set_error(PLLMOD_ERROR_INVALID_NODE_TYPE,
+                     "Internal node expected, but tip node was provided");
     return PLL_FAILURE;
   }
 
   if (max_distance < min_distance)
     {
-      pllmod_set_error(PLLMOD_ERROR_INVALID_RANGE, "Invalid distance range: %d..%d (max_distance < min_distance)",
-                       min_distance, max_distance);
+      pllmod_set_error(PLLMOD_ERROR_INVALID_RANGE,
+                 "Invalid distance range: %d..%d (max_distance < min_distance)",
+                 min_distance, max_distance);
       return PLL_FAILURE;
     }
 
@@ -382,14 +406,16 @@ PLL_EXPORT int pllmod_utree_nodes_at_edge_dist(pll_utree_t * edge,
 
   if (!edge->next)
   {
-    pllmod_set_error(PLLMOD_ERROR_INVALID_NODE_TYPE, "Internal node expected, but tip node was provided");
+    pllmod_set_error(PLLMOD_ERROR_INVALID_NODE_TYPE,
+                     "Internal node expected, but tip node was provided");
     return PLL_FAILURE;
   }
 
   if (max_distance < min_distance)
     {
-      pllmod_set_error(PLLMOD_ERROR_INVALID_RANGE, "Invalid distance range: %d..%d (max_distance < min_distance)",
-                       min_distance, max_distance);
+      pllmod_set_error(PLLMOD_ERROR_INVALID_RANGE,
+                 "Invalid distance range: %d..%d (max_distance < min_distance)",
+                 min_distance, max_distance);
       return PLL_FAILURE;
     }
 
@@ -404,8 +430,10 @@ PLL_EXPORT int pllmod_utree_nodes_at_edge_dist(pll_utree_t * edge,
        4          2
    */
 
-  utree_nodes_at_dist(edge->back, outbuffer, n_nodes, min_distance, max_distance, depth+1);
-  utree_nodes_at_dist(edge, outbuffer, n_nodes, min_distance, max_distance, depth);
+  utree_nodes_at_dist(edge->back, outbuffer, n_nodes,
+                      min_distance, max_distance, depth+1);
+  utree_nodes_at_dist(edge, outbuffer, n_nodes,
+                      min_distance, max_distance, depth);
 
   return PLL_SUCCESS;
 }
