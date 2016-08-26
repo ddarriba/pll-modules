@@ -316,6 +316,9 @@ PLL_EXPORT void pllmod_treeinfo_set_branch_length(pllmod_treeinfo_t * treeinfo,
                                                   pll_utree_t * edge,
                                                   double length);
 
+PLL_EXPORT int pllmod_treeinfo_destroy_partition(pllmod_treeinfo_t * treeinfo,
+                                                 unsigned int partition_index);
+
 PLL_EXPORT void pllmod_treeinfo_destroy(pllmod_treeinfo_t * treeinfo);
 
 PLL_EXPORT int pllmod_treeinfo_update_prob_matrices(pllmod_treeinfo_t * treeinfo,

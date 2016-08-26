@@ -214,56 +214,54 @@ PLL_EXPORT int pllmod_treeinfo_init_partition(pllmod_treeinfo_t * treeinfo,
               "Partition %d is out of bounds\n", partition_index);
     return PLL_FAILURE;
   }
-  else
-  {
-    treeinfo->partitions[partition_index] = partition;
-    treeinfo->alphas[partition_index] = alpha;
 
-    /* allocate param_indices array and initialize it to all 0s,
-     * i.e. per default, all rate categories will use
-     * the same substitution matrix and same base frequencies */
-    treeinfo->param_indices[partition_index] =
-      (unsigned int *) calloc(partition->rate_cats, sizeof(unsigned int));
+  treeinfo->partitions[partition_index] = partition;
+  treeinfo->alphas[partition_index] = alpha;
+
+  /* allocate param_indices array and initialize it to all 0s,
+   * i.e. per default, all rate categories will use
+   * the same substitution matrix and same base frequencies */
+  treeinfo->param_indices[partition_index] =
+    (unsigned int *) calloc(partition->rate_cats, sizeof(unsigned int));
+
+  /* check memory allocation */
+  if (!treeinfo->param_indices[partition_index])
+  {
+    pllmod_set_error(PLL_ERROR_MEM_ALLOC,
+                     "Cannot allocate memory for parameter indices\n");
+    return PLL_FAILURE;
+  }
+
+  /* if param_indices were provided, use them instead of default */
+  if (param_indices)
+    memcpy(treeinfo->param_indices[partition_index],
+           param_indices,
+           partition->rate_cats * sizeof(unsigned int));
+
+  /* copy substitution rate matrix symmetries, if any */
+  if (subst_matrix_symmetries)
+  {
+    const size_t symm_size = (partition->states * (partition->states - 1) / 2)
+                              * sizeof(int);
+    treeinfo->subst_matrix_symmetries[partition_index] =
+                               (int *) malloc(symm_size);
 
     /* check memory allocation */
-    if (!treeinfo->param_indices[partition_index])
+    if (!treeinfo->subst_matrix_symmetries[partition_index])
     {
       pllmod_set_error(PLL_ERROR_MEM_ALLOC,
-                       "Cannot allocate memory for parameter indices\n");
+                    "Cannot allocate memory for substitution scheme\n");
       return PLL_FAILURE;
     }
 
-    /* if param_indices were provided, use them instead of default */
-    if (param_indices)
-      memcpy(treeinfo->param_indices[partition_index],
-             param_indices,
-             partition->rate_cats * sizeof(unsigned int));
-
-    /* copy substitution rate matrix symmetries, if any */
-    if (subst_matrix_symmetries)
-    {
-      const size_t symm_size = (partition->states * (partition->states - 1) / 2)
-                                * sizeof(int);
-      treeinfo->subst_matrix_symmetries[partition_index] =
-                                 (int *) malloc(symm_size);
-
-      /* check memory allocation */
-      if (!treeinfo->subst_matrix_symmetries[partition_index])
-      {
-        pllmod_set_error(PLL_ERROR_MEM_ALLOC,
-                      "Cannot allocate memory for substitution scheme\n");
-        return PLL_FAILURE;
-      }
-
-      memcpy(treeinfo->subst_matrix_symmetries[partition_index],
-             subst_matrix_symmetries,
-             symm_size);
-    }
-    else
-      treeinfo->subst_matrix_symmetries[partition_index] = NULL;
-
-    return PLL_SUCCESS;
+    memcpy(treeinfo->subst_matrix_symmetries[partition_index],
+           subst_matrix_symmetries,
+           symm_size);
   }
+  else
+    treeinfo->subst_matrix_symmetries[partition_index] = NULL;
+
+  return PLL_SUCCESS;
 }
 
 PLL_EXPORT int pllmod_treeinfo_set_active_partition(pllmod_treeinfo_t * treeinfo,
@@ -308,6 +306,36 @@ PLL_EXPORT void pllmod_treeinfo_set_branch_length(pllmod_treeinfo_t * treeinfo,
   pllmod_treeinfo_invalidate_clv(treeinfo, edge->back->next->next);
 }
 
+PLL_EXPORT int pllmod_treeinfo_destroy_partition(pllmod_treeinfo_t * treeinfo,
+                                                  unsigned int partition_index)
+{
+  if (!treeinfo)
+  {
+    pllmod_set_error(PLL_ERROR_PARAM_INVALID,
+              "Treeinfo structure is NULL\n");
+    return PLL_FAILURE;
+  }
+  else if (partition_index >= treeinfo->partition_count)
+  {
+    pllmod_set_error(PLL_ERROR_PARAM_INVALID,
+              "Partition %d is out of bounds\n", partition_index);
+    return PLL_FAILURE;
+  }
+
+  if (treeinfo->param_indices[partition_index])
+  {
+    free(treeinfo->param_indices[partition_index]);
+    treeinfo->param_indices[partition_index] = NULL;
+  }
+
+  if (treeinfo->subst_matrix_symmetries[partition_index])
+  {
+    free(treeinfo->subst_matrix_symmetries[partition_index]);
+    treeinfo->subst_matrix_symmetries[partition_index] = NULL;
+  }
+
+  return PLL_SUCCESS;
+}
 
 PLL_EXPORT void pllmod_treeinfo_destroy(pllmod_treeinfo_t * treeinfo)
 {
@@ -325,10 +353,16 @@ PLL_EXPORT void pllmod_treeinfo_destroy(pllmod_treeinfo_t * treeinfo)
   {
     free(treeinfo->clv_valid[p]);
     free(treeinfo->pmatrix_valid[p]);
+    free(treeinfo->param_indices[p]);
 
     if (p == 0 || !treeinfo->linked_branches)
       free(treeinfo->branch_lengths[p]);
+    if (treeinfo->subst_matrix_symmetries)
+      free(treeinfo->subst_matrix_symmetries[p]);
   }
+
+  if(treeinfo->subst_matrix_symmetries)
+    free(treeinfo->subst_matrix_symmetries);
 
   /* free invalidation arrays */
   free(treeinfo->clv_valid);
