@@ -66,7 +66,7 @@ PLL_EXPORT double pllmod_opt_minimize_newton(double x1,
   {
     pllmod_set_error(PLLMOD_OPT_ERROR_NEWTON_DERIV,
                      "wrong likelihood derivatives");
-    return -INFINITY;
+    return (double) -INFINITY;
   }
   if (df >= 0.0 && fabs (f) < tolerance)
     return rts;
@@ -115,7 +115,7 @@ PLL_EXPORT double pllmod_opt_minimize_newton(double x1,
     {
       pllmod_set_error(PLLMOD_OPT_ERROR_NEWTON_DERIV,
                        "Wrong likelihood derivatives [it]");
-      return -INFINITY;
+      return (double) -INFINITY;
     }
 
     if (df > 0.0 && fabs (f) < tolerance)
@@ -131,7 +131,7 @@ PLL_EXPORT double pllmod_opt_minimize_newton(double x1,
 
   pllmod_set_error(PLLMOD_OPT_ERROR_NEWTON_LIMIT,
                    "Exceeded maximum number of iterations");
-  return -INFINITY;
+  return (double) -INFINITY;
 }
 
 /******************************************************************************/
@@ -196,7 +196,7 @@ PLL_EXPORT double pllmod_opt_minimize_lbfgsb (double * x,
       free (iwa);
     if (wa)
       free (wa);
-    return -INFINITY;
+    return (double) -INFINITY;
   }
 
 //  double initial_score = target_funk (params, x);
@@ -217,7 +217,7 @@ PLL_EXPORT double pllmod_opt_minimize_lbfgsb (double * x,
 
       score = target_funk(params, x);
 
-      if (is_nan(score) || d_equals(score, -INFINITY))
+      if (is_nan(score) || d_equals(score, (double) -INFINITY))
         break;
 
       double h, temp;
@@ -251,7 +251,7 @@ PLL_EXPORT double pllmod_opt_minimize_lbfgsb (double * x,
 
   if (is_nan(score))
   {
-    score = -INFINITY;
+    score = (double) -INFINITY;
     /* set errno only if it was not set by some inner function */
     if (!pll_errno)
     {

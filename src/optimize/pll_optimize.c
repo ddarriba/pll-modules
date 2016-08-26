@@ -303,7 +303,7 @@ static double compute_negative_lnl_unrooted (void * p, double *x)
   double score;
 
   if (x && !set_x_to_parameters(params, x))
-    return -INFINITY;
+    return (double) -INFINITY;
 
   if (params->lk_params.rooted)
   {
@@ -409,7 +409,7 @@ PLL_EXPORT double pllmod_opt_optimize_onedim(pll_optimize_options_t * params,
       break;
     default:
       /* unavailable or multiple parameter */
-      return -INFINITY;
+      return (double) -INFINITY;
   }
 
   double xres = pllmod_opt_minimize_brent(xmin, xguess, xmax,
@@ -422,27 +422,6 @@ PLL_EXPORT double pllmod_opt_optimize_onedim(pll_optimize_options_t * params,
 
   return score;
 } /* pll_optimize_parameters_onedim */
-
-PLL_EXPORT double pllmod_opt_optimize_brent_ranged(pll_optimize_options_t * params,
-                                                   double xmin,
-                                                   double xguess,
-                                                   double xmax)
-{
-  double score = 0;
-
-    /* Brent parameters */
-    double f2x;
-    assert(xmin <= xguess && xguess <= xmax);
-
-    double xres = pllmod_opt_minimize_brent(xmin, xguess, xmax,
-                                             params->pgtol,
-                                             &score, &f2x,
-                                             (void *) params,
-                                             &brent_target);
-    set_x_to_parameters(params, &xres);
-
-    return score;
-}
 
 /******************************************************************************/
 /* L-BFGS-B OPTIMIZATION */
@@ -485,7 +464,7 @@ PLL_EXPORT double pllmod_opt_optimize_multidim (pll_optimize_options_t * params,
       free (upper_bounds);
     if (bound_type)
       free (bound_type);
-    return -INFINITY;
+    return (double) -INFINITY;
   }
 
   {
@@ -604,8 +583,7 @@ PLL_EXPORT double pllmod_opt_optimize_multidim (pll_optimize_options_t * params,
     /* update free rates */
       if (params->which_parameters & PLLMOD_OPT_PARAM_FREE_RATES)
       {
-        int n_cats = params->lk_params.partition->rate_cats;
-        int i;
+        unsigned int n_cats = params->lk_params.partition->rate_cats;
         for (i=0; i<n_cats; i++)
         {
           x[check_n + i]  = params->lk_params.partition->rates[i];
@@ -614,9 +592,9 @@ PLL_EXPORT double pllmod_opt_optimize_multidim (pll_optimize_options_t * params,
           nbd_ptr[i] = PLLMOD_OPT_LBFGSB_BOUND_BOTH;
         }
         check_n += n_cats;
-        nbd_ptr += n_cats;
-        l_ptr += n_cats;
-        u_ptr += n_cats;
+        nbd_ptr += (int) n_cats;
+        l_ptr   += (int) n_cats;
+        u_ptr   += (int) n_cats;
       }
 
       if (params->which_parameters & PLLMOD_OPT_PARAM_RATE_WEIGHTS)
@@ -702,7 +680,7 @@ PLL_EXPORT double pllmod_opt_optimize_multidim (pll_optimize_options_t * params,
 
   if (is_nan(score))
   {
-    score = -INFINITY;
+    score = (double) -INFINITY;
     if (!pll_errno)
     {
       pllmod_set_error(PLLMOD_OPT_ERROR_LBFGSB_UNKNOWN,
@@ -722,7 +700,7 @@ static void update_partials_and_scalers(pll_partition_t * partition,
                                         pll_utree_t * right_child,
                                         pll_utree_t * left_child)
 {
-  int i;
+  unsigned int i;
   pll_operation_t op;
 
   /* set CLV */
@@ -738,7 +716,7 @@ static void update_partials_and_scalers(pll_partition_t * partition,
   /* update scalers */
   if (parent->scaler_index != PLL_SCALE_BUFFER_NONE)
   {
-    int n = partition->sites +
+    unsigned int n = partition->sites +
         ((partition->attributes&PLL_ATTRIB_AB_FLAG)?partition->states:0);
     for (i=0; i<n; i++)
     {
@@ -967,7 +945,7 @@ PLL_EXPORT double pllmod_opt_optimize_branch_lengths_local (
     return PLL_FAILURE;
   }
 
-  iters = smoothings;
+  iters = (unsigned int) smoothings;
   while (iters)
   {
     new_loglikelihood = loglikelihood;

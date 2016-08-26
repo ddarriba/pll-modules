@@ -526,13 +526,14 @@ PLL_EXPORT double pllmod_utree_compute_lk(pll_partition_t * partition,
 struct clv_set_data
 {
   int * set_indices;
-  int max_index;
-  int n_tips;
+  unsigned int max_index;
+  unsigned int n_tips;
 };
 
 static int cb_set_clv_minimal(pll_utree_t * node, void * data)
 {
-  int i, next_index;
+  unsigned int i, next_index;
+  int index_found;
   struct clv_set_data * clv_data = (struct clv_set_data *)data;
   int * v = 0;
 
@@ -540,29 +541,30 @@ static int cb_set_clv_minimal(pll_utree_t * node, void * data)
   {
     /* find next free position */
     v = clv_data->set_indices;
-    next_index = -1;
-
+    next_index  = 0;
+    index_found = 0;
     for (i=0; i<clv_data->max_index; ++i)
     {
       if (!v[i])
       {
+        index_found = 1;
         next_index = i;
         v[i] = 1;
         break;
       }
     }
-    assert(next_index != -1);
+    assert(index_found);
 
     /* set clv index */
     node->clv_index =
       node->next->clv_index =
       node->next->next->clv_index =
-       (unsigned int)(next_index + clv_data->n_tips);
+       next_index + clv_data->n_tips;
     /* set scaler index */
     node->scaler_index =
        node->next->scaler_index =
        node->next->next->scaler_index =
-        (unsigned int)(next_index + clv_data->n_tips);
+        (int)(next_index + clv_data->n_tips);
 
     /* free indices from children */
     if (!pllmod_utree_is_tip(node->next->back))
@@ -582,8 +584,8 @@ static int cb_set_clv_minimal(pll_utree_t * node, void * data)
 PLL_EXPORT int pllmod_utree_set_clv_minimal(pll_utree_t * root,
                                          unsigned int n_tips)
 {
-  int n_clvs = (int) ceil(log2(n_tips)) + 2;
-  int * set_indices = (int *) calloc(n_clvs, sizeof(int));
+  unsigned int n_clvs = (unsigned int) ceil(log2(n_tips)) + 2;
+  int * set_indices = (int *) calloc((size_t)n_clvs, sizeof(int));
   struct clv_set_data data;
   data.set_indices = set_indices;
   data.max_index   = n_clvs;

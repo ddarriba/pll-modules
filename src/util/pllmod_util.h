@@ -42,7 +42,7 @@
 typedef struct subst_model
 {
   char * name;            /* name of the model */
-  int states;             /* number of states in this model */
+  unsigned int states;    /* number of states in this model */
   const double * rates;   /* model substitution rates; NULL = optimize */
   const double * freqs;   /* model base frequencies; NULL = optimize */
   int * rate_sym;         /* substitution matrix symmetries: AC AG AT CG CT GT */

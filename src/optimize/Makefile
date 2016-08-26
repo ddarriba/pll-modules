@@ -26,7 +26,7 @@ CC ?= gcc
 ifeq ($(CC),clang)
 	ADD_WARN=-Weverything -Wno-padded
 endif
-WARN=-Wall -Wsign-compare
+WARN=-Wall -Wsign-compare $(ADD_WARN)
 
 ifeq ($(OS), Darwin)
   SONAMEFLAGS=-Wl,-install_name,$(PROG)

@@ -15,7 +15,8 @@ static int compare_splits (pll_split_t s1,
                            pll_split_t s2,
                            unsigned int split_len);
 
-static int get_utree_splitmap_id(pll_utree_t * node, int n_tips);
+static unsigned int get_utree_splitmap_id(pll_utree_t * node,
+                                          unsigned int n_tips);
 
 struct cb_split_params
 {
@@ -408,8 +409,8 @@ static int cb_get_splits(pll_utree_t * node, void *data)
     }
 
     assert(my_split_id < (tip_count - 3));
-    split_data->id_to_split[my_map_id] = my_split_id;
-    split_data->id_to_split[back_map_id] = my_split_id;
+    split_data->id_to_split[my_map_id] = (int) my_split_id;
+    split_data->id_to_split[back_map_id] = (int) my_split_id;
 
     /* get current split to fill */
     current_split = split_data->splits[my_split_id];
@@ -419,8 +420,8 @@ static int cb_get_splits(pll_utree_t * node, void *data)
     /* add the split from left branch */
     if (!pllmod_utree_is_tip(node->next->back))
     {
-      child_split_id
-        = split_data->id_to_split[get_utree_splitmap_id(node->next, tip_count)];
+      child_split_id = (unsigned int)
+        split_data->id_to_split[get_utree_splitmap_id(node->next, tip_count)];
       clone_split(current_split, split_data->splits[child_split_id], split_len);
     }
     else
@@ -435,8 +436,8 @@ static int cb_get_splits(pll_utree_t * node, void *data)
     /* add the split from right branch */
     if (!pllmod_utree_is_tip(node->next->next->back))
     {
-      child_split_id
-        = split_data->id_to_split[get_utree_splitmap_id(
+      child_split_id = (unsigned int)
+        split_data->id_to_split[get_utree_splitmap_id(
             node->next->next, tip_count)];
       merge_split(current_split, split_data->splits[child_split_id], split_len);
     }
@@ -511,9 +512,10 @@ static void normalize_split(pll_split_t split, unsigned int n_tips)
   The position of the node in the map of branches to splits is computed
   according to the node id.
  */
-static int get_utree_splitmap_id(pll_utree_t * node, int n_tips)
+static unsigned int get_utree_splitmap_id(pll_utree_t * node,
+                                          unsigned int n_tips)
 {
-  int node_id = node->node_index;
+  unsigned int node_id = node->node_index;
   assert(node_id >= n_tips);
   return node_id - n_tips;
 }
