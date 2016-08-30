@@ -1,5 +1,5 @@
 /*
-Copyright (C) 2016 Alexandros Stamatakis, Tomas Flouri, Diego Darriba, Alexey Kozlov
+Copyright (C) 2016 Alexey Kozlov, Diego Darriba, Tomas Flouri and Alexandros Stamatakis.
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU Affero General Public License as
@@ -14,7 +14,7 @@ GNU Affero General Public License for more details.
 You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-Contact: Tomas Flouri <Tomas.Flouri@h-its.org>,
+Contact: Alexey Kozlov <Alexey.Kozlov@h-its.org>,
 Heidelberg Institute for Theoretical Studies,
 Schloss-Wolfsbrunnenweg 35, D-69118 Heidelberg, Germany
 */
@@ -25,9 +25,6 @@ Schloss-Wolfsbrunnenweg 35, D-69118 Heidelberg, Germany
 /* if not defined, branch length optimization will use
 * the same starting set of branch lengths for every topology */
 #define PLLMOD_SEARCH_GREEDY_BLO
-
-//const int USE_FAST_EVAL = 0;
-const int USE_FAST_EVAL = 1;
 
 typedef struct spr_params
 {
@@ -116,8 +113,7 @@ static pllmod_rollback_list_t * algo_rollback_list_create(size_t slots)
   return rollback_list;
 }
 
-static void algo_rollback_list_destroy(
-              pllmod_rollback_list_t * rollback_list)
+static void algo_rollback_list_destroy(pllmod_rollback_list_t * rollback_list)
 {
   if(rollback_list->list)
     free(rollback_list->list);
@@ -159,13 +155,15 @@ static pllmod_bestnode_list_t * algo_bestnode_list_create(size_t slots)
   bestnode_list->current = 0;
   bestnode_list->size = slots;
   if (slots > 0)
-  bestnode_list->list = (node_entry_t *) calloc(slots, sizeof(node_entry_t));
-  if (!bestnode_list->list)
   {
-    pllmod_set_error(PLL_ERROR_MEM_ALLOC,
-                     "Cannot allocate memory for best node list items\n");
-    free(bestnode_list);
-    return NULL;
+    bestnode_list->list = (node_entry_t *) calloc(slots, sizeof(node_entry_t));
+    if (!bestnode_list->list)
+    {
+      pllmod_set_error(PLL_ERROR_MEM_ALLOC,
+                       "Cannot allocate memory for best node list items\n");
+      free(bestnode_list);
+      return NULL;
+    }
   }
   return bestnode_list;
 }
@@ -224,7 +222,7 @@ static int algo_bestnode_list_next_index(pllmod_bestnode_list_t * best_node_list
   {
     curr_index++;
     if (curr_index >= (int) list_size || !list[curr_index].p_node)
-    return -1;
+      return -1;
   }
   while (list[curr_index].rollback_slot != rollback_slot);
 
@@ -274,10 +272,10 @@ static double algo_optimize_bl_iterative(pllmod_treeinfo_t * treeinfo,
                                               smoothings,
                                               1);
 
-    return new_loglh;
+  return new_loglh;
 }
 
-static pll_utree_t * best_reinsert_edge(pllmod_treeinfo_t * treeinfo,
+static int best_reinsert_edge(pllmod_treeinfo_t * treeinfo,
                                         node_entry_t * entry,
                                         cutoff_info_t * cutoff_info,
                                         const pllmod_search_params_t * params)
@@ -338,7 +336,7 @@ static pll_utree_t * best_reinsert_edge(pllmod_treeinfo_t * treeinfo,
   {
     pllmod_set_error(PLL_ERROR_MEM_ALLOC,
                      "Cannot allocate memory for regraft nodes\n");
-    return NULL;
+    return PLL_FAILURE;
   }
 
   retval = pllmod_utree_nodes_at_node_dist(treeinfo->root,
@@ -350,10 +348,11 @@ static pll_utree_t * best_reinsert_edge(pllmod_treeinfo_t * treeinfo,
 
   if (!pllmod_utree_is_tip(treeinfo->root->back))
   {
-  retval &= pllmod_utree_nodes_at_node_dist(treeinfo->root->back,
-                                            &regraft_nodes[redge_count],
-                                            &ncount,
-    params->radius_min, params->radius_min);
+    retval &= pllmod_utree_nodes_at_node_dist(treeinfo->root->back,
+                                              &regraft_nodes[redge_count],
+                                              &ncount,
+                                              params->radius_min,
+                                              params->radius_min);
     redge_count += ncount;
   }
   assert(retval == PLL_SUCCESS);
@@ -364,7 +363,7 @@ static pll_utree_t * best_reinsert_edge(pllmod_treeinfo_t * treeinfo,
   {
     pllmod_set_error(PLL_ERROR_MEM_ALLOC,
                      "Cannot allocate memory for regraft distances\n");
-    return NULL;
+    return PLL_FAILURE;
   }
 
   for (i = 0; i < redge_count; ++i)
@@ -410,10 +409,10 @@ static pll_utree_t * best_reinsert_edge(pllmod_treeinfo_t * treeinfo,
 
       /* optimize 3 adjacent branches and get tree logLH */
       loglh = algo_optimize_bl_triplet(p_edge,
-                                  treeinfo,
-                                  params->bl_min,
-                                  params->bl_max,
-                                  params->smoothings);
+                                       treeinfo,
+                                       params->bl_min,
+                                       params->bl_max,
+                                       params->smoothings);
 
     }
     else
@@ -486,14 +485,15 @@ static pll_utree_t * best_reinsert_edge(pllmod_treeinfo_t * treeinfo,
   free(regraft_nodes);
   free(regraft_dist);
 
-  return entry->r_node;
+  return PLL_SUCCESS;
 }
 
-static double reinsert_nodes(pllmod_treeinfo_t * treeinfo, pll_utree_t ** nodes, int node_count,
-  pllmod_rollback_list_t * rollback_list,
-  pllmod_bestnode_list_t * best_node_list,
-  cutoff_info_t * cutoff_info,
-  const pllmod_search_params_t * params)
+static double reinsert_nodes(pllmod_treeinfo_t * treeinfo, pll_utree_t ** nodes,
+                             int node_count,
+                             pllmod_rollback_list_t * rollback_list,
+                             pllmod_bestnode_list_t * best_node_list,
+                             cutoff_info_t * cutoff_info,
+                             const pllmod_search_params_t * params)
 {
   int i;
 
@@ -509,25 +509,29 @@ static double reinsert_nodes(pllmod_treeinfo_t * treeinfo, pll_utree_t ** nodes,
     pll_utree_t * p_edge = nodes[i];
 
     /* if remaining pruned tree would only contain 2 taxa, skip this node */
-    if (pllmod_utree_is_tip(p_edge->next->back) && pllmod_utree_is_tip(p_edge->next->next->back))
-    continue;
+    if (pllmod_utree_is_tip(p_edge->next->back) &&
+        pllmod_utree_is_tip(p_edge->next->next->back))
+      continue;
 
     assert(!pllmod_utree_is_tip(p_edge));
 
     spr_entry.p_node = p_edge;
 
     if (cutoff_info)
-    cutoff_info->lh_start = best_lh;
+      cutoff_info->lh_start = best_lh;
 
-    pll_utree_t * best_r_edge = best_reinsert_edge(treeinfo, &spr_entry, cutoff_info, params);
-    if (!best_r_edge)
+    int retval = best_reinsert_edge(treeinfo, &spr_entry, cutoff_info, params);
+    if (!retval)
     {
       /* return and spread error */
       return 0;
     }
 
+    pll_utree_t * best_r_edge = spr_entry.r_node;
+
     /* original placement is the best for the current node -> move on to the next one */
-    if (!best_r_edge || best_r_edge == p_edge || best_r_edge == p_edge->back || best_r_edge->back == p_edge)
+    if (!best_r_edge || best_r_edge == p_edge || best_r_edge == p_edge->back ||
+        best_r_edge->back == p_edge)
     {
       continue;
     }
@@ -581,7 +585,7 @@ static double reinsert_nodes(pllmod_treeinfo_t * treeinfo, pll_utree_t ** nodes,
     #endif
 
     DBG("LogLikelihood after SPRs for node %lu (idx %d, clv %d): %f, best LH: %f\n",
-    i, p_edge->node_index, p_edge->clv_index, loglh, best_lh);
+         i, p_edge->node_index, p_edge->clv_index, loglh, best_lh);
   }
 
   return loglh;
@@ -667,7 +671,8 @@ PLL_EXPORT double pllmod_algo_spr_round(pllmod_treeinfo_t * treeinfo,
 
   /* query all nodes */
   allnodes_count = (treeinfo->tip_count - 2) * 3;
-  allnodes = (pll_utree_t **) calloc ((size_t) allnodes_count, sizeof(pll_utree_t *));
+  allnodes = (pll_utree_t **) calloc ((size_t) allnodes_count,
+                                      sizeof(pll_utree_t *));
   if (!allnodes)
   {
     pllmod_set_error(PLL_ERROR_MEM_ALLOC,
@@ -691,7 +696,8 @@ PLL_EXPORT double pllmod_algo_spr_round(pllmod_treeinfo_t * treeinfo,
     return 0;
   }
 
-  /* in FAST mode, we re-insert a subset of best-scoring subtrees with BLO (i.e., in SLOW mode)*/
+  /* in FAST mode, we re-insert a subset of best-scoring subtrees with BLO
+   * (i.e., in SLOW mode) */
   if (!params.thorough && bestnode_list->current > 0)
   {
     params.thorough = 1;
@@ -731,10 +737,11 @@ PLL_EXPORT double pllmod_algo_spr_round(pllmod_treeinfo_t * treeinfo,
 
   /* Restore best topologies and re-evaluate them after full BLO.
   NOTE: some SPRs were applied (if they improved LH) and others weren't.
-  Therefore in order to restore the original topology, we need to either rollback SPR
-  (if it was already applied), or re-do it again (if it wasn't applied).
-  We perform it by simultaneously iterating over the history of applied SPRs (rollback_list) and
-  over the list of not-applied SPRs which resulted in topologies with the highest LH (bestnode_list).
+  Therefore in order to restore the original topology, we need to either rollback
+  an SPR (if it was already applied), or re-do it again (if it wasn't applied).
+  We perform it by simultaneously iterating over the history of applied SPRs
+  (rollback_list) and over the list of not-applied SPRs which resulted
+  in topologies with the highest LH (bestnode_list).
   */
   rollback_counter = 0;
   toplist_index = -1;
@@ -749,7 +756,9 @@ PLL_EXPORT double pllmod_algo_spr_round(pllmod_treeinfo_t * treeinfo,
 
   while (rollback_counter < rollback_list->size)
   {
-    toplist_index = algo_bestnode_list_next_index(bestnode_list, rollback_list->current, toplist_index);
+    toplist_index = algo_bestnode_list_next_index(bestnode_list,
+                                                  rollback_list->current,
+                                                  toplist_index);
 
     if (toplist_index == -1)
     {
@@ -758,11 +767,13 @@ PLL_EXPORT double pllmod_algo_spr_round(pllmod_treeinfo_t * treeinfo,
 
       if (!rollback->SPR.prune_edge)
       {
-        DBG("  Rollback slot %d is empty, exiting the loop...\n", rollback_list->current);
+        DBG("  Rollback slot %d is empty, exiting the loop...\n",
+            rollback_list->current);
         break;
       }
 
-      DBG("  Undoing SPR %d (slot %d)... ", rollback_counter, rollback_list->current);
+      DBG("  Undoing SPR %d (slot %d)... ", rollback_counter,
+          rollback_list->current);
 
       retval = pllmod_tree_rollback(rollback);
       assert(retval == PLL_SUCCESS);
@@ -866,7 +877,8 @@ PLL_EXPORT double pllmod_algo_spr_round(pllmod_treeinfo_t * treeinfo,
   /* update LH cutoff */
   if (cutoff_info)
   {
-    cutoff_info->lh_cutoff = subtree_cutoff * (cutoff_info->lh_dec_sum / cutoff_info->lh_dec_count);
+    cutoff_info->lh_cutoff =
+        subtree_cutoff * (cutoff_info->lh_dec_sum / cutoff_info->lh_dec_count);
   }
 
   /* update partials and CLVs */
