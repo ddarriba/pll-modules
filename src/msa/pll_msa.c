@@ -1,5 +1,5 @@
 /*
- Copyright (C) 2016 Diego Darriba
+ Copyright (C) 2016 Diego Darriba, Alexey Kozlov
 
  This program is free software: you can redistribute it and/or modify
  it under the terms of the GNU Affero General Public License as
@@ -18,7 +18,11 @@
  Exelixis Lab, Heidelberg Instutute for Theoretical Studies
  Schloss-Wolfsbrunnenweg 35, D-69118 Heidelberg, Germany
  */
+#include <search.h>
+
 #include "pll_msa.h"
+
+#include "../pllmod_common.h"
 
 PLL_EXPORT double * pllmod_msa_empirical_frequencies(pll_partition_t * partition)
 {
@@ -35,8 +39,8 @@ PLL_EXPORT double * pllmod_msa_empirical_frequencies(pll_partition_t * partition
   if ((frequencies = (double *) calloc ((size_t) states, sizeof(double)))
       == NULL)
   {
-    pll_errno = PLL_ERROR_MEM_ALLOC;
-    snprintf (pll_errmsg, 200, "Cannot allocate memory for empirical frequencies");
+    pllmod_set_error(PLL_ERROR_MEM_ALLOC,
+                     "Cannot allocate memory for empirical frequencies");
     return NULL;
   }
 
@@ -89,6 +93,7 @@ PLL_EXPORT double * pllmod_msa_empirical_frequencies(pll_partition_t * partition
         double sum_site = 0.0;
         for (k = 0; k < states; ++k)
           sum_site += partition->clv[i][j + k];
+
         for (k = 0; k < states; ++k)
           frequencies[k] += w[n] * partition->clv[i][j + k] / sum_site;
       }
@@ -137,9 +142,8 @@ PLL_EXPORT double * pllmod_msa_empirical_subst_rates(pll_partition_t * partition
 
   if (!(subst_rates && pair_rates && state_freq))
   {
-    pll_errno = PLL_ERROR_MEM_ALLOC;
-    snprintf (pll_errmsg, 200,
-              "Cannot allocate memory for empirical subst rates");
+    pllmod_set_error(PLL_ERROR_MEM_ALLOC,
+                     "Cannot allocate memory for empirical subst rates");
     if (subst_rates)
       free (subst_rates);
     if (pair_rates)
@@ -302,3 +306,680 @@ PLL_EXPORT double pllmod_msa_empirical_invariant_sites(pll_partition_t *partitio
   double empirical_pinv = (double)1.0*n_inv/uncomp_sites;
   return empirical_pinv;
 }
+
+/* Find duplicates using hash table from search.h. This works best for short
+ * strings, so we use this method for checking taxa names */
+static int find_duplicate_strings_htable(char ** const strings,
+                                         unsigned long string_count,
+                                         unsigned long ** duplicates,
+                                         unsigned long * duplicate_count)
+{
+  if (!strings)
+    return PLL_FAILURE;
+
+  unsigned long * data = (unsigned long *)malloc(string_count *
+                                                sizeof(unsigned long));
+
+  unsigned long * tmpdup = (unsigned long *)malloc(string_count * 2 *
+                                                sizeof(unsigned long));
+
+  if (!data || !tmpdup)
+  {
+    if (data)
+      free(data);
+    if (tmpdup)
+      free(tmpdup);
+    pllmod_set_error(PLL_ERROR_MEM_ALLOC,
+                     "Cannot allocate memory for duplicates array");
+    return PLL_FAILURE;
+  }
+
+  hcreate(string_count);
+
+  unsigned long i;
+  for (i = 0; i < string_count; ++i)
+  {
+    data[i] = i;
+    ENTRY entry;
+    entry.key = (char *) strings[i];
+    entry.data = (void *)(data+i);
+    ENTRY *found = hsearch(entry, ENTER);
+    if (found->data != entry.data)
+    {
+      const unsigned long idx1 = *((unsigned long *) found->data);
+      const unsigned long idx2 = *((unsigned long *) entry.data);
+
+      /* duplicate found, save it */
+      tmpdup[(*duplicate_count)*2] = idx1;
+      tmpdup[(*duplicate_count)*2+1] = idx2;
+      (*duplicate_count)++;
+    }
+  }
+
+  hdestroy();
+  free(data);
+
+  if (*duplicate_count > 0)
+  {
+    *duplicates = (unsigned long *) realloc(tmpdup, (*duplicate_count) * 2 *
+                                                  sizeof(unsigned long));
+  }
+  else
+  {
+    free(tmpdup);
+    *duplicates = NULL;
+  }
+
+  return PLL_SUCCESS;
+}
+
+/* Find duplicates using custom hash function optimized for long low-variance
+ * strings - this method is used for detecting identical sequences */
+static int find_duplicate_strings(char ** const strings,
+                                  unsigned long string_count,
+                                  unsigned long string_len,
+                                  unsigned long ** duplicates,
+                                  unsigned long * duplicate_count)
+{
+  if (!strings)
+    return PLL_FAILURE;
+
+  unsigned long * tmpdup = (unsigned long *)malloc(string_count * 2 *
+                                                sizeof(unsigned long));
+
+  unsigned long * hash = (unsigned long *)calloc(string_count,
+                                                 sizeof(unsigned long));
+
+  unsigned char * dupflag = (unsigned char *)calloc(string_count,
+                                                 sizeof(unsigned char));
+
+  if (!hash || !tmpdup || !dupflag)
+  {
+    if (hash)
+      free(hash);
+    if (tmpdup)
+      free(tmpdup);
+    if (dupflag)
+      free(dupflag);
+    pllmod_set_error(PLL_ERROR_MEM_ALLOC,
+                     "Cannot allocate memory for duplicates array");
+    return PLL_FAILURE;
+  }
+
+  *duplicate_count = 0;
+
+  unsigned long i;
+  unsigned long j;
+
+  for (i = 0; i < string_count; ++i)
+    for (j = 0; j < (string_len ? string_len : strlen(strings[i])); ++j)
+      hash[i] = hash[i] + (j+1) * (unsigned long) strings[i][j];
+
+  int coll = 0;
+
+  for (i = 0; i < string_count; ++i)
+  {
+    if (dupflag[i])
+      continue;
+    for (j = i+1; j < string_count; ++j)
+    {
+      if (hash[i] == hash[j])
+      {
+        coll++;
+        if (strcmp(strings[i], strings[j]) == 0)
+        {
+          /* duplicate found, save it */
+          tmpdup[(*duplicate_count)*2] = i;
+          tmpdup[(*duplicate_count)*2+1] = j;
+          (*duplicate_count)++;
+          dupflag[j] = 1;
+        }
+      }
+    }
+  }
+
+//  printf("Collisions: %d, duplicates: %lu\n", coll, *duplicate_count);
+
+  free(hash);
+  free(dupflag);
+
+  if (*duplicate_count > 0)
+  {
+    *duplicates = (unsigned long *) realloc(tmpdup, (*duplicate_count) * 2 *
+                                                  sizeof(unsigned long));
+
+    if (!(*duplicates))
+    {
+      pllmod_set_error(PLL_ERROR_MEM_ALLOC,
+                       "Cannot allocate memory for duplicates array");
+      return PLL_FAILURE;
+    }
+  }
+  else
+  {
+    free(tmpdup);
+    *duplicates = NULL;
+  }
+
+  return PLL_SUCCESS;
+}
+
+/**
+ *  Compute diverse alignment statistics (see @param stats_mask for details)
+ *
+ *  @param msa Multiple Sequence Alignment
+ *  @param states Number of states (e.g., DNA=4, AA=20 etc.)
+ *  @param charmap Mapping from chars to states (e.g., pll_map_nt for DNA)
+ *  @param weights Alignment site weights, NULL=equal weights
+ *  @param stats_mask Statistics to be computed, any combination of:
+ *      PLLMOD_MSA_STATS_DUP_TAXA   duplicate taxon names
+ *      PLLMOD_MSA_STATS_DUP_SEQS   duplicate/identical sequences
+ *      PLLMOD_MSA_STATS_GAP_PROP   proportion of gaps
+ *      PLLMOD_MSA_STATS_GAP_SEQS   fully undetermined sequences (=all-gap rows)
+ *      PLLMOD_MSA_STATS_GAP_COLS   fully undetermined sites (=all-gap columns)
+ *      PLLMOD_MSA_STATS_INV_PROP   proportion of invariant sites
+ *      PLLMOD_MSA_STATS_INV_COLS   invariant columns
+ *      PLLMOD_MSA_STATS_FREQS      state frequencies (NB: gaps are ignored!)
+ *      PLLMOD_MSA_STATS_ALL        all of the above
+ * */
+PLL_EXPORT pllmod_msa_stats_t * pllmod_msa_compute_stats(const pll_msa_t * msa,
+                                                         unsigned int states,
+                                                         const unsigned int * charmap,
+                                                         const unsigned int * weights,
+                                                         unsigned long stats_mask)
+{
+  if (!msa)
+  {
+    pllmod_set_error(PLL_ERROR_PARAM_INVALID,
+              "MSA structure is NULL");
+    return PLL_FAILURE;
+  }
+
+  if (!charmap)
+  {
+    pllmod_set_error(PLL_ERROR_PARAM_INVALID,
+              "Character-to-state mapping (charmap) is NULL");
+    return PLL_FAILURE;
+  }
+
+  pllmod_msa_stats_t * stats = (pllmod_msa_stats_t *) calloc(1, sizeof(pllmod_msa_stats_t));
+
+  if (!stats)
+  {
+    pllmod_set_error(PLL_ERROR_MEM_ALLOC,
+                     "Cannot allocate memory for MSA statistics");
+    return NULL;
+  }
+
+  const unsigned long msa_count = (unsigned long) msa->count;
+  const unsigned long msa_length = (unsigned long) msa->length;
+
+  unsigned long i, j, k;
+  unsigned long sum_weights = 0;
+  unsigned long total_gap_count = 0;
+  unsigned long * col_gap_weight = NULL;
+  unsigned long * seq_gap_weight = NULL;
+
+  unsigned int * inv_state = NULL;
+  unsigned long inv_weight = 0;
+
+
+  stats->states = states;
+  stats->gap_cols_count = 0;
+  stats->gap_seqs_count = 0;
+  stats->inv_cols_count = 0;
+
+  /* search for duplicate taxa names (=sequence labels) */
+  if (stats_mask & PLLMOD_MSA_STATS_DUP_TAXA)
+  {
+    int retval = find_duplicate_strings_htable(msa->label, msa_count,
+                                        &stats->dup_taxa_pairs,
+                                        &stats->dup_taxa_pairs_count);
+    if (!retval)
+      goto error_exit;
+  }
+
+  /* search for duplicate sequences */
+  if (stats_mask & PLLMOD_MSA_STATS_DUP_SEQS)
+  {
+    int retval = find_duplicate_strings(msa->sequence, msa_count, msa_length,
+                                        &stats->dup_seqs_pairs,
+                                        &stats->dup_seqs_pairs_count);
+    if (!retval)
+      goto error_exit;
+  }
+
+  /* if we were asked to find duplicates only, no need to loop over sites */
+  if (!(stats_mask & ~(PLLMOD_MSA_STATS_DUP_SEQS | PLLMOD_MSA_STATS_DUP_TAXA)))
+    return stats;
+
+  if (stats_mask & PLLMOD_MSA_STATS_FREQS)
+  {
+    stats->freqs = (double *) calloc(states, sizeof(double));
+  }
+
+  if (stats_mask & PLLMOD_MSA_STATS_GAP_COLS)
+  {
+    col_gap_weight = (unsigned long *) calloc(msa_length, sizeof(unsigned long));
+  }
+
+  if (stats_mask & PLLMOD_MSA_STATS_GAP_SEQS)
+  {
+    seq_gap_weight = (unsigned long *) calloc(msa_count, sizeof(unsigned long));
+  }
+
+  if (stats_mask & (PLLMOD_MSA_STATS_INV_COLS | PLLMOD_MSA_STATS_INV_PROP))
+  {
+    inv_state = (unsigned int *) calloc(msa_length, sizeof(unsigned int));
+    stats->inv_cols = (unsigned long *) calloc(msa_length, sizeof(unsigned long));
+    if (!inv_state || !stats->inv_cols)
+      goto error_exit;
+  }
+
+  /* check memory allocation */
+  if (((stats_mask & PLLMOD_MSA_STATS_FREQS) && !stats->freqs) ||
+      ((stats_mask & PLLMOD_MSA_STATS_GAP_COLS) && !col_gap_weight) ||
+      ((stats_mask & PLLMOD_MSA_STATS_GAP_SEQS) && !seq_gap_weight)
+      )
+  {
+    goto error_exit;
+  }
+
+  for (i = 0; i < msa_count; ++i)
+  {
+    const char *seqchars = msa->sequence[i];
+    for (j = 0; j < msa_length; ++j)
+    {
+      const unsigned int state = charmap[(int) seqchars[j]];
+      const unsigned int site_states = __builtin_popcount(state);
+      const int is_gap = site_states == states ? 1 : 0;
+      const unsigned int w = weights ? weights[j] : 1;
+
+      /* compute sum of weights (=alignment length before pattern compression)*/
+      if (i == 0)
+        sum_weights += w;
+
+      if (is_gap)
+      {
+        if (stats_mask & (PLLMOD_MSA_STATS_GAP_PROP | PLLMOD_MSA_STATS_FREQS))
+        {
+          total_gap_count += w;
+        }
+
+        if (stats_mask & PLLMOD_MSA_STATS_GAP_COLS)
+        {
+          col_gap_weight[j] += w;
+          if (i == msa_count-1 && col_gap_weight[j] == msa_count * w)
+             stats->gap_cols_count++;
+        }
+
+        if (stats_mask & PLLMOD_MSA_STATS_GAP_SEQS)
+        {
+          seq_gap_weight[i] += w;
+          if (j == msa_length-1 && seq_gap_weight[i] == sum_weights)
+            stats->gap_seqs_count++;
+        }
+      }
+
+      if (stats_mask & (PLLMOD_MSA_STATS_INV_COLS | PLLMOD_MSA_STATS_INV_PROP))
+      {
+        if (!is_gap)
+          inv_state[j] |= state;
+        if (i == msa_count-1 && __builtin_popcount(inv_state[j]) == 1)
+        {
+          inv_weight += w;
+          stats->inv_cols[stats->inv_cols_count++] = j;
+        }
+      }
+
+      if (stats_mask & PLLMOD_MSA_STATS_FREQS)
+      {
+        /* ignore gap sites when computing the base freqs */
+        if (site_states != states)
+        {
+          double state_prob = ((double) w) / site_states;
+          for (k = 0; k < states; ++k)
+          {
+            if (state & (1 << k))
+              stats->freqs[k] += state_prob;
+          }
+        }
+      }
+
+    }  // site loop
+  } // sequence loop
+
+  /* compute proportion of invariant sites */
+  if (stats_mask & (PLLMOD_MSA_STATS_INV_COLS | PLLMOD_MSA_STATS_INV_PROP))
+  {
+    stats->inv_prop = ((double) inv_weight) / sum_weights;
+    stats->inv_cols = realloc(stats->inv_cols,
+                              stats->inv_cols_count * sizeof(unsigned long));
+    free(inv_state);
+    inv_state = NULL;
+  }
+
+  const unsigned long total_chars = sum_weights * msa_count;
+
+  /* normalize frequencies */
+  if (stats_mask & PLLMOD_MSA_STATS_FREQS)
+  {
+    for (k = 0; k < states; ++k)
+      stats->freqs[k] /= total_chars - total_gap_count;
+  }
+
+  /* compute proportion of gaps */
+  if (stats_mask & PLLMOD_MSA_STATS_GAP_PROP)
+    stats->gap_prop = ((double) total_gap_count) / total_chars;
+
+  /* detect gap-only columns */
+  if ((stats_mask & PLLMOD_MSA_STATS_GAP_COLS) && stats->gap_cols_count > 0)
+  {
+    stats->gap_cols = (unsigned long *) calloc(stats->gap_cols_count,
+                                               sizeof(unsigned long));
+
+    if (!stats->gap_cols)
+      goto error_exit;
+
+    unsigned long c = 0;
+    for (j = 0; j < msa_length; ++j)
+    {
+      const unsigned int w = weights ? weights[j] : 1;
+      if (col_gap_weight[j] == msa_count * w)
+        stats->gap_cols[c++] = j;
+    }
+    assert(c == stats->gap_cols_count);
+    free(col_gap_weight);
+    col_gap_weight = NULL;
+  }
+
+  /* detect gap-only sequences */
+  if ((stats_mask & PLLMOD_MSA_STATS_GAP_SEQS) && stats->gap_seqs_count > 0)
+  {
+    stats->gap_seqs = (unsigned long *) calloc(stats->gap_seqs_count,
+                                               sizeof(unsigned long));
+
+    if (!stats->gap_seqs)
+      goto error_exit;
+
+    unsigned long c = 0;
+    for (i = 0; i < msa_count; ++i)
+    {
+      if (seq_gap_weight[i] == sum_weights)
+        stats->gap_seqs[c++] = i;
+    }
+    assert(c == stats->gap_seqs_count);
+    free(seq_gap_weight);
+    seq_gap_weight = NULL;
+  }
+
+  return stats;
+
+error_exit:
+  if (inv_state)
+    free(inv_state);
+  if (col_gap_weight)
+    free(col_gap_weight);
+  if (seq_gap_weight)
+    free(seq_gap_weight);
+  pllmod_msa_destroy_stats(stats);
+  pllmod_set_error(PLL_ERROR_MEM_ALLOC,
+                   "Cannot allocate memory for MSA statistics");
+  return NULL;
+}
+
+PLL_EXPORT void pllmod_msa_destroy_stats(pllmod_msa_stats_t * stats)
+{
+  if (stats->dup_taxa_pairs)
+    free(stats->dup_taxa_pairs);
+
+  if (stats->dup_seqs_pairs)
+    free(stats->dup_seqs_pairs);
+
+  if (stats->gap_seqs)
+    free(stats->gap_seqs);
+
+  if (stats->gap_cols)
+    free(stats->gap_cols);
+
+  if (stats->inv_cols)
+    free(stats->inv_cols);
+
+  if (stats->freqs)
+    free(stats->freqs);
+
+  free(stats);
+}
+
+/**
+ * Filter MSA by removing the specified sequences and/or columns
+ *
+ * @param msa Multiple Sequence Alignment
+ * @param remove_seqs 0-based indices of sequences to remove
+ * @param remove_seqs_count size of @param remove_seqs array
+ * @param remove_cols 0-based indices of columns to remove
+ * @param remove_cols_count size of @param remove_cols array
+ * @param inplace create new MSA structure for the filtered alignment (0)
+ *                or re-use the original one (1)
+ */
+PLL_EXPORT pll_msa_t * pllmod_msa_filter(pll_msa_t * msa,
+                                         unsigned long * remove_seqs,
+                                         unsigned long remove_seqs_count,
+                                         unsigned long * remove_cols,
+                                         unsigned long remove_cols_count,
+                                         unsigned int inplace)
+{
+  if (!msa)
+  {
+    pllmod_set_error(PLL_ERROR_PARAM_INVALID, "MSA structure is NULL");
+    return NULL;
+  }
+
+  if (remove_seqs_count && !remove_seqs)
+  {
+    pllmod_set_error(PLL_ERROR_PARAM_INVALID,
+              "List of sequences to remove (remove_seqs) is NULL");
+    return NULL;
+  }
+
+  if (remove_cols_count && !remove_cols)
+  {
+    pllmod_set_error(PLL_ERROR_PARAM_INVALID,
+              "List of columns to remove (remove_seqs) is NULL");
+    return NULL;
+  }
+
+  const unsigned long old_count = (unsigned long) msa->count;
+  const unsigned long old_length = (unsigned long) msa->length;
+
+  unsigned long i, j;
+
+  unsigned char * seqflag = NULL;
+  unsigned char * colflag = NULL;
+  pll_msa_t * new_msa = NULL;
+
+  if (remove_seqs_count)
+  {
+    seqflag = (unsigned char *)calloc(old_count, sizeof(unsigned char));
+    for (i = 0; i < remove_seqs_count; ++i)
+    {
+      if (remove_seqs[i] < old_count)
+        seqflag[remove_seqs[i]] = 1;
+      else
+      {
+        pllmod_set_error(PLL_ERROR_PARAM_INVALID,
+                  "Invalid sequence number in remove list: %lu", remove_seqs[i]);
+        goto error_exit;
+      }
+    }
+  }
+
+  if (remove_cols_count)
+  {
+    colflag = (unsigned char *)calloc(old_length, sizeof(unsigned char));
+    for (i = 0; i < remove_cols_count; ++i)
+    {
+      if (remove_cols[i] < old_length)
+        colflag[remove_cols[i]] = 1;
+      else
+      {
+        pllmod_set_error(PLL_ERROR_PARAM_INVALID,
+                  "Invalid column number in remove list: %lu", remove_cols[i]);
+        goto error_exit;
+      }
+    }
+  }
+
+  const unsigned long new_count = old_count - remove_seqs_count;
+  const unsigned long new_length = old_length - remove_cols_count;
+
+  if (inplace)
+    new_msa = msa;
+  else
+  {
+    new_msa = (pll_msa_t *) calloc(1, sizeof(pll_msa_t));
+    new_msa->count = new_count;
+    new_msa->length = new_length;
+    new_msa->label = (char **) calloc(new_count, sizeof(char *));
+    new_msa->sequence = (char **) calloc(new_count, sizeof(char *));
+    if (!msa->label || !new_msa->sequence)
+      goto error_exit;
+  }
+
+  unsigned long seq_idx = 0;
+  for (i = 0; i < old_count; ++i)
+  {
+    /* check if we should skip this sequence */
+    if (seqflag && seqflag[i])
+      continue;
+
+    if (inplace)
+      new_msa->label[seq_idx] = msa->label[i];
+    else
+    {
+      new_msa->label[seq_idx] = strdup(msa->label[i]);
+      new_msa->sequence[seq_idx] = (char *) malloc((new_length+1) * sizeof(char));
+      if (!new_msa->label[seq_idx] || !new_msa->sequence[seq_idx])
+        goto error_exit;
+    }
+
+    if (!colflag)
+    {
+      /* no columns to remove, just copy/assign the old sequence*/
+      if (inplace)
+        new_msa->sequence[seq_idx] = msa->sequence[i];
+      else
+        strcpy(new_msa->sequence[seq_idx], msa->sequence[i]);
+    }
+    else
+    {
+      unsigned long col_idx = 0;
+      for (j = 0; j < old_length; ++j)
+      {
+        if (colflag[j])
+          continue;
+
+        new_msa->sequence[seq_idx][col_idx++] = msa->sequence[i][j];
+      }
+      assert(col_idx == new_length);
+      new_msa->sequence[seq_idx][new_length] = '\0';
+
+      /* trim sequence to the new size */
+      if (inplace)
+      {
+        new_msa->sequence[seq_idx] = (char *) realloc(new_msa->sequence[seq_idx],
+                                             (new_length+1) * sizeof(char));
+      }
+    }
+
+    seq_idx++;
+  }
+  assert(seq_idx == new_count);
+
+
+  if (inplace)
+  {
+    /* set new dimensions */
+    new_msa->count = new_count;
+    new_msa->length = new_length;
+    /* trim arrays to the new size */
+    new_msa->sequence = (char **) realloc(new_msa->sequence,
+                                          new_count * sizeof(char *));
+    new_msa->label = (char **) realloc(new_msa->label,
+                                          new_count * sizeof(char *));
+  }
+
+  if (seqflag)
+    free(seqflag);
+  if (colflag)
+    free(colflag);
+
+  return new_msa;
+
+error_exit:
+  if (seqflag)
+    free(seqflag);
+  if (colflag)
+    free(colflag);
+  if (new_msa)
+  {
+    for (i = 0; i < (unsigned long) new_msa->count; ++i)
+    {
+      if (msa->sequence && msa->sequence[i])
+        free(msa->sequence[i]);
+      if (msa->label && msa->label[i])
+        free(msa->label[i]);
+    }
+    if (msa->sequence)
+      free(msa->sequence);
+    if (msa->label)
+      free(msa->label);
+
+    free(new_msa);
+  }
+  pllmod_set_error(PLL_ERROR_MEM_ALLOC,
+                   "Cannot allocate memory needed for MSA filtering");
+  return NULL;
+}
+
+/**
+ * Save MSA to a PHYLIP file
+ */
+PLL_EXPORT int pllmod_msa_save_phylip(const pll_msa_t * msa,
+                                      const char * out_fname)
+{
+  if (!msa)
+  {
+    pllmod_set_error(PLL_ERROR_PARAM_INVALID, "MSA structure is NULL");
+    return PLL_FAILURE;
+  }
+
+  if (!out_fname)
+  {
+    pllmod_set_error(PLL_ERROR_PARAM_INVALID, "File name (out_fname) is NULL");
+    return PLL_FAILURE;
+  }
+
+  FILE * f = fopen(out_fname, "w");
+
+  if (!f)
+  {
+    pllmod_set_error(PLL_ERROR_FILE_OPEN, "Cannot open file: %s", out_fname);
+    return PLL_FAILURE;
+  }
+
+  // TODO: data type should be changed to unsigned long in pll_msa_t!
+  fprintf(f, "%lu %lu\n", (unsigned long) msa->count,
+                          (unsigned long) msa->length);
+
+  unsigned long i;
+  for (i = 0; i < (unsigned long) msa->count; ++i)
+  {
+    fprintf(f, "%s    %s\n", msa->label[i], msa->sequence[i]);
+  }
+
+  fclose(f);
+
+  return PLL_SUCCESS;
+}
+

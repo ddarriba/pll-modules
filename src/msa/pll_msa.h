@@ -1,5 +1,5 @@
 /*
- Copyright (C) 2016 Diego Darriba
+ Copyright (C) 2016 Diego Darriba, Alexey Kozlov
 
  This program is free software: you can redistribute it and/or modify
  it under the terms of the GNU Affero General Public License as
@@ -26,8 +26,63 @@
 #include "pll.h"
 #endif
 
+#define PLLMOD_MSA_STATS_NONE       (0)
+#define PLLMOD_MSA_STATS_DUP_TAXA   (1<<0)
+#define PLLMOD_MSA_STATS_DUP_SEQS   (1<<1)
+#define PLLMOD_MSA_STATS_GAP_PROP    (1<<2)
+#define PLLMOD_MSA_STATS_GAP_SEQS   (1<<3)
+#define PLLMOD_MSA_STATS_GAP_COLS   (1<<4)
+#define PLLMOD_MSA_STATS_INV_PROP    (1<<5)
+#define PLLMOD_MSA_STATS_INV_COLS   (1<<6)
+#define PLLMOD_MSA_STATS_FREQS      (1<<7)
+#define PLLMOD_MSA_STATS_ALL        (~0)
+
+typedef struct msa_stats
+{
+  unsigned int states;
+
+  unsigned long dup_taxa_pairs_count;
+  unsigned long * dup_taxa_pairs;
+
+  unsigned long dup_seqs_pairs_count;
+  unsigned long * dup_seqs_pairs;
+
+  double gap_prop;
+  unsigned long gap_seqs_count;
+  unsigned long * gap_seqs;
+  unsigned long gap_cols_count;
+  unsigned long * gap_cols;
+
+  double inv_prop;
+  unsigned long inv_cols_count;
+  unsigned long * inv_cols;
+
+  double * freqs;
+} pllmod_msa_stats_t;
+
 PLL_EXPORT double * pllmod_msa_empirical_frequencies(pll_partition_t * partition);
 PLL_EXPORT double * pllmod_msa_empirical_subst_rates(pll_partition_t * partition);
 PLL_EXPORT double pllmod_msa_empirical_invariant_sites(pll_partition_t *partition);
 
-#endif /* PLL_MSATREE_H_ */
+PLL_EXPORT pllmod_msa_stats_t * pllmod_msa_compute_stats(const pll_msa_t * msa,
+                                                         unsigned int states,
+                                                         const unsigned int * charmap,
+                                                         const unsigned int * weights,
+                                                         unsigned long stats_mask);
+
+PLL_EXPORT void pllmod_msa_destroy_stats(pllmod_msa_stats_t * stats);
+
+PLL_EXPORT pll_msa_t * pllmod_msa_filter(pll_msa_t * msa,
+                                         unsigned long * remove_seqs,
+                                         unsigned long remove_seqs_count,
+                                         unsigned long * remove_cols,
+                                         unsigned long remove_cols_count,
+                                         unsigned int inplace);
+
+// TODO: msa_split
+
+// This could be moved to a general file I/O module if we decide to have one
+PLL_EXPORT int pllmod_msa_save_phylip(const pll_msa_t * msa,
+                                      const char * out_fname);
+
+#endif /* PLL_MSA_H_ */
