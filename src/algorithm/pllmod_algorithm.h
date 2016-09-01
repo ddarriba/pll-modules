@@ -29,7 +29,7 @@
 #define PLLMOD_ALGO_BFGS_FACTR         1e9
 
 #ifdef DEBUG
-    #define DBG(fmt, ...) do { print_info(fmt, ##__VA_ARGS__); } while(0)
+    #define DBG(fmt, ...) do { printf(fmt, ##__VA_ARGS__); } while(0)
 #else
     #define DBG(fmt, ...)
 #endif

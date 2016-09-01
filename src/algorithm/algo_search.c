@@ -41,6 +41,7 @@ typedef struct rollback_list
 {
   pll_tree_rollback_t * list;
   int current;
+  size_t round;
   size_t size;
 } pllmod_rollback_list_t;
 
@@ -49,7 +50,7 @@ typedef struct node_entry {
   pll_utree_t * r_node;
   double b1, b2, b3;
   double lh;
-  unsigned int rollback_slot;
+  unsigned int rollback_num;
 } node_entry_t;
 
 typedef struct bestnode_list
@@ -97,6 +98,7 @@ static pllmod_rollback_list_t * algo_rollback_list_create(size_t slots)
     return NULL;
   }
   rollback_list->current = 0;
+  rollback_list->round = 0;
   rollback_list->size = slots;
   if (slots > 0)
   {
@@ -125,8 +127,13 @@ static pll_tree_rollback_t * algo_rollback_list_prev(
 {
   if (rollback_list->current > 0)
     rollback_list->current--;
-  else
+  else if (rollback_list->round > 0)
+  {
+    rollback_list->round--;
     rollback_list->current = rollback_list->size - 1;
+  }
+  else
+    return NULL;
 
   return rollback_list->list + rollback_list->current;
 }
@@ -137,9 +144,17 @@ static pll_tree_rollback_t * algo_rollback_list_next(
   if (rollback_list->current < ((int) rollback_list->size - 1))
     rollback_list->current++;
   else
+  {
+    rollback_list->round++;
     rollback_list->current = 0;
+  }
 
   return rollback_list->list + rollback_list->current;
+}
+
+static int algo_rollback_list_abspos(pllmod_rollback_list_t * rollback_list)
+{
+  return rollback_list->size * rollback_list->round + rollback_list->current;
 }
 
 static pllmod_bestnode_list_t * algo_bestnode_list_create(size_t slots)
@@ -210,7 +225,7 @@ static void algo_bestnode_list_save(pllmod_bestnode_list_t * best_node_list,
 }
 
 static int algo_bestnode_list_next_index(pllmod_bestnode_list_t * best_node_list,
-                                         unsigned int rollback_slot,
+                                         unsigned int rollback_num,
                                          int curr_index)
 {
   assert(curr_index >= -1);
@@ -224,7 +239,7 @@ static int algo_bestnode_list_next_index(pllmod_bestnode_list_t * best_node_list
     if (curr_index >= (int) list_size || !list[curr_index].p_node)
       return -1;
   }
-  while (list[curr_index].rollback_slot != rollback_slot);
+  while (list[curr_index].rollback_num != rollback_num);
 
   return curr_index;
 }
@@ -570,7 +585,7 @@ static double reinsert_nodes(pllmod_treeinfo_t * treeinfo, pll_utree_t ** nodes,
     else if (best_r_edge)
     {
       /* LH didn't improve but could be still high enough to be in top-20 */
-      spr_entry.rollback_slot = rollback_list->current;
+      spr_entry.rollback_num = algo_rollback_list_abspos(rollback_list);
       algo_bestnode_list_save(best_node_list, &spr_entry);
       loglh = spr_entry.lh;
     }
@@ -584,7 +599,7 @@ static double reinsert_nodes(pllmod_treeinfo_t * treeinfo, pll_utree_t ** nodes,
     }
     #endif
 
-    DBG("LogLikelihood after SPRs for node %lu (idx %d, clv %d): %f, best LH: %f\n",
+    DBG("LogLikelihood after SPRs for node %d (idx %d, clv %d): %f, best LH: %f\n",
          i, p_edge->node_index, p_edge->clv_index, loglh, best_lh);
   }
 
@@ -756,8 +771,9 @@ PLL_EXPORT double pllmod_algo_spr_round(pllmod_treeinfo_t * treeinfo,
 
   while (rollback_counter < rollback_list->size)
   {
+    const int rollback_num = algo_rollback_list_abspos(rollback_list);
     toplist_index = algo_bestnode_list_next_index(bestnode_list,
-                                                  rollback_list->current,
+                                                  rollback_num,
                                                   toplist_index);
 
     if (toplist_index == -1)
@@ -765,14 +781,14 @@ PLL_EXPORT double pllmod_algo_spr_round(pllmod_treeinfo_t * treeinfo,
       /* no more topologies for this rollback, so we go one slot back */
       rollback = algo_rollback_list_prev(rollback_list);
 
-      if (!rollback->SPR.prune_edge)
+      if (!rollback || !rollback->SPR.prune_edge)
       {
         DBG("  Rollback slot %d is empty, exiting the loop...\n",
             rollback_list->current);
         break;
       }
 
-      DBG("  Undoing SPR %d (slot %d)... ", rollback_counter,
+      DBG("  Undoing SPR %lu (slot %d)... ", rollback_counter,
           rollback_list->current);
 
       retval = pllmod_tree_rollback(rollback);
