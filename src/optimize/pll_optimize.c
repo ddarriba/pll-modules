@@ -695,7 +695,8 @@ PLL_EXPORT double pllmod_opt_optimize_multidim (pll_optimize_options_t * params,
 /* GENERIC */
 /******************************************************************************/
 
-static void update_partials_and_scalers(pll_partition_t * partition,
+static void update_partials_and_scalers(pll_partition_t ** partitions,
+                                        size_t partition_count,
                                         pll_utree_t * parent,
                                         pll_utree_t * right_child,
                                         pll_utree_t * left_child)
@@ -713,24 +714,29 @@ static void update_partials_and_scalers(pll_partition_t * partition,
   op.child2_matrix_index = left_child->back->pmatrix_index;
   op.child2_scaler_index = left_child->back->scaler_index;
 
-  /* update scalers */
-  if (parent->scaler_index != PLL_SCALE_BUFFER_NONE)
+  size_t p;
+  for (p = 0; p < partition_count; ++p)
   {
-    unsigned int n = partition->sites +
-        ((partition->attributes&PLL_ATTRIB_AB_FLAG)?partition->states:0);
-    for (i=0; i<n; i++)
+    pll_partition_t * partition = partitions[p];
+    /* update scalers */
+    if (parent->scaler_index != PLL_SCALE_BUFFER_NONE)
     {
-      partition->scale_buffer[parent->scaler_index][i] =
-          partition->scale_buffer[parent->scaler_index][i]
-              + ((right_child->back->scaler_index != PLL_SCALE_BUFFER_NONE) ?
-                  partition->scale_buffer[right_child->back->scaler_index][i] :
-                  0)
-              - ((parent->back->scaler_index != PLL_SCALE_BUFFER_NONE) ?
-                  partition->scale_buffer[parent->back->scaler_index][i] :
-                  0);
+      unsigned int n = partition->sites +
+          ((partition->attributes&PLL_ATTRIB_AB_FLAG)?partition->states:0);
+      for (i=0; i<n; i++)
+      {
+        partition->scale_buffer[parent->scaler_index][i] =
+            partition->scale_buffer[parent->scaler_index][i]
+                + ((right_child->back->scaler_index != PLL_SCALE_BUFFER_NONE) ?
+                    partition->scale_buffer[right_child->back->scaler_index][i] :
+                    0)
+                - ((parent->back->scaler_index != PLL_SCALE_BUFFER_NONE) ?
+                    partition->scale_buffer[parent->back->scaler_index][i] :
+                    0);
+      }
     }
+    pll_update_partials (partition, &op, 1);
   }
-  pll_update_partials (partition, &op, 1);
 }
 
 /* if keep_update, P-matrices are updated after each branch length opt */
@@ -837,10 +843,11 @@ static int recomp_iterative (pll_newton_tree_params_t * params,
      * CLV at P is recomputed with children P->back and Z->back
      * Scaler is updated by subtracting Q->back and adding P->back
      */
-    update_partials_and_scalers(params->partition,
-                      tr_q,
-                      tr_p,
-                      tr_z);
+    update_partials_and_scalers(&params->partition,
+                                1,
+                                tr_q,
+                                tr_p,
+                                tr_z);
 
     /* eval */
     pll_newton_tree_params_t params_cpy;
@@ -856,10 +863,11 @@ static int recomp_iterative (pll_newton_tree_params_t * params,
      * CLV at P is recomputed with children P->back and Q->back
      * Scaler is updated by subtracting Z->back and adding Q->back
      */
-    update_partials_and_scalers(params->partition,
-                      tr_z,
-                      tr_q,
-                      tr_p);
+    update_partials_and_scalers(&params->partition,
+                                1,
+                                tr_z,
+                                tr_q,
+                                tr_p);
 
    /* eval */
     params_cpy.tree = tr_z->back;
@@ -873,10 +881,11 @@ static int recomp_iterative (pll_newton_tree_params_t * params,
      * CLV at P is recomputed with children Q->back and Z->back
      * Scaler is updated by subtracting P->back and adding Z->back
      */
-    update_partials_and_scalers(params->partition,
-                      tr_p,
-                      tr_z,
-                      tr_q);
+    update_partials_and_scalers(&params->partition,
+                                1,
+                                tr_p,
+                                tr_z,
+                                tr_q);
   }
 
   return PLL_SUCCESS;
@@ -1030,3 +1039,372 @@ PLL_EXPORT void pllmod_opt_derivative_func(void * parameters,
       params->sumtable,
       df, ddf);
 }
+
+/**
+ *  multi-partition optimization routines
+ */
+
+PLL_EXPORT double pllmod_opt_compute_edge_loglikelihood_multi(
+                                              pll_partition_t ** partitions,
+                                              size_t partition_count,
+                                              unsigned int parent_clv_index,
+                                              int parent_scaler_index,
+                                              unsigned int child_clv_index,
+                                              int child_scaler_index,
+                                              unsigned int matrix_index,
+                                              unsigned int ** const params_indices,
+                                              double * persite_lnl)
+{
+  double total_loglh = 0.;
+
+  size_t p;
+  for (p = 0; p < partition_count; ++p)
+  {
+    total_loglh += pll_compute_edge_loglikelihood(partitions[p],
+                                                  parent_clv_index,
+                                                  parent_scaler_index,
+                                                  child_clv_index,
+                                                  child_scaler_index,
+                                                  matrix_index,
+                                                  params_indices[p],
+                                                  NULL);
+  }
+
+  return total_loglh;
+}
+
+static void utree_derivative_func_multi (void * parameters, double proposal,
+                                         double *df, double *ddf)
+{
+  pll_newton_tree_params_multi_t * params =
+                                (pll_newton_tree_params_multi_t *) parameters;
+  size_t p;
+
+  *df = *ddf = 0;
+
+  /* simply iterate over partitions and add up the derivatives */
+  for (p = 0; p < params->partition_count; ++p)
+  {
+    double p_df, p_ddf;
+    pll_compute_likelihood_derivatives (params->partitions[p],
+                                        params->tree->scaler_index,
+                                        params->tree->back->scaler_index,
+                                        proposal,
+                                        params->params_indices[p],
+                                        params->precomp_buffers[p],
+                                        &p_df, &p_ddf);
+
+    *df += p_df;
+    *ddf += p_ddf;
+  }
+}
+
+
+/* if keep_update, P-matrices are updated after each branch length opt */
+static int recomp_iterative_multi (pll_newton_tree_params_multi_t * params,
+                                   int radius,
+                                   double * loglikelihood_score,
+                                   int keep_update)
+{
+  pll_utree_t *tr_p, *tr_q, *tr_z;
+  size_t p;
+  double xmin,    /* min branch length */
+         xguess,  /* initial guess */
+         xmax,    /* max branch length */
+         xtol,    /* tolerance */
+         xres;    /* optimal found branch length */
+#if(CHECK_PERBRANCH_IMPR)
+  double eval_loglikelihood;
+#endif
+
+  tr_p = params->tree;
+  tr_q = params->tree->next;
+  tr_z = tr_q ? tr_q->next : NULL;
+
+  /* check branch length integrity */
+  assert(d_equals(tr_p->length, tr_p->back->length));
+
+  /* prepare sumtable for current branch */
+  for (p = 0; p < params->partition_count; ++p)
+  {
+    pll_update_sumtable (params->partitions[p],
+                         tr_p->clv_index,
+                         tr_p->back->clv_index,
+                         params->params_indices[p],
+                         params->precomp_buffers[p]);
+  }
+
+  /* set N-R parameters */
+  xmin = params->branch_length_min;
+  xmax = params->branch_length_max;
+  xtol = params->tolerance;
+  xguess = tr_p->length;
+  if (xguess < xmin || xguess > xmax)
+    xguess = PLLMOD_OPT_DEFAULT_BRANCH_LEN;
+
+  xres = pllmod_opt_minimize_newton (xmin, xguess, xmax, xtol,
+                              10, params,
+                              utree_derivative_func_multi);
+
+  if (pll_errno)
+    return PLL_FAILURE;
+
+  if (keep_update && fabs(tr_p->length - xres) > 1e-10)
+  {
+    /* update pmatrix for the new branch length */
+    for (p = 0; p < params->partition_count; ++p)
+    {
+      pll_update_prob_matrices(params->partitions[p],
+                               params->params_indices[p],
+                               &(tr_p->pmatrix_index),
+                               &xres, 1);
+    }
+
+#if(CHECK_PERBRANCH_IMPR)
+    /* check and compare likelihood */
+    eval_loglikelihood = pllmod_opt_compute_edge_loglikelihood_multi(
+                                                      params->partitions,
+                                                      params->partition_count,
+                                                      tr_p->clv_index,
+                                                      tr_p->scaler_index,
+                                                      tr_p->back->clv_index,
+                                                      tr_p->back->scaler_index,
+                                                      tr_p->pmatrix_index,
+                                                      params->params_indices,
+                                                      NULL);
+
+    /* check if the optimal found value improves the likelihood score */
+    if (eval_loglikelihood >= *loglikelihood_score)
+    {
+      /* fix new score */
+      *loglikelihood_score = eval_loglikelihood;
+#endif
+      /* update branch length in the tree structure */
+      tr_p->length = xres;
+      tr_p->back->length = tr_p->length;
+
+#if(CHECK_PERBRANCH_IMPR)
+    }
+    else
+    {
+      /* reset branch length */
+      for (p = 0; p < params->partition_count; ++p)
+      {
+        pll_update_prob_matrices(params->partitions[p],
+                                 params->params_indices[p],
+                                 &(tr_p->pmatrix_index),
+                                 &tr_p->length, 1);
+      }
+
+    }
+#endif
+  }
+  else
+  {
+    /* update branch length in the tree structure */
+    tr_p->length = xres;
+    tr_p->back->length = tr_p->length;
+  }
+
+  DBG(" Optimized branch %3d - %3d (%.6f)\n",
+      tr_p->clv_index, tr_p->back->clv_index, tr_p->length);
+
+  /* update children */
+  if (radius && tr_q && tr_z)
+  {
+    /* update children 'Q'
+     * CLV at P is recomputed with children P->back and Z->back
+     * Scaler is updated by subtracting Q->back and adding P->back
+     */
+    update_partials_and_scalers(params->partitions,
+                                params->partition_count,
+                                tr_q,
+                                tr_p,
+                                tr_z);
+
+    /* eval */
+    pll_newton_tree_params_multi_t params_cpy;
+    memcpy(&params_cpy, params, sizeof(pll_newton_tree_params_multi_t));
+    params_cpy.tree = tr_q->back;
+    if (!recomp_iterative_multi (&params_cpy,
+                           radius-1,
+                           loglikelihood_score,
+                           keep_update))
+      return PLL_FAILURE;
+
+    /* update children 'Z'
+     * CLV at P is recomputed with children P->back and Q->back
+     * Scaler is updated by subtracting Z->back and adding Q->back
+     */
+    update_partials_and_scalers(params->partitions,
+                                params->partition_count,
+                                tr_z,
+                                tr_q,
+                                tr_p);
+
+   /* eval */
+    params_cpy.tree = tr_z->back;
+    if (!recomp_iterative_multi (&params_cpy,
+                           radius-1,
+                           loglikelihood_score,
+                           keep_update))
+      return PLL_FAILURE;
+
+    /* reset to initial state
+     * CLV at P is recomputed with children Q->back and Z->back
+     * Scaler is updated by subtracting P->back and adding Z->back
+     */
+    update_partials_and_scalers(params->partitions,
+                                params->partition_count,
+                                tr_p,
+                                tr_z,
+                                tr_q);
+  }
+
+  return PLL_SUCCESS;
+
+} /* recomp_iterative */
+
+PLL_EXPORT double pllmod_opt_optimize_branch_lengths_local_multi (
+                                              pll_partition_t ** partitions,
+                                              size_t partition_count,
+                                              pll_utree_t * tree,
+                                              unsigned int ** params_indices,
+                                              double ** precomp_buffers,
+                                              double branch_length_min,
+                                              double branch_length_max,
+                                              double tolerance,
+                                              int smoothings,
+                                              int radius,
+                                              int keep_update)
+{
+  unsigned int iters;
+  double loglikelihood = 0.0, new_loglikelihood;
+  unsigned int sites_alloc;
+  size_t p;
+
+  /**
+   * preconditions:
+   *    (1) CLVs must be updated towards 'tree'
+   *    (2) Pmatrix indices must be **unique** for each branch
+   */
+
+  /* get the initial likelihood score */
+  loglikelihood = pllmod_opt_compute_edge_loglikelihood_multi (
+                                                      partitions,
+                                                      partition_count,
+                                                      tree->back->clv_index,
+                                                      tree->back->scaler_index,
+                                                      tree->clv_index,
+                                                      tree->scaler_index,
+                                                      tree->pmatrix_index,
+                                                      params_indices,
+                                                      NULL);
+
+  /* set parameters for N-R optimization */
+  pll_newton_tree_params_multi_t params;
+  params.partitions        = partitions;
+  params.partition_count   = partition_count;
+  params.tree              = tree;
+  params.params_indices    = params_indices;
+  params.branch_length_min = (branch_length_min>0)?
+                              branch_length_min:
+                              PLLMOD_OPT_MIN_BRANCH_LEN;
+  params.branch_length_max = (branch_length_max>0)?
+                              branch_length_max:
+                              PLLMOD_OPT_MAX_BRANCH_LEN;
+  params.tolerance         = (branch_length_min>0)?
+                              branch_length_min/10.0:
+                              PLLMOD_OPT_TOL_BRANCH_LEN;
+  params.precomp_buffers   = precomp_buffers;
+
+  /* allocate the sumtable if needed */
+  if (!params.precomp_buffers)
+  {
+    params.precomp_buffers =  (double **) calloc(partition_count, sizeof(double *));
+    if (params.precomp_buffers == NULL)
+    {
+      pllmod_set_error(PLL_ERROR_MEM_ALLOC,
+                       "Cannot allocate memory for bl opt variables");
+      return PLL_FAILURE;
+    }
+
+    for (p = 0; p < partition_count; ++p)
+    {
+      const pll_partition_t * partition = partitions[p];
+      sites_alloc = partition->sites;
+      if (partition->attributes & PLL_ATTRIB_AB_FLAG)
+        sites_alloc += partition->states;
+
+      if ((params.precomp_buffers[p] = (double *) pll_aligned_alloc(
+           sites_alloc * partition->rate_cats * partition->states_padded *
+           sizeof(double), partition->alignment)) == NULL)
+      {
+        // TODO: proper memory deallocation
+        pllmod_set_error(PLL_ERROR_MEM_ALLOC,
+                         "Cannot allocate memory for bl opt variables");
+        return PLL_FAILURE;
+      }
+    }
+  }
+
+  for (p = 0; p < partition_count; ++p)
+    memset(params.precomp_buffers[p], 0, partitions[p]->sites * partitions[p]->rate_cats * partitions[p]->states_padded * sizeof(double));
+
+  iters = (unsigned int) smoothings;
+  while (iters)
+  {
+    new_loglikelihood = loglikelihood;
+
+    /* iterate on first edge */
+    params.tree = tree;
+    if (!recomp_iterative_multi (&params, radius, &new_loglikelihood, keep_update))
+    {
+      return PLL_FAILURE;
+    }
+
+    /* iterate on second edge */
+    params.tree = tree->back;
+    if (!recomp_iterative_multi (&params, radius-1, &new_loglikelihood, keep_update))
+    {
+      return PLL_FAILURE;
+    }
+
+    /* compute likelihood after optimization */
+    new_loglikelihood = pllmod_opt_compute_edge_loglikelihood_multi (
+                                                        partitions,
+                                                        partition_count,
+                                                        tree->back->clv_index,
+                                                        tree->back->scaler_index,
+                                                        tree->clv_index,
+                                                        tree->scaler_index,
+                                                        tree->pmatrix_index,
+                                                        params_indices,
+                                                        NULL);
+
+    DBG("pllmod_opt_optimize_branch_lengths_local: iters %d, old: %f, new: %f\n",
+        iters, loglikelihood, new_loglikelihood);
+
+    assert(new_loglikelihood >= loglikelihood);
+
+    iters --;
+
+    /* check convergence */
+    if (fabs (new_loglikelihood - loglikelihood) < tolerance) iters = 0;
+
+    loglikelihood = new_loglikelihood;
+  }
+
+  /* deallocate sumtable */
+  if (!precomp_buffers)
+  {
+    for (p = 0; p < partition_count; ++p)
+    {
+      if (params.precomp_buffers[p])
+        free(params.precomp_buffers[p]);
+    }
+    pll_aligned_free(params.precomp_buffers);
+  }
+
+  return -1*loglikelihood;
+} /* pllmod_opt_optimize_branch_lengths_local */

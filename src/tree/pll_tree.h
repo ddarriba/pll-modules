@@ -135,6 +135,9 @@ typedef struct treeinfo
   int ** subst_matrix_symmetries;
   double ** branch_lengths;
 
+  /* precomputation buffers for derivatives (aka "sumtable") */
+  double ** deriv_precomp;
+
   // invalidation flags
   char ** clv_valid;
   char ** pmatrix_valid;

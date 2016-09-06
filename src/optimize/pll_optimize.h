@@ -37,6 +37,7 @@
 #define PLLMOD_OPT_PARAM_TOPOLOGY            (1<<7)
 #define PLLMOD_OPT_PARAM_FREE_RATES          (1<<8)
 #define PLLMOD_OPT_PARAM_RATE_WEIGHTS        (1<<9)
+#define PLLMOD_OPT_PARAM_ALL                 (~0)
 
 /* L-BFGS-B bound type */
 #define PLLMOD_OPT_LBFGSB_BOUND_NONE  0
@@ -59,7 +60,7 @@
 #define PLLMOD_OPT_MAX_SUBST_RATE        1000.
 #define PLLMOD_OPT_MIN_FREQ             1.0e-3
 #define PLLMOD_OPT_MAX_FREQ               100.
-#define PLLMOD_OPT_MIN_ALPHA            0.0201 + PLL_LBFGSB_ERROR
+#define PLLMOD_OPT_MIN_ALPHA            0.0201 //+ PLL_LBFGSB_ERROR
 #define PLLMOD_OPT_MAX_ALPHA              100.
 #define PLLMOD_OPT_MIN_PINV                  0
 #define PLLMOD_OPT_MAX_PINV               0.99
@@ -138,6 +139,18 @@ typedef struct
   double branch_length_max;
   double tolerance;
 } pll_newton_tree_params_t;
+
+typedef struct
+{
+ pll_partition_t ** partitions;
+ size_t partition_count;
+ pll_utree_t * tree;
+ unsigned int ** params_indices;
+ double ** precomp_buffers;
+ double branch_length_min;
+ double branch_length_max;
+ double tolerance;
+} pll_newton_tree_params_multi_t;
 
 /******************************************************************************/
 
@@ -225,5 +238,20 @@ PLL_EXPORT double pllmod_opt_optimize_branch_lengths_local (
                                             int smoothings,
                                             int radius,
                                             int keep_update);
+
+
+PLL_EXPORT double pllmod_opt_optimize_branch_lengths_local_multi (
+                                              pll_partition_t ** partitions,
+                                              size_t partition_count,
+                                              pll_utree_t * tree,
+                                              unsigned int ** params_indices,
+                                              double ** sumtable_buffers,
+                                              double branch_length_min,
+                                              double branch_length_max,
+                                              double tolerance,
+                                              int smoothings,
+                                              int radius,
+                                              int keep_update);
+
 
 #endif /* PLL_OPTIMIZE_H_ */

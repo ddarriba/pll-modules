@@ -150,13 +150,14 @@ PLL_EXPORT pllmod_treeinfo_t * pllmod_treeinfo_create(pll_utree_t * root,
   treeinfo->param_indices = (unsigned int **) calloc(partitions, sizeof(unsigned int*));
   treeinfo->subst_matrix_symmetries = (int **) calloc(partitions, sizeof(int*));
   treeinfo->branch_lengths = (double **) calloc(partitions, sizeof(double*));
+  treeinfo->deriv_precomp = (double **) calloc(partitions, sizeof(double*));
   treeinfo->clv_valid = (char **) calloc(partitions, sizeof(char*));
   treeinfo->pmatrix_valid = (char **) calloc(partitions, sizeof(char*));
 
   /* check memory allocation */
   if (!treeinfo->partitions || !treeinfo->alphas || !treeinfo->param_indices ||
       !treeinfo->subst_matrix_symmetries || !treeinfo->branch_lengths ||
-      !treeinfo->clv_valid || !treeinfo->pmatrix_valid)
+      !treeinfo->deriv_precomp || !treeinfo->clv_valid || !treeinfo->pmatrix_valid)
   {
     pllmod_set_error(PLL_ERROR_MEM_ALLOC,
                      "Cannot allocate memory for treeinfo arrays\n");
@@ -261,6 +262,23 @@ PLL_EXPORT int pllmod_treeinfo_init_partition(pllmod_treeinfo_t * treeinfo,
   else
     treeinfo->subst_matrix_symmetries[partition_index] = NULL;
 
+  /* allocate memory for derivative precomputation table */
+  size_t sites_alloc = partition->sites;
+  if (partition->attributes & PLL_ATTRIB_AB_FLAG)
+    sites_alloc += partition->states;
+  size_t precomp_size =
+      sites_alloc * partition->rate_cats * partition->states_padded;
+
+  treeinfo->deriv_precomp[partition_index] = (double *) pll_aligned_alloc(
+      precomp_size * sizeof(double), partition->alignment);
+
+  if (!treeinfo->deriv_precomp[partition_index])
+  {
+    pllmod_set_error(PLL_ERROR_MEM_ALLOC,
+                  "Cannot allocate memory for derivative buffers\n");
+    return PLL_FAILURE;
+  }
+
   return PLL_SUCCESS;
 }
 
@@ -334,6 +352,12 @@ PLL_EXPORT int pllmod_treeinfo_destroy_partition(pllmod_treeinfo_t * treeinfo,
     treeinfo->subst_matrix_symmetries[partition_index] = NULL;
   }
 
+  if (treeinfo->deriv_precomp[partition_index])
+  {
+    free(treeinfo->deriv_precomp[partition_index]);
+    treeinfo->deriv_precomp[partition_index] = NULL;
+  }
+
   return PLL_SUCCESS;
 }
 
@@ -353,12 +377,11 @@ PLL_EXPORT void pllmod_treeinfo_destroy(pllmod_treeinfo_t * treeinfo)
   {
     free(treeinfo->clv_valid[p]);
     free(treeinfo->pmatrix_valid[p]);
-    free(treeinfo->param_indices[p]);
 
     if (p == 0 || !treeinfo->linked_branches)
       free(treeinfo->branch_lengths[p]);
-    if (treeinfo->subst_matrix_symmetries)
-      free(treeinfo->subst_matrix_symmetries[p]);
+
+    pllmod_treeinfo_destroy_partition(treeinfo, p);
   }
 
   if(treeinfo->subst_matrix_symmetries)
