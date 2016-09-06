@@ -34,7 +34,7 @@ double * pllmod_util_get_equal_freqs(unsigned int states)
   double * basefreqs = calloc(states, sizeof(double));
   if (!basefreqs)
   {
-    pllmod_set_error(PLLMOD_ERROR_MEMALLOC_FAILED, "Cannot allocate memory.");
+    pllmod_set_error(PLL_ERROR_MEM_ALLOC, "Cannot allocate memory.");
     return NULL;
   }
 
@@ -50,7 +50,7 @@ double * pllmod_util_get_equal_rates(unsigned int states)
   double * substrates = calloc(rates, sizeof(double));
   if (!substrates)
   {
-    pllmod_set_error(PLLMOD_ERROR_MEMALLOC_FAILED, "Cannot allocate memory.");
+    pllmod_set_error(PLL_ERROR_MEM_ALLOC, "Cannot allocate memory.");
     return NULL;
   }
 

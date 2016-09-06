@@ -79,7 +79,9 @@ PLL_EXPORT pll_msa_t * pllmod_msa_filter(pll_msa_t * msa,
                                          unsigned long remove_cols_count,
                                          unsigned int inplace);
 
-// TODO: msa_split
+PLL_EXPORT pll_msa_t ** pllmod_msa_split(const pll_msa_t * msa,
+                                         const unsigned int * site_part,
+                                         unsigned int part_count);
 
 // This could be moved to a general file I/O module if we decide to have one
 PLL_EXPORT int pllmod_msa_save_phylip(const pll_msa_t * msa,

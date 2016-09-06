@@ -27,7 +27,7 @@
 /* common error codes for all libpll modules (1001-2000)*/
 #define PLLMOD_ERROR_INVALID_RANGE                1001
 #define PLLMOD_ERROR_INVALID_NODE_TYPE            1002
-#define PLLMOD_ERROR_MEMALLOC_FAILED              1003
+#define PLLMOD_ERROR_INVALID_INDEX                1003
 
 void pllmod_set_error(int errno, const char* errmsg_fmt, ...);
 

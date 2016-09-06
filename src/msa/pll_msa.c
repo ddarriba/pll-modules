@@ -599,26 +599,26 @@ PLL_EXPORT pllmod_msa_stats_t * pllmod_msa_compute_stats(const pll_msa_t * msa,
       if (i == 0)
         sum_weights += w;
 
-      if (is_gap)
+      if (stats_mask & (PLLMOD_MSA_STATS_GAP_PROP | PLLMOD_MSA_STATS_FREQS))
       {
-        if (stats_mask & (PLLMOD_MSA_STATS_GAP_PROP | PLLMOD_MSA_STATS_FREQS))
-        {
+        if (is_gap)
           total_gap_count += w;
-        }
+      }
 
-        if (stats_mask & PLLMOD_MSA_STATS_GAP_COLS)
-        {
-          col_gap_weight[j] += w;
-          if (i == msa_count-1 && col_gap_weight[j] == msa_count * w)
-             stats->gap_cols_count++;
-        }
+      if (stats_mask & PLLMOD_MSA_STATS_GAP_COLS)
+      {
+        if (is_gap)
+          col_gap_weight[j] += 1;
+        if (i == msa_count-1 && col_gap_weight[j] == msa_count * w)
+           stats->gap_cols_count++;
+      }
 
-        if (stats_mask & PLLMOD_MSA_STATS_GAP_SEQS)
-        {
+      if (stats_mask & PLLMOD_MSA_STATS_GAP_SEQS)
+      {
+        if (is_gap)
           seq_gap_weight[i] += w;
-          if (j == msa_length-1 && seq_gap_weight[i] == sum_weights)
-            stats->gap_seqs_count++;
-        }
+        if (j == msa_length-1 && seq_gap_weight[i] == sum_weights)
+          stats->gap_seqs_count++;
       }
 
       if (stats_mask & (PLLMOD_MSA_STATS_INV_COLS | PLLMOD_MSA_STATS_INV_PROP))
@@ -939,6 +939,120 @@ error_exit:
   }
   pllmod_set_error(PLL_ERROR_MEM_ALLOC,
                    "Cannot allocate memory needed for MSA filtering");
+  return NULL;
+}
+
+/**
+ * Split MSA into several partitions (sub-MSAs)
+ *
+ * @param msa original MSA to be splitted
+ * @param site_part array with 1-based partition indices for each column in
+ * original MSA
+ * @param part_count number of partitions
+ *
+ * @returns list of per-partition MSA objects
+ *
+ *  Example:
+ *
+ *  pll_msa_t msa;
+ *  msa.length = 5;
+ *  // further init of msa ...
+ *  unsigned int part_site = {1, 1, 2, 2, 1};
+ *  pll_msa_t ** part_msa = pllmod_msa_split(msa, part_site, 2);
+ *  // now part_msa contains 2 MSA objects:
+ *  // part_msa[0] = 1st, 2nd and 5th columns of msa
+ *  // part_msa[1] = 3rd and 4th columns of msa
+ */
+PLL_EXPORT pll_msa_t ** pllmod_msa_split(const pll_msa_t * msa,
+                                         const unsigned int * site_part,
+                                         unsigned int part_count)
+{
+  unsigned int p;
+  unsigned long i, j;
+
+  pll_msa_t ** part_msa_list = (pll_msa_t **) calloc(part_count,
+                                                     sizeof(pll_msa_t *));
+  unsigned int * part_len = (unsigned int *) calloc(part_count,
+                                                    sizeof(unsigned int));
+
+  if (!part_msa_list || !part_len)
+    goto malloc_error;
+
+  /* compute partition sizes */
+  for (j = 0; j < (unsigned long) msa->length; j++)
+  {
+    p = site_part[j]-1;
+    if (p < part_count)
+      part_len[p]++;
+    else
+    {
+      pllmod_set_error(PLLMOD_ERROR_INVALID_INDEX,
+                       "Partition index out of bounds: %u", p);
+      goto error_exit;
+    }
+  }
+
+  for (p = 0; p < part_count; ++p)
+  {
+    part_msa_list[p] = (pll_msa_t *) calloc(1, sizeof(pll_msa_t));
+    if (!part_msa_list[p])
+      goto malloc_error;
+
+    part_msa_list[p]->count = msa->count;
+    part_msa_list[p]->length = 0;
+    part_msa_list[p]->label = NULL;
+    part_msa_list[p]->sequence = (char **) calloc(msa->count, sizeof(char*));
+    if (!part_msa_list[p]->sequence)
+      goto malloc_error;
+
+    for (i = 0; i < (unsigned long) msa->count; i++)
+    {
+      part_msa_list[p]->sequence[i] = (char *) malloc(part_len[p] * sizeof(char));
+      if (!part_msa_list[p]->sequence[i])
+        goto malloc_error;
+    }
+  }
+
+  for (j = 0; j < (unsigned long) msa->length; j++)
+  {
+    p = site_part[j]-1;
+    assert(p >= 0 && p < part_count);
+    const unsigned int len = (unsigned int) part_msa_list[p]->length;
+    part_msa_list[p]->length++;
+    for (i = 0; i < (unsigned long) msa->count; i++)
+      part_msa_list[p]->sequence[i][len] = msa->sequence[i][j];
+  }
+
+  free(part_len);
+
+  return part_msa_list;
+
+malloc_error:
+  pllmod_set_error(PLL_ERROR_MEM_ALLOC,
+                   "Cannot allocate memory needed for MSA splitting");
+error_exit:
+  if (part_len)
+    free(part_len);
+  if (part_msa_list)
+  {
+    for (p = 0; p < part_count; ++p)
+    {
+      if (part_msa_list[p])
+      {
+        if (part_msa_list[p]->sequence)
+        {
+          for (i = 0; i < (unsigned long) msa->count; i++)
+          {
+            if (part_msa_list[p]->sequence[i])
+              free(part_msa_list[p]->sequence[i]);
+          }
+          free(part_msa_list[p]->sequence);
+        }
+        free(part_msa_list[p]);
+      }
+    }
+    free(part_msa_list);
+  }
   return NULL;
 }
 

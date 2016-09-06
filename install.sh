@@ -16,7 +16,7 @@ make
 
 cd ../../../src 
 
-for mod in `ls -d */`;
+for mod in util msa binary tree optimize algorithm;
 do
 
   cd $mod
