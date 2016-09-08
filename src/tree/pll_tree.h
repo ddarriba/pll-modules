@@ -51,6 +51,7 @@
 #define PLLMOD_TREE_ERROR_INTERCHANGE_LEAF     3200 // B + {01...}
 #define PLLMOD_TREE_ERROR_INVALID_REARRAGE     3328 // B + {10...}
 #define PLLMOD_TREE_ERROR_INVALID_TREE_SIZE    3456 // B + {10...}
+#define PLLMOD_TREE_ERROR_INVALID_TREE         3584 // B + {10...}
 
 #define PLLMOD_TREE_REARRANGE_SPR  0
 #define PLLMOD_TREE_REARRANGE_NNI  1
@@ -120,8 +121,8 @@ typedef struct
 typedef struct treeinfo
 {
   // dimensions
-  size_t tip_count;
-  size_t partition_count;
+  unsigned int tip_count;
+  unsigned int partition_count;
 
   /* 0 = unlinked/per-partion branch lengths, 1 = linked/shared */
   int linked_branches;
@@ -151,7 +152,7 @@ typedef struct treeinfo
   int active_partition;
 
   // general-purpose counter
-  size_t counter;
+  unsigned int counter;
 } pllmod_treeinfo_t;
 
 /* Topological rearrangements */
@@ -175,6 +176,23 @@ PLL_EXPORT int pllmod_tree_rollback(pll_tree_rollback_t * rollback_info);
 
 
 /* Topological operations */
+
+/* functions at rtree_operations.c */
+
+PLL_EXPORT int pllmod_rtree_spr(pll_rtree_t * p_node,
+                                pll_rtree_t * r_tree,
+                                pll_rtree_t ** root,
+                                pll_tree_rollback_t * rollback_info);
+
+PLL_EXPORT int pllmod_rtree_get_sister(pll_rtree_t * node,
+                                       pll_rtree_t ***self,
+                                       pll_rtree_t ***sister);
+
+PLL_EXPORT pll_rtree_t * pllmod_rtree_prune(pll_rtree_t * node);
+
+PLL_EXPORT int pllmod_rtree_regraft(pll_rtree_t * node,
+                                    pll_rtree_t * tree);
+
 /* functions at utree_operations.c */
 
 PLL_EXPORT int pllmod_utree_bisect(pll_utree_t * edge,
@@ -201,9 +219,16 @@ PLL_EXPORT int pllmod_utree_connect_nodes(pll_utree_t * parent,
                                           pll_utree_t * child,
                                            double length);
 
-
-
 /* Topological search */
+
+/* functions at rtree_operations.c */
+
+PLL_EXPORT int pllmod_rtree_nodes_at_node_dist(pll_rtree_t * root,
+                                               pll_rtree_t ** outbuffer,
+                                               unsigned int * n_nodes,
+                                               int min_distance,
+                                               int max_distance);
+
 /* functions at utree_operations.c */
 
 PLL_EXPORT int pllmod_utree_nodes_at_node_dist(pll_utree_t * node,

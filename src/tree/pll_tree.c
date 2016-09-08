@@ -657,18 +657,30 @@ PLL_EXPORT int pllmod_rtree_traverse_apply(pll_rtree_t * root,
 
 static int rtree_rollback_tbr(pll_tree_rollback_t * rollback_info)
 {
+  UNUSED(rollback_info);
   assert(UNIMPLEMENTED);
   return PLL_FAILURE;
 }
 
 static int rtree_rollback_spr(pll_tree_rollback_t * rollback_info)
 {
-  assert(UNIMPLEMENTED);
-  return PLL_FAILURE;
+  //TODO: Add preconditions
+
+  pll_rtree_t * p = (pll_rtree_t *) rollback_info->SPR.prune_edge;
+  pll_rtree_t * r = (pll_rtree_t *) rollback_info->SPR.regraft_edge;
+
+  /* undo move */
+  if (!pllmod_rtree_spr(p, r, 0, 0))
+    return PLL_FAILURE;
+
+  //TODO: set branch lengths
+  //
+  return PLL_SUCCESS;
 }
 
 static int rtree_rollback_nni(pll_tree_rollback_t * rollback_info)
 {
+  UNUSED(rollback_info);
   assert(UNIMPLEMENTED);
   return PLL_FAILURE;
 }

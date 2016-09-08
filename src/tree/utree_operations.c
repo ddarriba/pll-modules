@@ -1,3 +1,23 @@
+/*
+ Copyright (C) 2016 Diego Darriba
+
+ This program is free software: you can redistribute it and/or modify
+ it under the terms of the GNU Affero General Public License as
+ published by the Free Software Foundation, either version 3 of the
+ License, or (at your option) any later version.
+
+ This program is distributed in the hope that it will be useful,
+ but WITHOUT ANY WARRANTY; without even the implied warranty of
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ GNU Affero General Public License for more details.
+
+ You should have received a copy of the GNU Affero General Public License
+ along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+ Contact: Diego Darriba <Diego.Darriba@h-its.org>,
+ Exelixis Lab, Heidelberg Instutute for Theoretical Studies
+ Schloss-Wolfsbrunnenweg 35, D-69118 Heidelberg, Germany
+ */
 #include "pll_tree.h"
 
 #include "../pllmod_common.h"
@@ -135,7 +155,7 @@ PLL_EXPORT pll_tree_edge_t pllmod_utree_reconnect(pll_tree_edge_t * edge,
 }
 
 /**
- * @brief Prunes a subtree
+ * @brief Prunes a subtree in an unrooted tree
  *
  * Disconnecs an edge (e1) and connects the adjacent nodes. New branch (A-B)
  * length is set to the sum of lengths of previous branch (e1-A + e1-B)
@@ -204,12 +224,12 @@ PLL_EXPORT int pllmod_utree_regraft(pll_utree_t * edge,
 
   assert(edge && tree);
   if (!edge->next)
-      {
-        /* invalid node */
-        pllmod_set_error(PLLMOD_TREE_ERROR_SPR_INVALID_NODE,
-                         "Attempting to regraft a tip node");
-        return PLL_FAILURE;
-      }
+  {
+    /* invalid node */
+    pllmod_set_error(PLLMOD_TREE_ERROR_SPR_INVALID_NODE,
+                     "Attempting to regraft a tip node");
+    return PLL_FAILURE;
+  }
   if (edge->next->back || edge->next->next->back)
   {
     /* invalid node */
@@ -280,7 +300,7 @@ PLL_EXPORT pll_utree_t * pllmod_utree_create_node(unsigned int clv_index,
                      "Cannot allocate memory for new node\n");
     return NULL;
   }
-  
+
   new_node->next->next->next = new_node;
   new_node->label = label;
   new_node->next->label =
@@ -316,8 +336,8 @@ PLL_EXPORT pll_utree_t * pllmod_utree_create_node(unsigned int clv_index,
  *
  */
 PLL_EXPORT int pllmod_utree_connect_nodes(pll_utree_t * parent,
-                                       pll_utree_t * child,
-                                       double length)
+                                          pll_utree_t * child,
+                                          double length)
 {
   if(!(parent && child))
     return PLL_FAILURE;
@@ -331,8 +351,6 @@ PLL_EXPORT int pllmod_utree_connect_nodes(pll_utree_t * parent,
 
   return PLL_SUCCESS;
 }
-
-
 
 /******************************************************************************/
 /* Topological search */

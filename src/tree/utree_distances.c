@@ -295,11 +295,15 @@ PLL_EXPORT pll_split_t * pllmod_utree_split_create(pll_utree_t * tree,
   for (i=0; i<3*(n_tips-2);++i)
     split_data.id_to_split[i] = -1;
 
+  if (pllmod_utree_is_tip(tree))
+    tree = tree->back;
+
   /* traverse for computing the scripts */
   pllmod_utree_traverse_apply(tree,
                               0,
                               &cb_get_splits,
                               &split_data);
+
   assert(split_data.split_count == n_splits);
   free(split_data.id_to_split);
 

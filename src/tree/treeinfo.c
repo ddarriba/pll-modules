@@ -43,6 +43,7 @@ static int cb_set_treeinfo_pointer(pll_utree_t * node, void *data)
 /* a callback function for performing a full traversal */
 static int cb_full_traversal(pll_utree_t * node)
 {
+  UNUSED(node);
   return PLL_SUCCESS;
 }
 
@@ -58,7 +59,7 @@ static int cb_partial_traversal(pll_utree_t * node)
   if (treeinfo->active_partition == PLLMOD_TREEINFO_PARTITION_ALL)
   {
     /* check if at least one per-partition CLV is invalid */
-    size_t p;
+    unsigned int p;
     for (p = 0; p < treeinfo->partition_count; ++p)
       if (treeinfo->clv_valid[p][node->node_index] == 0)
         return PLL_SUCCESS;
@@ -71,10 +72,10 @@ static int cb_partial_traversal(pll_utree_t * node)
 }
 
 static int treeinfo_partition_active(pllmod_treeinfo_t * treeinfo,
-                                     int partition_index)
+                                     unsigned int partition_index)
 {
   return (treeinfo->active_partition == PLLMOD_TREEINFO_PARTITION_ALL ||
-            treeinfo->active_partition == (int) partition_index);
+          treeinfo->active_partition == (int) partition_index);
 }
 
 PLL_EXPORT pllmod_treeinfo_t * pllmod_treeinfo_create(pll_utree_t * root,
@@ -93,11 +94,11 @@ PLL_EXPORT pllmod_treeinfo_t * pllmod_treeinfo_create(pll_utree_t * root,
   }
 
   /* compute some derived dimensions */
-  size_t inner_nodes_count = tips - 2;
-  size_t nodes_count       = inner_nodes_count + tips;
-  size_t branch_count      = nodes_count - 1;
-  size_t pmatrix_count     = branch_count;
-  size_t utree_count       = inner_nodes_count * 3 + tips;
+  unsigned int inner_nodes_count = tips - 2;
+  unsigned int nodes_count       = inner_nodes_count + tips;
+  unsigned int branch_count      = nodes_count - 1;
+  unsigned int pmatrix_count     = branch_count;
+  unsigned int utree_count       = inner_nodes_count * 3 + tips;
 
   /* save tree pointer */
   treeinfo->root = root;
@@ -164,7 +165,7 @@ PLL_EXPORT pllmod_treeinfo_t * pllmod_treeinfo_create(pll_utree_t * root,
     return NULL;
   }
 
-  size_t p;
+  unsigned int p;
   for (p = 0; p < partitions; ++p)
   {
     /* allocate arrays for storing the branch length */
@@ -242,7 +243,8 @@ PLL_EXPORT int pllmod_treeinfo_init_partition(pllmod_treeinfo_t * treeinfo,
   /* copy substitution rate matrix symmetries, if any */
   if (subst_matrix_symmetries)
   {
-    const size_t symm_size = (partition->states * (partition->states - 1) / 2)
+    const unsigned int symm_size =
+                            (partition->states * (partition->states - 1) / 2)
                               * sizeof(int);
     treeinfo->subst_matrix_symmetries[partition_index] =
                                (int *) malloc(symm_size);
@@ -263,10 +265,10 @@ PLL_EXPORT int pllmod_treeinfo_init_partition(pllmod_treeinfo_t * treeinfo,
     treeinfo->subst_matrix_symmetries[partition_index] = NULL;
 
   /* allocate memory for derivative precomputation table */
-  size_t sites_alloc = partition->sites;
+  unsigned int sites_alloc = partition->sites;
   if (partition->attributes & PLL_ATTRIB_AB_FLAG)
     sites_alloc += partition->states;
-  size_t precomp_size =
+  unsigned int precomp_size =
       sites_alloc * partition->rate_cats * partition->states_padded;
 
   treeinfo->deriv_precomp[partition_index] = (double *) pll_aligned_alloc(
@@ -372,7 +374,7 @@ PLL_EXPORT void pllmod_treeinfo_destroy(pllmod_treeinfo_t * treeinfo)
   free(treeinfo->operations);
 
   /* destroy all structures allocated for the concrete PLL partition instance */
-  size_t p;
+  unsigned int p;
   for (p = 0; p < treeinfo->partition_count; ++p)
   {
     free(treeinfo->clv_valid[p]);
@@ -406,9 +408,9 @@ PLL_EXPORT void pllmod_treeinfo_destroy(pllmod_treeinfo_t * treeinfo)
 PLL_EXPORT int pllmod_treeinfo_update_prob_matrices(pllmod_treeinfo_t * treeinfo,
                                                     int update_all)
 {
-  size_t p, m;
-  size_t updated = 0;
-  size_t pmatrix_count = 2 * treeinfo->tip_count - 3;
+  unsigned int p, m;
+  unsigned int updated = 0;
+  unsigned int pmatrix_count = 2 * treeinfo->tip_count - 3;
 
   for (p = 0; p < treeinfo->partition_count; ++p)
   {
@@ -440,9 +442,9 @@ PLL_EXPORT int pllmod_treeinfo_update_prob_matrices(pllmod_treeinfo_t * treeinfo
 
 PLL_EXPORT void pllmod_treeinfo_invalidate_all(pllmod_treeinfo_t * treeinfo)
 {
-  size_t p, m;
-  size_t clv_count = treeinfo->tip_count + (treeinfo->tip_count - 2) * 3;
-  size_t pmatrix_count = 2 * treeinfo->tip_count - 3;
+  unsigned int p, m;
+  unsigned int clv_count = treeinfo->tip_count + (treeinfo->tip_count - 2) * 3;
+  unsigned int pmatrix_count = 2 * treeinfo->tip_count - 3;
 
   for (p = 0; p < treeinfo->partition_count; ++p)
   {
@@ -462,7 +464,7 @@ PLL_EXPORT int pllmod_treeinfo_validate_clvs(pllmod_treeinfo_t * treeinfo,
                                              pll_utree_t ** travbuffer,
                                              unsigned int travbuffer_size)
 {
-  size_t p;
+  unsigned int p;
   for (p = 0; p < treeinfo->partition_count; ++p)
   {
     /* only selected partitioned will be affected */
@@ -491,7 +493,7 @@ PLL_EXPORT int pllmod_treeinfo_validate_clvs(pllmod_treeinfo_t * treeinfo,
 PLL_EXPORT void pllmod_treeinfo_invalidate_pmatrix(pllmod_treeinfo_t * treeinfo,
                                                    const pll_utree_t * edge)
 {
-  size_t p;
+  unsigned int p;
   for (p = 0; p < treeinfo->partition_count; ++p)
   {
     if (treeinfo_partition_active(treeinfo, p))
@@ -502,7 +504,7 @@ PLL_EXPORT void pllmod_treeinfo_invalidate_pmatrix(pllmod_treeinfo_t * treeinfo,
 PLL_EXPORT void pllmod_treeinfo_invalidate_clv(pllmod_treeinfo_t * treeinfo,
                                                const pll_utree_t * edge)
 {
-  size_t p;
+  unsigned int p;
   for (p = 0; p < treeinfo->partition_count; ++p)
   {
     if (treeinfo_partition_active(treeinfo, p))
@@ -516,18 +518,18 @@ PLL_EXPORT double pllmod_treeinfo_compute_loglh(pllmod_treeinfo_t * treeinfo,
   /* tree root must be an inner node! */
   assert(!pllmod_utree_is_tip(treeinfo->root));
 
-  const double LOGLH_NONE = NAN;
+  const double LOGLH_NONE = (double) NAN;
 
   double total_loglh = 0.0;
 
   const int old_active_partition = treeinfo->active_partition;
 
   /* iterate over all partitions (we assume that traversal is the same) */
-  size_t p;
+  unsigned int p;
   for (p = 0; p < treeinfo->partition_count; ++p)
   {
     /* all subsequent operation will affect current partition only */
-    pllmod_treeinfo_set_active_partition(treeinfo, p);
+    pllmod_treeinfo_set_active_partition(treeinfo, (int)p);
 
     /* perform a FULL postorder traversal of the unrooted tree */
     unsigned int traversal_size;

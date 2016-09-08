@@ -22,6 +22,8 @@
 #ifndef PLLMOD_COMMON_H_
 #define PLLMOD_COMMON_H_
 
+#define UNUSED(expr) do { (void)(expr); } while (0)
+
 #define PLLMOD_ERRMSG_LEN 200
 
 /* common error codes for all libpll modules (1001-2000)*/
