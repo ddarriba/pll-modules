@@ -33,8 +33,11 @@ void skip_test();
 
 /* callback function for traverse the utree */
 int cb_full_traversal (pll_utree_t * node);
+int cb_rfull_traversal (pll_rtree_t * node);
+
 /* displays a tree */
 void show_tree (pll_utree_t * tree, int SHOW_ASCII_TREE);
+void show_rtree (pll_rtree_t * tree, int SHOW_ASCII_TREE);
 /* print error and exit */
 void fatal(const char * format, ...) __attribute__ ((noreturn));
 

@@ -47,6 +47,11 @@ int cb_full_traversal (pll_utree_t * node)
   return 1;
 }
 
+int cb_rfull_traversal (pll_rtree_t * node)
+{
+  return 1;
+}
+
 void show_tree (pll_utree_t * tree, int SHOW_ASCII_TREE)
 {
   if(SHOW_ASCII_TREE)
@@ -59,6 +64,28 @@ void show_tree (pll_utree_t * tree, int SHOW_ASCII_TREE)
         PLL_UTREE_SHOW_CLV_INDEX | PLL_UTREE_SHOW_PMATRIX_INDEX
             | PLL_UTREE_SHOW_SCALER_INDEX);
     char * newick = pll_utree_export_newick (tree);
+    printf ("%s\n\n", newick);
+    free (newick);
+  }
+  else
+  {
+    printf ("ASCII tree not shown (SHOW_ASCII_TREE flag)\n");
+    return;
+  }
+}
+
+void show_rtree (pll_rtree_t * tree, int SHOW_ASCII_TREE)
+{
+  if(SHOW_ASCII_TREE)
+  {
+    printf ("\n");
+    pll_rtree_show_ascii (
+        tree,
+        PLL_UTREE_SHOW_LABEL |
+        PLL_UTREE_SHOW_BRANCH_LENGTH |
+        PLL_UTREE_SHOW_CLV_INDEX | PLL_UTREE_SHOW_PMATRIX_INDEX
+            | PLL_UTREE_SHOW_SCALER_INDEX);
+    char * newick = pll_rtree_export_newick (tree);
     printf ("%s\n\n", newick);
     free (newick);
   }

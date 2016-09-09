@@ -23,13 +23,13 @@
 #include "../pllmod_common.h"
 
 /* finds the self and sister pointers */
-PLL_EXPORT int pllmod_rtree_get_sister(pll_rtree_t * node,
-                                       pll_rtree_t ***self,
-                                       pll_rtree_t ***sister)
+PLL_EXPORT int pllmod_rtree_get_sibling_pointers(pll_rtree_t * node,
+                                                 pll_rtree_t ***self,
+                                                 pll_rtree_t ***sister)
 {
   if (!node->parent)
   {
-    /* no sister node */
+    /* if there is no parent, there are no pointers */
     if (self) *self = NULL;
     if (sister) *sister = NULL;
   }
@@ -59,7 +59,7 @@ PLL_EXPORT int pllmod_rtree_get_sister(pll_rtree_t * node,
 /**
  * @brief Prunes a subtree in a rooted tree
  * @param node the node to prune
- * @return the new connected node, if the operation was applied correctly
+ * @return the new connected node, if the operation was applied correctly, NULL otherwise
  */
 PLL_EXPORT pll_rtree_t * pllmod_rtree_prune(pll_rtree_t * node)
 {
@@ -74,7 +74,7 @@ PLL_EXPORT pll_rtree_t * pllmod_rtree_prune(pll_rtree_t * node)
     return NULL;
   }
 
-  if (!pllmod_rtree_get_sister(node,
+  if (!pllmod_rtree_get_sibling_pointers(node,
                                &self_ptr,
                                &sister_ptr))
   {
@@ -91,7 +91,7 @@ PLL_EXPORT pll_rtree_t * pllmod_rtree_prune(pll_rtree_t * node)
   {
     /* connect parent->parent and sister */
     connected_node = node->parent->parent;
-    if (!pllmod_rtree_get_sister(node->parent,
+    if (!pllmod_rtree_get_sibling_pointers(node->parent,
                                  &parent_ptr,
                                  NULL))
     {
@@ -114,6 +114,8 @@ PLL_EXPORT pll_rtree_t * pllmod_rtree_prune(pll_rtree_t * node)
     /* re-root */
     connected_node = *sister_ptr;
 
+    (*sister_ptr)->parent = NULL;
+
     /* disconnect pruned tree */
     *sister_ptr = NULL;
   }
@@ -121,6 +123,12 @@ PLL_EXPORT pll_rtree_t * pllmod_rtree_prune(pll_rtree_t * node)
   return connected_node;
 }
 
+/**
+ * @brief Regrafts a dettached subtree into a branch
+ * @param node the node to regraft
+ * @param tree the target branch
+ * @return true if the operation was performed succesfully
+ */
 PLL_EXPORT int pllmod_rtree_regraft(pll_rtree_t * node,
                                     pll_rtree_t * tree)
 {
@@ -136,17 +144,8 @@ PLL_EXPORT int pllmod_rtree_regraft(pll_rtree_t * node,
     return PLL_FAILURE;
   }
 
-  parent_node = node->parent;
-  if (tree->parent && !pllmod_rtree_get_sister(tree,
-                                &edge_from_parent,
-                                NULL))
-  {
-    /* return and spread error */
-    assert(pll_errno);
-    return PLL_FAILURE;
-  }
-
-  if (!pllmod_rtree_get_sister(tree,
+  /* `node` parent should contain a pointer to `node` */
+  if (!pllmod_rtree_get_sibling_pointers(node,
                                NULL,
                                &edge_to_child))
   {
@@ -155,14 +154,28 @@ PLL_EXPORT int pllmod_rtree_regraft(pll_rtree_t * node,
     return PLL_FAILURE;
   }
 
-  /* set new parents */
-  parent_node->parent = tree->parent;
-  tree->parent = parent_node;
-  /* set new children */
+  parent_node = node->parent;
+  
   if (tree->parent)
   {
+    if (tree->parent && !pllmod_rtree_get_sibling_pointers(tree,
+                                  &edge_from_parent,
+                                  NULL))
+    {
+      /* return and spread error */
+      assert(pll_errno);
+      return PLL_FAILURE;
+    }
+    assert(edge_from_parent);
+
+    /* set new parents */
+    parent_node->parent = tree->parent;
+
+    /* set new children */
     *edge_from_parent = parent_node;
   }
+
+  tree->parent = parent_node;
   *edge_to_child = tree;
 
   return PLL_SUCCESS;
@@ -185,7 +198,7 @@ PLL_EXPORT int pllmod_rtree_spr(pll_rtree_t * p_node,
 {
   pll_rtree_t **self_ptr, **sister_ptr;
 
-  if (!pllmod_rtree_get_sister(p_node,
+  if (!pllmod_rtree_get_sibling_pointers(p_node,
                                &self_ptr,
                                &sister_ptr))
   {
@@ -219,7 +232,7 @@ PLL_EXPORT int pllmod_rtree_spr(pll_rtree_t * p_node,
     return PLL_FAILURE;
   }
 
-  if (!pllmod_rtree_regraft(p_node->parent,
+  if (!pllmod_rtree_regraft(p_node,
                             r_tree))
   {
     /* return and spread error */
@@ -228,8 +241,7 @@ PLL_EXPORT int pllmod_rtree_spr(pll_rtree_t * p_node,
   }
 
   /* reset root in case it has changed */
-  while (root && (*root)->parent)
-    *root = (*root)->parent;
+  while (root && (*root)->parent) *root = (*root)->parent;
 
   return PLL_SUCCESS;
 }
@@ -283,7 +295,7 @@ PLL_EXPORT int pllmod_rtree_nodes_at_node_dist(pll_rtree_t * root,
 
   while (current_root->parent)
   {
-    if (!pllmod_rtree_get_sister(current_root,
+    if (!pllmod_rtree_get_sibling_pointers(current_root,
                                  NULL,
                                  &sister_ptr))
     {

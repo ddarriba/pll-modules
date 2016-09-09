@@ -18,7 +18,7 @@
 #    Schloss-Wolfsbrunnenweg 35, D-69118 Heidelberg, Germany
 
 CC = gcc
-CFLAGS = -O3 -Wall
+CFLAGS = -g -O3 -Wall
 CLIBS = -lpll -lm -lpll_optimize -lpll_tree -lpll_binary
 
 ifdef LIBPLL_INC
@@ -39,6 +39,7 @@ CFILES = src/binary/binary-sequential.c \
          src/tree/random-tree.c \
          src/tree/treemove-nni.c \
          src/tree/treemove-spr.c \
+         src/tree/rtreemove-spr.c \
          src/tree/treemove-tbr.c
 OBJFILES = $(patsubst src/%.c, obj/%, $(CFILES))
 

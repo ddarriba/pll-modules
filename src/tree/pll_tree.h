@@ -184,9 +184,9 @@ PLL_EXPORT int pllmod_rtree_spr(pll_rtree_t * p_node,
                                 pll_rtree_t ** root,
                                 pll_tree_rollback_t * rollback_info);
 
-PLL_EXPORT int pllmod_rtree_get_sister(pll_rtree_t * node,
-                                       pll_rtree_t ***self,
-                                       pll_rtree_t ***sister);
+PLL_EXPORT int pllmod_rtree_get_sibling_pointers(pll_rtree_t * node,
+                                                 pll_rtree_t ***self,
+                                                 pll_rtree_t ***sister);
 
 PLL_EXPORT pll_rtree_t * pllmod_rtree_prune(pll_rtree_t * node);
 
