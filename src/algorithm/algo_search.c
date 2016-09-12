@@ -549,12 +549,12 @@ static double reinsert_nodes(pllmod_treeinfo_t * treeinfo, pll_utree_t ** nodes,
   {
     pll_utree_t * p_edge = nodes[i];
 
+    assert(!pllmod_utree_is_tip(p_edge));
+
     /* if remaining pruned tree would only contain 2 taxa, skip this node */
     if (pllmod_utree_is_tip(p_edge->next->back) &&
         pllmod_utree_is_tip(p_edge->next->next->back))
       continue;
-
-    assert(!pllmod_utree_is_tip(p_edge));
 
     spr_entry.p_node = p_edge;
 
@@ -848,7 +848,7 @@ PLL_EXPORT double pllmod_algo_spr_round(pllmod_treeinfo_t * treeinfo,
             r_edge->clv_index,
             spr_entry->lh);
       }
-      
+
       /* re-apply best SPR move for the node */
       retval = pllmod_utree_spr(p_edge, r_edge, rollback2);
       assert(retval == PLL_SUCCESS);

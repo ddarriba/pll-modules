@@ -235,7 +235,9 @@ PLL_EXPORT double pllmod_algo_opt_rates_weights (pll_partition_t * partition,
                                                  unsigned int * params_indices,
                                                  double min_rate,
                                                  double max_rate,
-                                                 double tolerance)
+                                                 double tolerance,
+                                                 double * scaler,
+                                                 int scale_branches)
 {
   double cur_logl, prev_logl;
   double sum_weightrates, rate_scaler;
@@ -298,16 +300,21 @@ PLL_EXPORT double pllmod_algo_opt_rates_weights (pll_partition_t * partition,
   for (i=0; i<rate_cats; ++i)
     rates[i] *= rate_scaler;
 
-  /* scale branch lengths such that likelihood is conserved */
-  pllmod_utree_scale_branches(tree, sum_weightrates);
+  *scaler = rate_scaler;
 
-  /* update pmatrices and partials according to the new branches */
-  cur_logl = -1 *
-             pllmod_utree_compute_lk(partition,
-                                     tree,
-                                     params_indices,
-                                     1,   /* update pmatrices */
-                                     1);  /* update partials */
+  if (scale_branches)
+  {
+    /* scale branch lengths such that likelihood is conserved */
+    pllmod_utree_scale_branches(tree, sum_weightrates);
+
+    /* update pmatrices and partials according to the new branches */
+    cur_logl = -1 *
+               pllmod_utree_compute_lk(partition,
+                                       tree,
+                                       params_indices,
+                                       1,   /* update pmatrices */
+                                       1);  /* update partials */
+  }
 
   free(x);
   free(lb);

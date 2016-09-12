@@ -91,7 +91,9 @@ PLL_EXPORT double pllmod_algo_opt_rates_weights (pll_partition_t * partition,
                                                  unsigned int * params_indices,
                                                  double min_rate,
                                                  double max_rate,
-                                                 double tolerance);
+                                                 double tolerance,
+                                                 double * scaler,
+                                                 int scale_branches);
 
 
 /* search */
