@@ -145,6 +145,38 @@ double target_pinv_func(void *p, double x)
   return score;
 }
 
+double target_alpha_pinv_func(void *p, double *x)
+{
+  struct default_params * params = (struct default_params *) p;
+  pll_partition_t * partition   = params->partition;
+  pll_utree_t * tree            = params->tree;
+  unsigned int * params_indices = params->params_indices;
+  unsigned int i;
+
+  /* update rate categories */
+  if (!pll_compute_gamma_cats (x[0],
+                               partition->rate_cats,
+                               partition->rates))
+  {
+    return PLL_FAILURE;
+  }
+
+  /* update proportion of invariant sites */
+  for (i=0; i<partition->rate_cats; ++i)
+    pll_update_invariant_sites_proportion(partition,
+                                          params_indices[i],
+                                          x[1]);
+
+  /* compute negative score */
+  double score = -1 *
+                 pllmod_utree_compute_lk(partition,
+                                         tree,
+                                         params_indices,
+                                         1,   /* update pmatrices */
+                                         1);  /* update partials */
+  return score;
+}
+
 double target_rates_func(void *p, double *x)
 {
   struct rate_weights_params * params = (struct rate_weights_params *) p;
@@ -201,5 +233,28 @@ double target_weights_func(void *p, double *x)
                                        0,   /* update pmatrices */
                                        0);  /* update partials */
 
+  return score;
+}
+
+double target_brlen_scaler_func(void *p, double x)
+{
+  struct brlen_scaler_params * params = (struct brlen_scaler_params *) p;
+  pll_partition_t * partition   = params->partition;
+  pll_utree_t * tree            = params->tree;
+  unsigned int * params_indices = params->params_indices;
+
+  /* scale branches according to the new factor */
+  pllmod_utree_scale_branches(tree, x / params->old_scaler);
+
+  /* store the old scaler value */
+  params->old_scaler = x;
+
+  /* compute negative score */
+  double score = -1 *
+                 pllmod_utree_compute_lk(partition,
+                                         tree,
+                                         params_indices,
+                                         1,   /* update pmatrices */
+                                         1);  /* update partials */
   return score;
 }

@@ -53,6 +53,14 @@ struct rate_weights_params {
   unsigned int highest_weight_state; /* index of the highest weight */
 };
 
+struct brlen_scaler_params {
+  pll_partition_t * partition;
+  pll_utree_t * tree;
+  unsigned int * params_indices;     /* indices for computing the likelihood */
+  double old_scaler;                 /* previous value of branch length scaler*/
+};
+
+
 /* optimize frequencies */
 double target_freqs_func(void *p, double *x);
 
@@ -65,10 +73,17 @@ double target_alpha_func(void *p, double x);
 /* optimize proportion of invariant sites */
 double target_pinv_func(void *p, double x);
 
+/* optimize alpha & proportion of invariant sites simultaneously */
+double target_alpha_pinv_func(void *p, double *x);
+
 /* optimize free rates */
 double target_rates_func(void *p, double *x);
 
 /* optimize free weights */
 double target_weights_func(void *p, double *x);
+
+/* optimize branch length scaler */
+double target_brlen_scaler_func(void *p, double x);
+
 
 #endif /* ALGO_CALLBACK_H_ */

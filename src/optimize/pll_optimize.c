@@ -1086,10 +1086,12 @@ static void utree_derivative_func_multi (void * parameters, double proposal,
   for (p = 0; p < params->partition_count; ++p)
   {
     double p_df, p_ddf;
+    double p_brlen = params->brlen_scalers ?
+        params->brlen_scalers[p] * proposal : proposal;
     pll_compute_likelihood_derivatives (params->partitions[p],
                                         params->tree->scaler_index,
                                         params->tree->back->scaler_index,
-                                        proposal,
+                                        p_brlen,
                                         params->params_indices[p],
                                         params->precomp_buffers[p],
                                         &p_df, &p_ddf);
@@ -1154,10 +1156,13 @@ static int recomp_iterative_multi (pll_newton_tree_params_multi_t * params,
     /* update pmatrix for the new branch length */
     for (p = 0; p < params->partition_count; ++p)
     {
+      const double p_brlen = params->brlen_scalers ?
+          params->brlen_scalers[p] * xres : xres;
+
       pll_update_prob_matrices(params->partitions[p],
                                params->params_indices[p],
                                &(tr_p->pmatrix_index),
-                               &xres, 1);
+                               &p_brlen, 1);
     }
 
 #if(CHECK_PERBRANCH_IMPR)
@@ -1190,10 +1195,13 @@ static int recomp_iterative_multi (pll_newton_tree_params_multi_t * params,
       /* reset branch length */
       for (p = 0; p < params->partition_count; ++p)
       {
+        const double p_brlen = params->brlen_scalers ?
+            params->brlen_scalers[p] * tr_p->length : tr_p->length;
+
         pll_update_prob_matrices(params->partitions[p],
                                  params->params_indices[p],
                                  &(tr_p->pmatrix_index),
-                                 &tr_p->length, 1);
+                                 &p_brlen, 1);
       }
 
     }
@@ -1271,6 +1279,7 @@ PLL_EXPORT double pllmod_opt_optimize_branch_lengths_local_multi (
                                               pll_utree_t * tree,
                                               unsigned int ** params_indices,
                                               double ** precomp_buffers,
+                                              double * brlen_scalers,
                                               double branch_length_min,
                                               double branch_length_max,
                                               double tolerance,
@@ -1317,6 +1326,7 @@ PLL_EXPORT double pllmod_opt_optimize_branch_lengths_local_multi (
                               branch_length_min/10.0:
                               PLLMOD_OPT_TOL_BRANCH_LEN;
   params.precomp_buffers   = precomp_buffers;
+  params.brlen_scalers     = brlen_scalers;
 
   /* allocate the sumtable if needed */
   if (!params.precomp_buffers)
@@ -1347,9 +1357,6 @@ PLL_EXPORT double pllmod_opt_optimize_branch_lengths_local_multi (
       }
     }
   }
-
-  for (p = 0; p < partition_count; ++p)
-    memset(params.precomp_buffers[p], 0, partitions[p]->sites * partitions[p]->rate_cats * partitions[p]->states_padded * sizeof(double));
 
   iters = (unsigned int) smoothings;
   while (iters)

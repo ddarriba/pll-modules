@@ -57,6 +57,10 @@
 #define PLLMOD_TREE_REARRANGE_NNI  1
 #define PLLMOD_TREE_REARRANGE_TBR  2
 
+#define PLLMOD_TREE_BRLEN_LINKED    0
+#define PLLMOD_TREE_BRLEN_SCALED    1
+#define PLLMOD_TREE_BRLEN_UNLINKED  2
+
 #define PLLMOD_TREEINFO_PARTITION_ALL -1
 
 typedef unsigned int pll_split_base_t;
@@ -124,8 +128,9 @@ typedef struct treeinfo
   unsigned int tip_count;
   unsigned int partition_count;
 
-  /* 0 = unlinked/per-partion branch lengths, 1 = linked/shared */
-  int linked_branches;
+  /* 0 = linked/shared, 1 = linked with scaler, 2 = unlinked */
+  int brlen_linkage;
+  double * linked_branch_lengths;
 
   pll_utree_t * root;
 
@@ -135,6 +140,8 @@ typedef struct treeinfo
   unsigned int ** param_indices;
   int ** subst_matrix_symmetries;
   double ** branch_lengths;
+  double * brlen_scalers;
+  double * partition_loglh;
 
   /* precomputation buffers for derivatives (aka "sumtable") */
   double ** deriv_precomp;
@@ -325,7 +332,7 @@ PLL_EXPORT int pllmod_rtree_traverse_apply(pll_rtree_t * root,
 PLL_EXPORT pllmod_treeinfo_t * pllmod_treeinfo_create(pll_utree_t * root,
                                                      unsigned int tips,
                                                      unsigned int partitions,
-                                                     int linked_branch_lengths);
+                                                     int brlen_linkage);
 
 PLL_EXPORT int pllmod_treeinfo_init_partition(pllmod_treeinfo_t * treeinfo,
                                            unsigned int partition_index,

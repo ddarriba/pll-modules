@@ -37,6 +37,7 @@
 #define PLLMOD_OPT_PARAM_TOPOLOGY            (1<<7)
 #define PLLMOD_OPT_PARAM_FREE_RATES          (1<<8)
 #define PLLMOD_OPT_PARAM_RATE_WEIGHTS        (1<<9)
+#define PLLMOD_OPT_PARAM_BRANCH_LEN_SCALER   (1<<10)
 #define PLLMOD_OPT_PARAM_ALL                 (~0)
 
 /* L-BFGS-B bound type */
@@ -142,14 +143,15 @@ typedef struct
 
 typedef struct
 {
- pll_partition_t ** partitions;
- size_t partition_count;
- pll_utree_t * tree;
- unsigned int ** params_indices;
- double ** precomp_buffers;
- double branch_length_min;
- double branch_length_max;
- double tolerance;
+  pll_utree_t * tree;
+  size_t partition_count;
+  pll_partition_t ** partitions;
+  unsigned int ** params_indices;
+  double ** precomp_buffers;
+  double * brlen_scalers;
+  double branch_length_min;
+  double branch_length_max;
+  double tolerance;
 } pll_newton_tree_params_multi_t;
 
 /******************************************************************************/
@@ -246,6 +248,7 @@ PLL_EXPORT double pllmod_opt_optimize_branch_lengths_local_multi (
                                               pll_utree_t * tree,
                                               unsigned int ** params_indices,
                                               double ** sumtable_buffers,
+                                              double * brlen_scalers,
                                               double branch_length_min,
                                               double branch_length_max,
                                               double tolerance,

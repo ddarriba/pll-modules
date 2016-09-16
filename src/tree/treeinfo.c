@@ -81,7 +81,7 @@ static int treeinfo_partition_active(pllmod_treeinfo_t * treeinfo,
 PLL_EXPORT pllmod_treeinfo_t * pllmod_treeinfo_create(pll_utree_t * root,
                                                       unsigned int tips,
                                                       unsigned int partitions,
-                                                      int linked_branch_lengths)
+                                                      int brlen_linkage)
 {
   /* create treeinfo instance */
   pllmod_treeinfo_t * treeinfo;
@@ -122,7 +122,7 @@ PLL_EXPORT pllmod_treeinfo_t * pllmod_treeinfo_create(pll_utree_t * root,
   /* save dimensions & options */
   treeinfo->tip_count = tips;
   treeinfo->partition_count = partitions;
-  treeinfo->linked_branches = linked_branch_lengths;
+  treeinfo->brlen_linkage = brlen_linkage;
 
   /* allocate a buffer for storing pointers to nodes of the tree in postorder
      traversal */
@@ -154,11 +154,23 @@ PLL_EXPORT pllmod_treeinfo_t * pllmod_treeinfo_create(pll_utree_t * root,
   treeinfo->deriv_precomp = (double **) calloc(partitions, sizeof(double*));
   treeinfo->clv_valid = (char **) calloc(partitions, sizeof(char*));
   treeinfo->pmatrix_valid = (char **) calloc(partitions, sizeof(char*));
+  treeinfo->partition_loglh = (double *) calloc(partitions, sizeof(double));
+
+  /* allocate array for storing linked/average branch lengths */
+  treeinfo->linked_branch_lengths = (double *) malloc(branch_count * sizeof(double));
+
+  /* allocate branch length scalers if needed */
+  if (brlen_linkage == PLLMOD_TREE_BRLEN_SCALED)
+    treeinfo->brlen_scalers = (double *) calloc(partitions, sizeof(double));
+  else
+    treeinfo->brlen_scalers = NULL;
 
   /* check memory allocation */
   if (!treeinfo->partitions || !treeinfo->alphas || !treeinfo->param_indices ||
       !treeinfo->subst_matrix_symmetries || !treeinfo->branch_lengths ||
-      !treeinfo->deriv_precomp || !treeinfo->clv_valid || !treeinfo->pmatrix_valid)
+      !treeinfo->deriv_precomp || !treeinfo->clv_valid || !treeinfo->pmatrix_valid ||
+      !treeinfo->linked_branch_lengths || !treeinfo->partition_loglh ||
+      (brlen_linkage == PLLMOD_TREE_BRLEN_SCALED && !treeinfo->brlen_scalers))
   {
     pllmod_set_error(PLL_ERROR_MEM_ALLOC,
                      "Cannot allocate memory for treeinfo arrays\n");
@@ -168,16 +180,20 @@ PLL_EXPORT pllmod_treeinfo_t * pllmod_treeinfo_create(pll_utree_t * root,
   unsigned int p;
   for (p = 0; p < partitions; ++p)
   {
-    /* allocate arrays for storing the branch length */
-    if (p == 0 || !linked_branch_lengths)
+    /* allocate arrays for storing the per-partition branch lengths */
+    if (brlen_linkage == PLLMOD_TREE_BRLEN_UNLINKED)
       treeinfo->branch_lengths[p] =
-        (double *) malloc(branch_count * sizeof(double));
+          (double *) malloc(branch_count * sizeof(double));
     else
-      treeinfo->branch_lengths[p] = treeinfo->branch_lengths[0];
+      treeinfo->branch_lengths[p] = treeinfo->linked_branch_lengths;
 
     /* allocate invalidation arrays */
     treeinfo->clv_valid[p] = (char *) calloc(utree_count, sizeof(char));
     treeinfo->pmatrix_valid[p] = (char *) calloc(pmatrix_count, sizeof(char));
+
+    /* initialize all branch length scalers to 1 */
+    if (treeinfo->brlen_scalers)
+      treeinfo->brlen_scalers[p] = 1.;
 
     /* check memory allocation */
     if (!(treeinfo->branch_lengths[p] &&
@@ -380,7 +396,7 @@ PLL_EXPORT void pllmod_treeinfo_destroy(pllmod_treeinfo_t * treeinfo)
     free(treeinfo->clv_valid[p]);
     free(treeinfo->pmatrix_valid[p]);
 
-    if (p == 0 || !treeinfo->linked_branches)
+    if (treeinfo->brlen_linkage == PLLMOD_TREE_BRLEN_UNLINKED)
       free(treeinfo->branch_lengths[p]);
 
     pllmod_treeinfo_destroy_partition(treeinfo, p);
@@ -393,10 +409,16 @@ PLL_EXPORT void pllmod_treeinfo_destroy(pllmod_treeinfo_t * treeinfo)
   free(treeinfo->clv_valid);
   free(treeinfo->pmatrix_valid);
 
+  free(treeinfo->linked_branch_lengths);
+
   /* free alpha and param_indices arrays */
   free(treeinfo->alphas);
   free(treeinfo->param_indices);
   free(treeinfo->branch_lengths);
+  free(treeinfo->partition_loglh);
+
+  if(treeinfo->brlen_scalers)
+    free(treeinfo->brlen_scalers);
 
   /* deallocate partition array */
   free(treeinfo->partitions);
@@ -425,10 +447,14 @@ PLL_EXPORT int pllmod_treeinfo_update_prob_matrices(pllmod_treeinfo_t * treeinfo
         if (treeinfo->pmatrix_valid[p][matrix_index] && !update_all)
           continue;
 
+        double p_brlen = treeinfo->branch_lengths[p][m];
+        if (treeinfo->brlen_linkage == PLLMOD_TREE_BRLEN_SCALED)
+          p_brlen *= treeinfo->brlen_scalers[p];
+
         pll_update_prob_matrices (treeinfo->partitions[p],
                                   treeinfo->param_indices[p],
                                   &matrix_index,
-                                  &treeinfo->branch_lengths[p][m],
+                                  &p_brlen,
                                   1);
 
         treeinfo->pmatrix_valid[p][matrix_index] = 1;
@@ -590,7 +616,7 @@ PLL_EXPORT double pllmod_treeinfo_compute_loglh(pllmod_treeinfo_t * treeinfo,
        the CLV indices at the two end-point of the branch, the probability
        matrix index for the concrete branch length, and the index of the model
        of whose frequency vector is to be used */
-    const double part_loglh = pll_compute_edge_loglikelihood(
+    treeinfo->partition_loglh[p] = pll_compute_edge_loglikelihood(
                                             treeinfo->partitions[p],
                                             treeinfo->root->clv_index,
                                             treeinfo->root->scaler_index,
@@ -601,7 +627,7 @@ PLL_EXPORT double pllmod_treeinfo_compute_loglh(pllmod_treeinfo_t * treeinfo,
                                             NULL);
 
     /* accumalate loglh by summing up over all the partitions */
-    total_loglh += part_loglh;
+    total_loglh += treeinfo->partition_loglh[p];
   }
 
   /* restore original active partition */
