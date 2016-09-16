@@ -52,7 +52,7 @@ DEPFILES = worms16s.fas \
            small.fas small.tree small.rooted.tree \
            246x4465.fas 246x4465.tree \
            ribosomal_l5_pf00673.fas \
-           medium.fas medium.tree
+           medium.fas medium.tree medium.rooted.tree
 REQFILES = $(patsubst %, $(DATADIR)/%, $(DEPFILES))
 ASSETS = https://raw.githubusercontent.com/xflouris/assets/master/libpll
 
