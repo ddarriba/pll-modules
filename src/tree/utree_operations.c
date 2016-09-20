@@ -287,9 +287,9 @@ PLL_EXPORT int pllmod_utree_interchange(pll_utree_t * node1,
  * @return the new node
  */
 PLL_EXPORT pll_utree_t * pllmod_utree_create_node(unsigned int clv_index,
-                                               int scaler_index,
-                                               char * label,
-                                               void * data)
+                                                  int scaler_index,
+                                                  char * label,
+                                                  void * data)
 {
   pll_utree_t * new_node = (pll_utree_t *)calloc(1, sizeof(pll_utree_t));
   new_node->next         = (pll_utree_t *)calloc(1, sizeof(pll_utree_t));

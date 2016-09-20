@@ -45,10 +45,10 @@ int main (int argc, char * argv[])
   if (tip_count != tip_count_alt)
     fatal("Trees have different number of tips!");
 
-  if (!pll_utree_consistency_set(tree1, tree2, tip_count))
+  if (!pllmod_utree_consistency_set(tree1, tree2, tip_count))
     fatal("Cannot set trees consistent!");
 
-  if (!pll_utree_consistency_check(tree1, tree2, tip_count))
+  if (!pllmod_utree_consistency_check(tree1, tree2, tip_count))
     fatal("Tip node IDs are not consistent!");
 
   /* uncomment lines below for displaying the trees in ASCII format */
@@ -59,27 +59,27 @@ int main (int argc, char * argv[])
 
   /* 1. creating the split sets manually */
   unsigned int n_splits;
-  pll_split_t * splits1 = pll_utree_split_create(tree1,
-                                                 tip_count,
-                                                 &n_splits);
+  pll_split_t * splits1 = pllmod_utree_split_create(tree1,
+                                                    tip_count,
+                                                    &n_splits);
 
-  pll_split_t * splits2 = pll_utree_split_create(tree2,
-                                                 tip_count,
-                                                 &n_splits);
+  pll_split_t * splits2 = pllmod_utree_split_create(tree2,
+                                                    tip_count,
+                                                    &n_splits);
 
-  rf_dist = pll_utree_split_rf_distance(splits1, splits2, tip_count);
+  rf_dist = pllmod_utree_split_rf_distance(splits1, splits2, tip_count);
   printf("RF [manual]\n");
   printf("distance = %d\n", rf_dist);
   printf("relative = %.2f%%\n", 100.0*rf_dist/(2*(tip_count-3)));
 
-  pll_utree_split_destroy(splits1);
-  pll_utree_split_destroy(splits2);
+  pllmod_utree_split_destroy(splits1);
+  pllmod_utree_split_destroy(splits2);
 
   /* 2. directly from the tree structures */
 
-  rf_dist = pll_utree_rf_distance(tree1,
-                                  tree2,
-                                  tip_count);
+  rf_dist = pllmod_utree_rf_distance(tree1,
+                                     tree2,
+                                     tip_count);
 
   printf("RF [auto]\n");
   printf("distance = %d\n", rf_dist);

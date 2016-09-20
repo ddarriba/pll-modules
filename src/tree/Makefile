@@ -49,6 +49,7 @@ OBJS=pll_tree.o \
 		 utree_operations.o \
 		 utree_distances.o \
 		 treeinfo.o \
+		 consensus.o \
 		 $(DEPS)
 
 $(PROG): $(OBJS)

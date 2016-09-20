@@ -66,6 +66,15 @@
 typedef unsigned int pll_split_base_t;
 typedef pll_split_base_t * pll_split_t;
 
+typedef struct split_system_t
+{
+  pll_split_t * splits;
+  unsigned int * support;
+  unsigned int split_count;
+  unsigned int max_support;
+} pll_split_system_t;
+
+
 typedef struct pll_tree_edge
 {
   union
@@ -285,10 +294,17 @@ PLL_EXPORT pll_split_t * pllmod_utree_split_create(pll_utree_t * tree,
                                                    unsigned int n_tips,
                                                    unsigned int * n_splits);
 
+PLL_EXPORT void pllmod_utree_split_normalize_and_sort(pll_split_t * s,
+                                                      unsigned int n_tips,
+                                                      unsigned int n_splits);
+
 PLL_EXPORT void pllmod_utree_split_show(pll_split_t split, unsigned int n_tips);
 
 PLL_EXPORT void pllmod_utree_split_destroy(pll_split_t * split_list);
 
+PLL_EXPORT pll_utree_t * pllmod_utree_from_splits(pll_split_t * splits,
+                                                  unsigned int count,
+                                                  unsigned int n_tips);
 
 
 /* Additional utilities */

@@ -14,7 +14,6 @@ static int _cmp_splits (const void * a, const void * b);
 static int compare_splits (pll_split_t s1,
                            pll_split_t s2,
                            unsigned int split_len);
-
 static unsigned int get_utree_splitmap_id(pll_utree_t * node,
                                           unsigned int n_tips);
 
@@ -149,6 +148,36 @@ PLL_EXPORT int pllmod_utree_consistency_set(pll_utree_t * t1,
 /******************************************************************************/
 /* discrete operations */
 
+PLL_EXPORT int pllmod_utree_compatible_splits(pll_split_t s1,
+                                              pll_split_t s2,
+                                              unsigned int split_len)
+{
+  unsigned int i;
+
+  for(i = 0; i < split_len; i++)
+    if(s1[i] & s2[i])
+      break;
+
+  if(i == split_len)
+    return 1;
+
+  for(i = 0; i < split_len; i++)
+    if(s1[i] & ~s2[i])
+      break;
+
+  if(i == split_len)
+    return 1;
+
+  for(i = 0; i < split_len; i++)
+    if(~s1[i] & s2[i])
+      break;
+
+  if(i == split_len)
+    return 1;
+  else
+    return 0;
+}
+
 PLL_EXPORT unsigned int pllmod_utree_rf_distance(pll_utree_t * t1,
                                               pll_utree_t * t2,
                                               unsigned int n_tips)
@@ -202,7 +231,7 @@ PLL_EXPORT unsigned int pllmod_utree_split_rf_distance(pll_split_t * s1,
       if (cmp > 0)
       {
         while(++s2_idx < n_splits &&
-              (cmp =compare_splits(s1[s1_idx], s2[s2_idx], split_len)) > 0);
+              (cmp = compare_splits(s1[s1_idx], s2[s2_idx], split_len)) > 0);
         if (!cmp)
         {
            equal++;
@@ -221,6 +250,23 @@ PLL_EXPORT unsigned int pllmod_utree_split_rf_distance(pll_split_t * s1,
 
 /******************************************************************************/
 /* tree split functions */
+
+/*
+ * Normalize and sort.
+ * Warning! first position might change, so if splits were allocated together
+ * you should keep a pointer to the original first position such that you can
+ * deallocate it afterwards!
+ */
+PLL_EXPORT void pllmod_utree_split_normalize_and_sort(pll_split_t * s,
+                                                      unsigned int n_tips,
+                                                      unsigned int n_splits)
+{
+  unsigned int i;
+  for (i=0; i<n_splits;++i)
+    normalize_split(s[i], n_tips);
+
+  qsort(s, n_splits, sizeof(pll_split_t), _cmp_splits);
+}
 
 PLL_EXPORT void pllmod_utree_split_show(pll_split_t split, unsigned int n_tips)
 {
@@ -322,8 +368,8 @@ PLL_EXPORT pll_split_t * pllmod_utree_split_create(pll_utree_t * tree,
     if (compare_splits(split_list[i], split_list[i-1], split_len) <= 0)
     {
       printf("Error %d %d\n", i, _cmp_splits(&split_list[i], &split_list[i-1]));
-      pllmod_utree_show_split(split_list[i], n_tips);
-      pllmod_utree_show_split(split_list[i-1], n_tips);
+      pllmod_utree_split_show(split_list[i], n_tips);
+      pllmod_utree_split_show(split_list[i-1], n_tips);
     }
 #endif
 
@@ -358,11 +404,6 @@ PLL_EXPORT void pllmod_utree_split_destroy(pll_split_t * split_list)
   free(split_list);
 }
 
-
-
-
-
-
 /******************************************************************************/
 /* static functions */
 
@@ -381,6 +422,8 @@ static inline void merge_split(pll_split_t to,
   for (i=0;i<split_len;++i)
     to[i] |= from[i];
 }
+
+
 
 /**
  * Callback function for computing the splits at each branch
