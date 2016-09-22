@@ -20,7 +20,10 @@
 # Profiling
 OS = $(shell uname -s)
 PROFILING = -g
+#PROFILING = -g -DDEBUG
 CC ?= gcc
+
+#FASTBLO=-DNOCHECK_PERBRANCH_IMPR
 
 # Compiler warnings
 ifeq ($(CC),clang)
@@ -35,7 +38,7 @@ else
 endif
 
 AR = ar
-CFLAGS = -D_GNU_SOURCE -fPIC $(PROFILING) -msse3 -O3 -I../../libs/libpll/src $(WARN)
+CFLAGS = -D_GNU_SOURCE -fPIC $(PROFILING) -msse3 -O3 -I../../libs/libpll/src $(WARN) $(FASTBLO)
 LINKFLAGS=$(PROFILING)
 LIBS=-lpll -lm
 DEPS=../pllmod_common.o
