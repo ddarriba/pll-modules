@@ -27,7 +27,9 @@ done
 
 cd ..
 
-cp -v --preserve libs/libpll/src/*.so src/*/*.so $INSTALL_DIR
+cp -v --preserve libs/libpll/src/.libs/*.so* $INSTALL_DIR
+
+cp -v --preserve src/*/*.so $INSTALL_DIR
 
 cp -v --preserve libs/libpll/src/pll.h $INSTALL_DIR
 
