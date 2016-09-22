@@ -445,6 +445,12 @@ static int best_reinsert_edge(pllmod_treeinfo_t * treeinfo,
     b2 = p_edge->next->length;
     b3 = p_edge->next->next->length;
 
+    /* make sure branches are within limits */
+    if (p_edge->next->length < params->bl_min)
+      pllmod_utree_set_length(p_edge->next, params->bl_min);
+    if (p_edge->next->next->length < params->bl_min)
+      pllmod_utree_set_length(p_edge->next->next, params->bl_min);
+
     if (params->thorough)
     {
       /* re-compute invalid CLVs and p-matrices */
@@ -582,8 +588,6 @@ static double reinsert_nodes(pllmod_treeinfo_t * treeinfo, pll_utree_t ** nodes,
     /* LH improved -> re-apply the SPR move */
     if (spr_entry.lh - best_lh > 1e-6)
     {
-      double regraft_length = best_r_edge->length;
-
       /* re-apply best SPR move for the node */
       int retval = pllmod_utree_spr(p_edge, best_r_edge, rollback);
       assert(retval == PLL_SUCCESS);
@@ -600,8 +604,11 @@ static double reinsert_nodes(pllmod_treeinfo_t * treeinfo, pll_utree_t ** nodes,
       }
       else
       {
-        assert(p_edge->next->next->length == regraft_length / 2.);
-        assert(p_edge->next->length == regraft_length / 2.);
+        /* make sure branches are within limits */
+        if (p_edge->next->length < params->bl_min)
+          pllmod_utree_set_length(p_edge->next, params->bl_min);
+        if (p_edge->next->next->length < params->bl_min)
+          pllmod_utree_set_length(p_edge->next->next, params->bl_min);
       }
 
       assert(spr_entry.lh > best_lh);
