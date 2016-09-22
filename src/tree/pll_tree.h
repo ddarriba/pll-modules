@@ -52,6 +52,8 @@
 #define PLLMOD_TREE_ERROR_INVALID_REARRAGE     3328 // B + {10...}
 #define PLLMOD_TREE_ERROR_INVALID_TREE_SIZE    3456 // B + {10...}
 #define PLLMOD_TREE_ERROR_INVALID_TREE         3584 // B + {10...}
+#define PLLMOD_TREE_ERROR_INVALID_SPLIT        3712 // B + {10...}
+#define PLLMOD_TREE_ERROR_EMPTY_SPLIT          3840 // B + {10...}
 
 #define PLLMOD_TREE_REARRANGE_SPR  0
 #define PLLMOD_TREE_REARRANGE_NNI  1
@@ -241,7 +243,7 @@ PLL_EXPORT int pllmod_utree_connect_nodes(pll_utree_t * parent,
 
 PLL_EXPORT int pllmod_rtree_nodes_at_node_dist(pll_rtree_t * root,
                                                pll_rtree_t ** outbuffer,
-                                               unsigned int * n_nodes,
+                                               unsigned int * node_count,
                                                int min_distance,
                                                int max_distance);
 
@@ -249,20 +251,20 @@ PLL_EXPORT int pllmod_rtree_nodes_at_node_dist(pll_rtree_t * root,
 
 PLL_EXPORT int pllmod_utree_nodes_at_node_dist(pll_utree_t * node,
                                             pll_utree_t ** outbuffer,
-                                            unsigned int * n_nodes,
+                                            unsigned int * node_count,
                                             unsigned int min_distance,
                                             unsigned int max_distance);
 
 PLL_EXPORT int pllmod_utree_nodes_at_edge_dist(pll_utree_t * edge,
                                                pll_utree_t ** outbuffer,
-                                               unsigned int * n_nodes,
+                                               unsigned int * node_count,
                                                unsigned int min_distance,
                                                unsigned int max_distance);
 
 /* Tree construction */
 /* functions at pll_tree.c */
 
-PLL_EXPORT pll_utree_t * pllmod_utree_create_random(unsigned int n_taxa,
+PLL_EXPORT pll_utree_t * pllmod_utree_create_random(unsigned int taxa_count,
                                                     const char * const* names);
 
 
@@ -272,50 +274,60 @@ PLL_EXPORT pll_utree_t * pllmod_utree_create_random(unsigned int n_taxa,
 
 PLL_EXPORT unsigned int pllmod_utree_rf_distance(pll_utree_t * t1,
                                                  pll_utree_t * t2,
-                                                 unsigned int n_tips);
+                                                 unsigned int tip_count);
 
 /* check that node ids and tip labels agree in both trees */
 PLL_EXPORT int pllmod_utree_consistency_check(pll_utree_t * t1,
                                               pll_utree_t * t2,
-                                              unsigned int n_tips);
+                                              unsigned int tip_count);
 
 /* if 2 different trees are parsed from newick node ids migh have been set
    in a different order, so this function sets node ids in t2 such that
    node ids and tip labels agree in both trees */
 PLL_EXPORT int pllmod_utree_consistency_set(pll_utree_t * t1,
                                             pll_utree_t * t2,
-                                            unsigned int n_tips);
+                                            unsigned int tip_count);
 
 PLL_EXPORT unsigned int pllmod_utree_split_rf_distance(pll_split_t * s1,
                                                        pll_split_t * s2,
-                                                       unsigned int n_tips);
+                                                       unsigned int tip_count);
 
 PLL_EXPORT pll_split_t * pllmod_utree_split_create(pll_utree_t * tree,
-                                                   unsigned int n_tips,
+                                                   unsigned int tip_count,
                                                    unsigned int * n_splits);
 
 PLL_EXPORT void pllmod_utree_split_normalize_and_sort(pll_split_t * s,
-                                                      unsigned int n_tips,
+                                                      unsigned int tip_count,
                                                       unsigned int n_splits);
 
-PLL_EXPORT void pllmod_utree_split_show(pll_split_t split, unsigned int n_tips);
+PLL_EXPORT void pllmod_utree_split_show(pll_split_t split,
+                                        unsigned int tip_count);
 
 PLL_EXPORT void pllmod_utree_split_destroy(pll_split_t * split_list);
 
-PLL_EXPORT pll_utree_t * pllmod_utree_from_splits(pll_split_t * splits,
-                                                  unsigned int count,
-                                                  unsigned int n_tips);
+/* functions in consensus.c */
+
+PLL_EXPORT int pllmod_utree_compatible_splits(pll_split_t s1,
+                                              pll_split_t s2,
+                                              unsigned int split_len);
+
+PLL_EXPORT pll_utree_t * pllmod_utree_from_splits(const pll_split_t * splits,
+                                                  unsigned int split_count,
+                                                  unsigned int tip_count,
+                                                  const char **tip_labels);
 
 
 /* Additional utilities */
 /* functions at pll_tree.c */
 
 PLL_EXPORT int pllmod_utree_set_clv_minimal(pll_utree_t * root,
-                                         unsigned int n_tips);
+                                         unsigned int tip_count);
 
 PLL_EXPORT int pllmod_utree_traverse_apply(pll_utree_t * root,
                                         int (*cb_pre_trav)(pll_utree_t *,
                                                            void *),
+                                        int (*cb_in_trav)(pll_utree_t *,
+                                                          void *),
                                         int (*cb_post_trav)(pll_utree_t *,
                                                             void *),
                                         void *data);

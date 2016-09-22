@@ -155,7 +155,7 @@ PLL_EXPORT int pllmod_rtree_regraft(pll_rtree_t * node,
   }
 
   parent_node = node->parent;
-  
+
   if (tree->parent)
   {
     if (tree->parent && !pllmod_rtree_get_sibling_pointers(tree,
@@ -248,7 +248,7 @@ PLL_EXPORT int pllmod_rtree_spr(pll_rtree_t * p_node,
 
 static void rtree_nodes_at_node_dist_down(pll_rtree_t * root,
                                           pll_rtree_t ** outbuffer,
-                                          unsigned int * n_nodes,
+                                          unsigned int * node_count,
                                           int min_distance,
                                           int max_distance)
 {
@@ -256,27 +256,27 @@ static void rtree_nodes_at_node_dist_down(pll_rtree_t * root,
 
   if (min_distance < 0)
   {
-    outbuffer[*n_nodes] = root;
-    *n_nodes = *n_nodes + 1;
+    outbuffer[*node_count] = root;
+    *node_count = *node_count + 1;
   }
 
   if (!(root->left && root->right)) return;
 
   rtree_nodes_at_node_dist_down(root->left,
                                 outbuffer,
-                                n_nodes,
+                                node_count,
                                 min_distance-1,
                                 max_distance-1);
   rtree_nodes_at_node_dist_down(root->right,
                                 outbuffer,
-                                n_nodes,
+                                node_count,
                                 min_distance-1,
                                 max_distance-1);
 }
 
 PLL_EXPORT int pllmod_rtree_nodes_at_node_dist(pll_rtree_t * root,
                                                pll_rtree_t ** outbuffer,
-                                               unsigned int * n_nodes,
+                                               unsigned int * node_count,
                                                int min_distance,
                                                int max_distance)
 {
@@ -291,7 +291,7 @@ PLL_EXPORT int pllmod_rtree_nodes_at_node_dist(pll_rtree_t * root,
       return PLL_FAILURE;
     }
 
-  *n_nodes = 0;
+  *node_count = 0;
 
   while (current_root->parent)
   {
@@ -310,12 +310,12 @@ PLL_EXPORT int pllmod_rtree_nodes_at_node_dist(pll_rtree_t * root,
     current_root = current_root->parent;
     if (min_distance < 0)
     {
-      outbuffer[*n_nodes] = current_root;
-      *n_nodes = *n_nodes + 1;
+      outbuffer[*node_count] = current_root;
+      *node_count = *node_count + 1;
     }
     rtree_nodes_at_node_dist_down(*sister_ptr,
                                   outbuffer,
-                                  n_nodes,
+                                  node_count,
                                   min_distance-1,
                                   max_distance-1);
   }

@@ -361,13 +361,13 @@ PLL_EXPORT int pllmod_utree_connect_nodes(pll_utree_t * parent,
  *
  * @param[in] node the root node
  * @param[out] outbuffer the list of nodes. Outbuffer should be allocated
- * @param[out] n_nodes the number of nodes returned in \p outbuffer
+ * @param[out] node_count the number of nodes returned in \p outbuffer
  * @param[in] min_distance the minimum distance to check
  * @param[in] max_distance the maximum distance to check
  */
 PLL_EXPORT int pllmod_utree_nodes_at_node_dist(pll_utree_t * node,
                                                pll_utree_t ** outbuffer,
-                                               unsigned int * n_nodes,
+                                               unsigned int * node_count,
                                                unsigned int min_distance,
                                                unsigned int max_distance)
 {
@@ -386,7 +386,7 @@ PLL_EXPORT int pllmod_utree_nodes_at_node_dist(pll_utree_t * node,
       return PLL_FAILURE;
     }
 
-  *n_nodes = 0;
+  *node_count = 0;
 
   /* we will traverse an unrooted tree in the following way
 
@@ -398,7 +398,7 @@ PLL_EXPORT int pllmod_utree_nodes_at_node_dist(pll_utree_t * node,
     */
 
 
-  utree_nodes_at_dist(node, outbuffer, n_nodes, min_distance, max_distance, 0);
+  utree_nodes_at_dist(node, outbuffer, node_count, min_distance, max_distance, 0);
 
   return PLL_SUCCESS;
 }
@@ -409,14 +409,14 @@ PLL_EXPORT int pllmod_utree_nodes_at_node_dist(pll_utree_t * node,
  *
  * @param[in] edge the root edge
  * @param[out] outbuffer the list of nodes. Outbuffer should be allocated
- * @param[out] n_nodes the number of nodes returned in \p outbuffer
+ * @param[out] node_count the number of nodes returned in \p outbuffer
  * @param[in] min_distance the minimum distance to check
  * @param[in] max_distance the maximum distance to check
  */
 
 PLL_EXPORT int pllmod_utree_nodes_at_edge_dist(pll_utree_t * edge,
                                                pll_utree_t ** outbuffer,
-                                               unsigned int * n_nodes,
+                                               unsigned int * node_count,
                                                unsigned int min_distance,
                                                unsigned int max_distance)
 {
@@ -437,7 +437,7 @@ PLL_EXPORT int pllmod_utree_nodes_at_edge_dist(pll_utree_t * edge,
       return PLL_FAILURE;
     }
 
-  *n_nodes = 0;
+  *node_count = 0;
 
   /* we will traverse an unrooted tree in the following way
 
@@ -448,9 +448,9 @@ PLL_EXPORT int pllmod_utree_nodes_at_edge_dist(pll_utree_t * edge,
        4          2
    */
 
-  utree_nodes_at_dist(edge->back, outbuffer, n_nodes,
+  utree_nodes_at_dist(edge->back, outbuffer, node_count,
                       min_distance, max_distance, depth+1);
-  utree_nodes_at_dist(edge, outbuffer, n_nodes,
+  utree_nodes_at_dist(edge, outbuffer, node_count,
                       min_distance, max_distance, depth);
 
   return PLL_SUCCESS;
