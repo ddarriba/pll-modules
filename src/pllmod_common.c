@@ -3,6 +3,7 @@
 #include "pll.h"
 #include "pllmod_common.h"
 
+__attribute__((format(printf, 2, 3)))
 void pllmod_set_error(int errno, const char* errmsg_fmt, ...)
 {
   pll_errno = errno;

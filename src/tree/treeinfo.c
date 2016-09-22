@@ -106,7 +106,8 @@ PLL_EXPORT pllmod_treeinfo_t * pllmod_treeinfo_create(pll_utree_t * root,
   /* traverse the tree and set treeinfo pointer into "data" field of every node */
   treeinfo->counter = 0;
   int retval = pllmod_utree_traverse_apply(root,
-                                           NULL,                     /* pre */
+                                           NULL,                     /* pre  */
+                                           NULL,                     /*  in  */
                                            cb_set_treeinfo_pointer,  /* post */
                                            (void *) treeinfo);
   if (treeinfo->counter != nodes_count)

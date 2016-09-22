@@ -40,7 +40,9 @@ CFILES = src/binary/binary-sequential.c \
          src/tree/treemove-nni.c \
          src/tree/treemove-spr.c \
          src/tree/rtreemove-spr.c \
-         src/tree/treemove-tbr.c
+         src/tree/treemove-tbr.c \
+				 src/tree/split-reconstruct.c
+
 OBJFILES = $(patsubst src/%.c, obj/%, $(CFILES))
 
 OBJCOMMON = src/common.o

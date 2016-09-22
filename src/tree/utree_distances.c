@@ -9,13 +9,13 @@ static inline void clone_split(pll_split_t to,
 static inline void merge_split(pll_split_t to,
                          const pll_split_t from,
                          unsigned int split_len);
-static void normalize_split(pll_split_t split, unsigned int n_tips);
+static void normalize_split(pll_split_t split, unsigned int tip_count);
 static int _cmp_splits (const void * a, const void * b);
 static int compare_splits (pll_split_t s1,
                            pll_split_t s2,
                            unsigned int split_len);
 static unsigned int get_utree_splitmap_id(pll_utree_t * node,
-                                          unsigned int n_tips);
+                                          unsigned int tip_count);
 
 struct cb_split_params
 {
@@ -37,7 +37,7 @@ struct cb_split_params
  */
 PLL_EXPORT int pllmod_utree_consistency_check(pll_utree_t * t1,
                                               pll_utree_t * t2,
-                                              unsigned int n_tips)
+                                              unsigned int tip_count)
 {
   unsigned int i;
   unsigned int node_id;
@@ -45,8 +45,8 @@ PLL_EXPORT int pllmod_utree_consistency_check(pll_utree_t * t1,
   pll_utree_t ** tipnodes;
   char ** tipnames;
 
-  tipnodes = (pll_utree_t **) calloc ((size_t) n_tips, sizeof(pll_utree_t *));
-  tipnames = (char **) malloc (n_tips * sizeof(char *));
+  tipnodes = (pll_utree_t **) calloc ((size_t) tip_count, sizeof(pll_utree_t *));
+  tipnames = (char **) malloc (tip_count * sizeof(char *));
   if (!(tipnodes && tipnames))
   {
     pllmod_set_error(PLL_ERROR_MEM_ALLOC,
@@ -57,7 +57,7 @@ PLL_EXPORT int pllmod_utree_consistency_check(pll_utree_t * t1,
   pll_utree_query_tipnodes (t1, tipnodes);
 
   /* fill names table */
-  for (i = 0; i < n_tips; ++i)
+  for (i = 0; i < tip_count; ++i)
   {
     node_id = tipnodes[i]->node_index;
     tipnames[node_id] = tipnodes[i]->label;
@@ -65,7 +65,7 @@ PLL_EXPORT int pllmod_utree_consistency_check(pll_utree_t * t1,
 
   /* check names consistency */
   pll_utree_query_tipnodes (t2, tipnodes);
-  for (i = 0; i < n_tips; ++i)
+  for (i = 0; i < tip_count; ++i)
   {
     node_id = tipnodes[i]->node_index;
     if (strcmp(tipnames[node_id], tipnodes[i]->label))
@@ -90,7 +90,7 @@ PLL_EXPORT int pllmod_utree_consistency_check(pll_utree_t * t1,
  */
 PLL_EXPORT int pllmod_utree_consistency_set(pll_utree_t * t1,
                                             pll_utree_t * t2,
-                                            unsigned int n_tips)
+                                            unsigned int tip_count)
 {
   unsigned int i, j;
   unsigned int node_id;
@@ -98,8 +98,8 @@ PLL_EXPORT int pllmod_utree_consistency_set(pll_utree_t * t1,
   pll_utree_t ** tipnodes;
   char ** tipnames;
 
-  tipnodes = (pll_utree_t **) calloc ((size_t) n_tips, sizeof(pll_utree_t *));
-  tipnames = (char **) malloc (n_tips * sizeof(char *));
+  tipnodes = (pll_utree_t **) calloc ((size_t) tip_count, sizeof(pll_utree_t *));
+  tipnames = (char **) malloc (tip_count * sizeof(char *));
 
   if (!(tipnodes && tipnames))
   {
@@ -111,7 +111,7 @@ PLL_EXPORT int pllmod_utree_consistency_set(pll_utree_t * t1,
   pll_utree_query_tipnodes (t1, tipnodes);
 
   /* fill names table */
-  for (i = 0; i < n_tips; ++i)
+  for (i = 0; i < tip_count; ++i)
   {
     node_id = tipnodes[i]->node_index;
     tipnames[node_id] = tipnodes[i]->label;
@@ -119,12 +119,12 @@ PLL_EXPORT int pllmod_utree_consistency_set(pll_utree_t * t1,
 
   /* set names consistency */
   pll_utree_query_tipnodes (t2, tipnodes);
-  for (i = 0; i < n_tips; ++i)
+  for (i = 0; i < tip_count; ++i)
   {
     // node_id = get_utree_node_id(tipnodes[i]);
     pll_utree_t * tipnode = tipnodes[i];
     checkval = 0;
-    for (j = 0; j < n_tips; ++j)
+    for (j = 0; j < tip_count; ++j)
     {
       if (!strcmp(tipnames[j], tipnode->label))
       {
@@ -148,58 +148,28 @@ PLL_EXPORT int pllmod_utree_consistency_set(pll_utree_t * t1,
 /******************************************************************************/
 /* discrete operations */
 
-PLL_EXPORT int pllmod_utree_compatible_splits(pll_split_t s1,
-                                              pll_split_t s2,
-                                              unsigned int split_len)
-{
-  unsigned int i;
-
-  for(i = 0; i < split_len; i++)
-    if(s1[i] & s2[i])
-      break;
-
-  if(i == split_len)
-    return 1;
-
-  for(i = 0; i < split_len; i++)
-    if(s1[i] & ~s2[i])
-      break;
-
-  if(i == split_len)
-    return 1;
-
-  for(i = 0; i < split_len; i++)
-    if(~s1[i] & s2[i])
-      break;
-
-  if(i == split_len)
-    return 1;
-  else
-    return 0;
-}
-
 PLL_EXPORT unsigned int pllmod_utree_rf_distance(pll_utree_t * t1,
                                               pll_utree_t * t2,
-                                              unsigned int n_tips)
+                                              unsigned int tip_count)
 {
-  unsigned int n_splits;
+  unsigned int split_count;
   unsigned int rf_distance;
 
   /* reset pll_error */
   pll_errno = 0;
 
   /* split both trees */
-  pll_split_t * s1 = pllmod_utree_split_create(t1, n_tips, &n_splits);
-  pll_split_t * s2 = pllmod_utree_split_create(t2, n_tips, &n_splits);
+  pll_split_t * s1 = pllmod_utree_split_create(t1, tip_count, &split_count);
+  pll_split_t * s2 = pllmod_utree_split_create(t2, tip_count, &split_count);
 
   /* compute distance */
-  rf_distance = pllmod_utree_split_rf_distance(s1, s2, n_tips);
+  rf_distance = pllmod_utree_split_rf_distance(s1, s2, tip_count);
 
   /* clean up */
   pllmod_utree_split_destroy(s1);
   pllmod_utree_split_destroy(s2);
 
-  assert(rf_distance <= 2*(n_tips-3));
+  assert(rf_distance <= 2*(tip_count-3));
   return rf_distance;
 }
 
@@ -208,17 +178,17 @@ PLL_EXPORT unsigned int pllmod_utree_rf_distance(pll_utree_t * t1,
  */
 PLL_EXPORT unsigned int pllmod_utree_split_rf_distance(pll_split_t * s1,
                                                        pll_split_t * s2,
-                                                       unsigned int n_tips)
+                                                       unsigned int tip_count)
 {
-  unsigned int n_splits = n_tips - 3;
-  unsigned int split_size = (sizeof(pll_split_base_t) * 8);
-  unsigned int split_len  = (n_tips / split_size) +
-                            (n_tips % (sizeof(pll_split_base_t) * 8) > 0);
+  unsigned int split_count = tip_count - 3;
+  unsigned int split_size  = (sizeof(pll_split_base_t) * 8);
+  unsigned int split_len   = (tip_count / split_size) +
+                            (tip_count % (sizeof(pll_split_base_t) * 8) > 0);
   unsigned int equal = 0;
   unsigned int s1_idx = 0,
                s2_idx = 0;
 
-  for (s1_idx=0; s1_idx<n_splits && s2_idx<n_splits; ++s1_idx)
+  for (s1_idx=0; s1_idx<split_count && s2_idx<split_count; ++s1_idx)
   {
     int cmp = compare_splits(s1[s1_idx], s2[s2_idx], split_len);
     if (!cmp)
@@ -230,7 +200,7 @@ PLL_EXPORT unsigned int pllmod_utree_split_rf_distance(pll_split_t * s1,
     {
       if (cmp > 0)
       {
-        while(++s2_idx < n_splits &&
+        while(++s2_idx < split_count &&
               (cmp = compare_splits(s1[s1_idx], s2[s2_idx], split_len)) > 0);
         if (!cmp)
         {
@@ -241,9 +211,9 @@ PLL_EXPORT unsigned int pllmod_utree_split_rf_distance(pll_split_t * s1,
     }
   }
 
-  assert(equal <= (n_tips-3));
+  assert(equal <= (tip_count-3));
 
-  return 2*(n_tips - 3 - equal);
+  return 2*(tip_count - 3 - equal);
 }
 
 
@@ -258,21 +228,21 @@ PLL_EXPORT unsigned int pllmod_utree_split_rf_distance(pll_split_t * s1,
  * deallocate it afterwards!
  */
 PLL_EXPORT void pllmod_utree_split_normalize_and_sort(pll_split_t * s,
-                                                      unsigned int n_tips,
-                                                      unsigned int n_splits)
+                                                      unsigned int tip_count,
+                                                      unsigned int split_count)
 {
   unsigned int i;
-  for (i=0; i<n_splits;++i)
-    normalize_split(s[i], n_tips);
+  for (i=0; i<split_count;++i)
+    normalize_split(s[i], tip_count);
 
-  qsort(s, n_splits, sizeof(pll_split_t), _cmp_splits);
+  qsort(s, split_count, sizeof(pll_split_t), _cmp_splits);
 }
 
-PLL_EXPORT void pllmod_utree_split_show(pll_split_t split, unsigned int n_tips)
+PLL_EXPORT void pllmod_utree_split_show(pll_split_t split, unsigned int tip_count)
 {
   unsigned int split_size = sizeof(pll_split_base_t) * 8;
-  unsigned int split_offset = n_tips % split_size;
-  unsigned int split_len  = n_tips / split_size + (split_offset>0);
+  unsigned int split_offset = tip_count % split_size;
+  unsigned int split_len  = tip_count / split_size + (split_offset>0);
   unsigned int i, j;
 
   for (i=0; i<(split_len-1); ++i)
@@ -287,20 +257,20 @@ PLL_EXPORT void pllmod_utree_split_show(pll_split_t split, unsigned int n_tips)
  * Note: This function returns the splits according to the node indices at the tips!
  */
 PLL_EXPORT pll_split_t * pllmod_utree_split_create(pll_utree_t * tree,
-                                                   unsigned int n_tips,
-                                                   unsigned int * _n_splits)
+                                                   unsigned int tip_count,
+                                                   unsigned int * _split_count)
 {
   unsigned int i;
-  unsigned int n_splits, split_len, split_size;
+  unsigned int split_count, split_len, split_size;
   pll_split_t * split_list;
   pll_split_t splits;
 
   /* as many non-trivial splits as inner branches */
-  n_splits   = n_tips - 3;
+  split_count   = tip_count - 3;
   split_size = (sizeof(pll_split_base_t) * 8);
-  split_len  = (n_tips / split_size) + (n_tips % (sizeof(pll_split_base_t) * 8) > 0);
+  split_len  = (tip_count / split_size) + (tip_count % (sizeof(pll_split_base_t) * 8) > 0);
 
-  split_list = (pll_split_t *) malloc(n_splits * sizeof(pll_split_t));
+  split_list = (pll_split_t *) malloc(split_count * sizeof(pll_split_t));
 
   if (!split_list)
   {
@@ -309,7 +279,7 @@ PLL_EXPORT pll_split_t * pllmod_utree_split_create(pll_utree_t * tree,
     return NULL;
   }
 
-  splits = (pll_split_t) calloc(n_splits * split_len, sizeof(pll_split_base_t));
+  splits = (pll_split_t) calloc(split_count * split_len, sizeof(pll_split_base_t));
 
   if (!splits)
   {
@@ -319,17 +289,17 @@ PLL_EXPORT pll_split_t * pllmod_utree_split_create(pll_utree_t * tree,
     return NULL;
   }
 
-  for (i=0; i<n_splits; ++i)
+  for (i=0; i<split_count; ++i)
     split_list[i] = splits + i*split_len;
 
   struct cb_split_params split_data;
   split_data.split_len   = split_len;
   split_data.split_size  = split_size;
   split_data.splits      = split_list;
-  split_data.tip_count   = n_tips;
+  split_data.tip_count   = tip_count;
   split_data.split_count = 0;
   /* reserve positions for node and subnode ids */
-  split_data.id_to_split = (int *) malloc(sizeof(int) * 3 * (n_tips - 2));
+  split_data.id_to_split = (int *) malloc(sizeof(int) * 3 * (tip_count - 2));
 
   if (!split_data.id_to_split)
   {
@@ -338,7 +308,7 @@ PLL_EXPORT pll_split_t * pllmod_utree_split_create(pll_utree_t * tree,
     return NULL;
   }
 
-  for (i=0; i<3*(n_tips-2);++i)
+  for (i=0; i<3*(tip_count-2);++i)
     split_data.id_to_split[i] = -1;
 
   if (pllmod_utree_is_tip(tree))
@@ -346,35 +316,36 @@ PLL_EXPORT pll_split_t * pllmod_utree_split_create(pll_utree_t * tree,
 
   /* traverse for computing the scripts */
   pllmod_utree_traverse_apply(tree,
-                              0,
+                              NULL,
+                              NULL,
                               &cb_get_splits,
                               &split_data);
 
-  assert(split_data.split_count == n_splits);
+  assert(split_data.split_count == split_count);
   free(split_data.id_to_split);
 
   /* normalize the splits such that first position is set */
-  for (i=0; i<n_splits;++i)
-    normalize_split(split_list[i], n_tips);
+  for (i=0; i<split_count;++i)
+    normalize_split(split_list[i], tip_count);
 
   /* sort splits and keep first position pointing to the allocated array */
   pll_split_t aux = split_list[0];
 
-  qsort(split_list, n_splits, sizeof(pll_split_t), _cmp_splits);
+  qsort(split_list, split_count, sizeof(pll_split_t), _cmp_splits);
 
 #ifdef ULTRADEBUG
   /* check */
-  for (i=1; i<n_splits; ++i)
+  for (i=1; i<split_count; ++i)
     if (compare_splits(split_list[i], split_list[i-1], split_len) <= 0)
     {
       printf("Error %d %d\n", i, _cmp_splits(&split_list[i], &split_list[i-1]));
-      pllmod_utree_split_show(split_list[i], n_tips);
-      pllmod_utree_split_show(split_list[i-1], n_tips);
+      pllmod_utree_split_show(split_list[i], tip_count);
+      pllmod_utree_split_show(split_list[i-1], tip_count);
     }
 #endif
 
-  for (i=0; split_list[i] != aux && i < n_splits; ++i);
-  assert(i < n_splits);
+  for (i=0; split_list[i] != aux && i < split_count; ++i);
+  assert(i < split_count);
   if (i>0)
   {
     /* swap */
@@ -394,7 +365,7 @@ PLL_EXPORT pll_split_t * pllmod_utree_split_create(pll_utree_t * tree,
     split_list[0] = aux;
   }
 
-  if (_n_splits) *_n_splits = n_splits;
+  if (_split_count) *_split_count = split_count;
   return split_list;
 }
 
@@ -536,11 +507,11 @@ static int _cmp_splits (const void * a, const void * b)
   return (int) ((*s1)[i]>(*s2)[i]?1:-1);
 }
 
-static void normalize_split(pll_split_t split, unsigned int n_tips)
+static void normalize_split(pll_split_t split, unsigned int tip_count)
 {
   unsigned int split_size = sizeof(pll_split_base_t) * 8;
-  unsigned int split_offset = n_tips % split_size;
-  unsigned int split_len  = n_tips / split_size + (split_offset>0);
+  unsigned int split_offset = tip_count % split_size;
+  unsigned int split_len  = tip_count / split_size + (split_offset>0);
   unsigned int i;
 
   int normalized = split[0]&1;
@@ -560,9 +531,9 @@ static void normalize_split(pll_split_t split, unsigned int n_tips)
   according to the node id.
  */
 static unsigned int get_utree_splitmap_id(pll_utree_t * node,
-                                          unsigned int n_tips)
+                                          unsigned int tip_count)
 {
   unsigned int node_id = node->node_index;
-  assert(node_id >= n_tips);
-  return node_id - n_tips;
+  assert(node_id >= tip_count);
+  return node_id - tip_count;
 }
