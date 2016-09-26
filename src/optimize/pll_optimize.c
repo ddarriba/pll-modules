@@ -1086,8 +1086,8 @@ static void utree_derivative_func_multi (void * parameters, double proposal,
   for (p = 0; p < params->partition_count; ++p)
   {
     double p_df, p_ddf;
-    double p_brlen = params->brlen_scalers ?
-        params->brlen_scalers[p] * proposal : proposal;
+    double s = params->brlen_scalers ? params->brlen_scalers[p] : 1.;
+    double p_brlen = s * proposal;
     pll_compute_likelihood_derivatives (params->partitions[p],
                                         params->tree->scaler_index,
                                         params->tree->back->scaler_index,
@@ -1096,11 +1096,11 @@ static void utree_derivative_func_multi (void * parameters, double proposal,
                                         params->precomp_buffers[p],
                                         &p_df, &p_ddf);
 
-    *df += p_df;
-    *ddf += p_ddf;
+    /* chain rule! */
+    *df += s * p_df;
+    *ddf += s * s * p_ddf;
   }
 }
-
 
 /* if keep_update, P-matrices are updated after each branch length opt */
 static int recomp_iterative_multi (pll_newton_tree_params_multi_t * params,
