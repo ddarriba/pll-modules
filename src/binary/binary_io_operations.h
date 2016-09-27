@@ -63,4 +63,6 @@ int binary_node_apply (FILE * bin_file,
                        int write,
                        int (*bin_func)(void *, size_t, size_t, FILE *));
 
+void file_io_error (FILE * bin_file, long int setp, const char * msg);
+
 #endif /* BINARY_IO_OPERATIONS_H_ */

@@ -18,9 +18,9 @@
  Exelixis Lab, Heidelberg Instutute for Theoretical Studies
  Schloss-Wolfsbrunnenweg 35, D-69118 Heidelberg, Germany
  */
-#include "binary_io_operations.h"
 
-static void file_io_error (FILE * bin_file, long int setp, const char * msg);
+#include "binary_io_operations.h"
+#include "../pllmod_common.h"
 
 int bin_fwrite(void * data, size_t size, size_t count, FILE * file)
 {
@@ -74,7 +74,8 @@ int binary_update_header(FILE * bin_file,
    file_io_error(bin_file, 0, "update position to head");
    return PLL_FAILURE;
  }
- if (!bin_fread(&bin_header, sizeof(pll_binary_header_t), 1, bin_file))
+
+  if (!bin_fread(&bin_header, sizeof(pll_binary_header_t), 1, bin_file))
  {
    file_io_error(bin_file, cur_position, "update binary header [r]");
    return PLL_FAILURE;
@@ -94,7 +95,7 @@ int binary_update_header(FILE * bin_file,
    return PLL_FAILURE;
  }
 
- if (header && (header->attributes & PLLMOD_BIN_ATTRIB_UPDATE_MAP))
+  if (header && (header->attributes & PLLMOD_BIN_ATTRIB_UPDATE_MAP))
  {
    /* update map */
    assert(next_block < bin_header.max_blocks);
@@ -120,6 +121,7 @@ int binary_update_header(FILE * bin_file,
    file_io_error(bin_file, cur_position, "update position to block");
    return PLL_FAILURE;
  }
+
  return PLL_SUCCESS;
 }
 
@@ -153,6 +155,8 @@ int binary_partition_desc_apply (FILE * bin_file,
                              unsigned int attributes,
                              int (*bin_func)(void *, size_t, size_t, FILE *))
 {
+  UNUSED(attributes);
+
   /* partition descriptor */
   bin_func (&partition->tips, sizeof(unsigned int), 1, bin_file);
   bin_func (&partition->clv_buffers, sizeof(unsigned int), 1, bin_file);
@@ -294,17 +298,19 @@ int binary_clv_apply (FILE * bin_file,
                       size_t clv_size,
                       int (*bin_func)(void *, size_t, size_t, FILE *))
 {
+  UNUSED(attributes);
+  
   if (clv_index > (partition->tips + partition->clv_buffers))
   {
-    pll_errno = PLLMOD_BIN_ERROR_INVALID_INDEX;
-    snprintf(pll_errmsg, 200, "Invalid CLV index");
+    pllmod_set_error(PLLMOD_BIN_ERROR_INVALID_INDEX,
+                     "Invalid CLV index");
     return PLL_FAILURE;
   }
 
   if (!bin_func(partition->clv[clv_index], sizeof(double), clv_size, bin_file))
   {
-    pll_errno = PLLMOD_BIN_ERROR_LOADSTORE;
-    snprintf(pll_errmsg, 200, "Error loading/storing CLV");
+    pllmod_set_error(PLLMOD_BIN_ERROR_LOADSTORE,
+                     "Error loading/storing CLV");
     return PLL_FAILURE;
   }
 
@@ -343,7 +349,7 @@ int binary_node_apply (FILE * bin_file,
 
 /* static functions */
 
-static void file_io_error (FILE * bin_file, long int setp, const char * msg)
+void file_io_error (FILE * bin_file, long int setp, const char * msg)
 {
   assert(setp >= PLLMOD_BIN_INVALID_OFFSET);
 
@@ -352,6 +358,6 @@ static void file_io_error (FILE * bin_file, long int setp, const char * msg)
     fseek(bin_file, setp, SEEK_SET);
 
   /* update error data */
-  snprintf(pll_errmsg, 200, "Binary file I/O error: %s", msg);
-  pll_errno = PLLMOD_BIN_ERROR_LOADSTORE;
+  pllmod_set_error(PLLMOD_BIN_ERROR_LOADSTORE,
+                   "Binary file I/O error: %s", msg);
 }

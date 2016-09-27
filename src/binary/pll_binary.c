@@ -96,7 +96,7 @@ PLL_EXPORT FILE * pllmod_binary_create(const char * filename,
     return NULL;
   }
 
-  if(fseek(file, header->map_offset, SEEK_CUR))
+  if(fseek(file, header->map_offset, SEEK_CUR) == -1)
   {
     pllmod_set_error(PLLMOD_BIN_ERROR_BINARY_IO,
                      "Error seeking through file during creation");
@@ -112,7 +112,7 @@ PLL_EXPORT FILE * pllmod_binary_open(const char * filename,
 {
   FILE * file;
 
-  file = fopen(filename, "r");
+  file = fopen(filename, "rb");
 
   if (!file)
   {
@@ -129,6 +129,47 @@ PLL_EXPORT FILE * pllmod_binary_open(const char * filename,
   }
 
   fseek(file, header->map_offset, SEEK_CUR);
+
+  return file;
+}
+
+FILE * pllmod_binary_append_open(const char * filename,
+                                 pll_binary_header_t * header)
+{
+  FILE * file;
+  long fpos;
+
+  file = fopen(filename, "r+b");
+
+  if (!file)
+  {
+    pllmod_set_error(PLL_ERROR_FILE_OPEN, "Cannot open file for appending");
+    return NULL;
+  }
+
+  if (!bin_fread(header, sizeof(pll_binary_header_t), 1, file))
+  {
+    pllmod_set_error(PLLMOD_BIN_ERROR_BINARY_IO,
+                     "Error reading header from file");
+    fclose(file);
+    return NULL;
+  }
+
+  if (fseek(file, 0, SEEK_END) == -1)
+  {
+    file_io_error(file, ftell(file), "update position to EOF");
+    fclose(file);
+    return NULL;
+  }
+  fpos = ftell(file);
+  if (header->map_offset > fpos)
+    fpos = header->map_offset;
+  if (fseek(file, fpos, SEEK_SET) == -1)
+  {
+    file_io_error(file, fpos, "update position to last block");
+    fclose(file);
+    return NULL;
+  }
 
   return file;
 }
@@ -180,15 +221,20 @@ PLL_EXPORT int pllmod_binary_partition_dump(FILE * bin_file,
   /* update header */
   if (fseek(bin_file, start_pos, SEEK_SET) == -1)
   {
+    file_io_error(bin_file, start_pos, "update position to header");
     return PLL_FAILURE;
   }
+
   block_header.block_len = (size_t) (end_pos - start_pos);
   if (!binary_block_header_apply(bin_file, &block_header, &bin_fwrite))
   {
+    assert(pll_errno);
     return PLL_FAILURE;
   }
+
   if (fseek(bin_file, end_pos, SEEK_SET) == -1)
   {
+    file_io_error(bin_file, end_pos, "update position to end");
     return PLL_FAILURE;
   }
 
@@ -214,7 +260,11 @@ PLL_EXPORT pll_partition_t * pllmod_binary_partition_load(FILE * bin_file,
       /* find offset */
       offset = binary_get_offset (bin_file, block_id);
       if (offset == PLLMOD_BIN_INVALID_OFFSET)
+      {
+        pllmod_set_error(PLLMOD_BIN_ERROR_BINARY_IO,
+                       "Cannot retrieve offset for block %d", block_id);
         return NULL;
+      }
     }
 
     /* apply offset */
@@ -424,7 +474,7 @@ PLL_EXPORT int pllmod_binary_clv_load(FILE * bin_file,
       if (offset == PLLMOD_BIN_INVALID_OFFSET)
       {
         pllmod_set_error(PLLMOD_BIN_ERROR_MISSING_BLOCK,
-                      "Cannot find block with id %d", block_id);
+                      "Cannot retrieve offset for block %d", block_id);
         return PLL_FAILURE;
       }
     }
@@ -469,6 +519,7 @@ PLL_EXPORT int pllmod_binary_clv_load(FILE * bin_file,
 
 static int cb_full_traversal(pll_utree_t * node)
 {
+  UNUSED(node);
   return 1;
 }
 
@@ -483,14 +534,25 @@ PLL_EXPORT int pllmod_binary_utree_dump(FILE * bin_file,
   unsigned int i, n_nodes, n_inner, n_utrees, trav_size;
   int retval;
 
+  /* reset error */
+  pll_errno = 0;
+
   n_inner = tip_count - 2;
   n_nodes = tip_count + n_inner;
   n_utrees = tip_count + 3 * n_inner;
 
   travbuffer = (pll_utree_t **)malloc(n_nodes* sizeof(pll_utree_t *));
 
+  if (!tree->next)
+  {
+    pllmod_set_error(PLLMOD_BIN_ERROR_BINARY_IO,
+                     "Tree should not be a tip node");
+    return PLL_FAILURE;
+  }
   if (!pll_utree_traverse(tree, cb_full_traversal, travbuffer, &trav_size))
   {
+    pllmod_set_error(PLLMOD_BIN_ERROR_BINARY_IO,
+                     "Error traversing utree");
     return PLL_FAILURE;
   }
 
@@ -505,12 +567,16 @@ PLL_EXPORT int pllmod_binary_utree_dump(FILE * bin_file,
   /* update main header */
   if(!binary_update_header(bin_file, &block_header))
   {
+    assert(pll_errno);
     return PLL_FAILURE;
   }
 
   /* dump block header */
   if (!binary_block_header_apply(bin_file, &block_header, &bin_fwrite))
+  {
+    assert(pll_errno);
     return PLL_FAILURE;
+  }
 
   /* traverse and dump data */
   for (i=0; i<trav_size; ++i)
@@ -520,8 +586,10 @@ PLL_EXPORT int pllmod_binary_utree_dump(FILE * bin_file,
                                1,
                                bin_fwrite))
     {
+      assert(pll_errno);
       return PLL_FAILURE;
     }
+
     if (travbuffer[i]->next)
     {
       retval = binary_node_apply (bin_file,
@@ -534,6 +602,7 @@ PLL_EXPORT int pllmod_binary_utree_dump(FILE * bin_file,
                                  bin_fwrite);
       if (!retval)
       {
+        assert(pll_errno);
         return PLL_FAILURE;
       }
     }
@@ -566,7 +635,11 @@ PLL_EXPORT pll_utree_t * pllmod_binary_utree_load(FILE * bin_file,
       /* find offset */
       offset = binary_get_offset (bin_file, block_id);
       if (offset == PLLMOD_BIN_INVALID_OFFSET)
+      {
+        pllmod_set_error(PLLMOD_BIN_ERROR_BINARY_IO,
+                         "Cannot retrieve offset for block %d", block_id);
         return NULL;
+      }
     }
 
     /* apply offset */
@@ -575,7 +648,10 @@ PLL_EXPORT pll_utree_t * pllmod_binary_utree_load(FILE * bin_file,
 
   /* read and validate header */
   if (!binary_block_header_apply(bin_file, &block_header, &bin_fread))
+  {
+    assert(pll_errno);
     return NULL;
+  }
 
   if (block_header.type != PLLMOD_BIN_BLOCK_TREE)
   {
@@ -603,6 +679,7 @@ PLL_EXPORT pll_utree_t * pllmod_binary_utree_load(FILE * bin_file,
     pll_utree_t * t = (pll_utree_t *) malloc(sizeof(pll_utree_t));
     if (!binary_node_apply (bin_file, t, 0, bin_fread))
     {
+      assert(pll_errno);
       return NULL;
     }
     if (t->next)
@@ -622,6 +699,7 @@ PLL_EXPORT pll_utree_t * pllmod_binary_utree_load(FILE * bin_file,
       }
       if (!retval)
       {
+        assert(pll_errno);
         return NULL;
       }
       t->next = t_l; t_l->next = t_r; t_r->next = t;
@@ -670,6 +748,7 @@ PLL_EXPORT int pllmod_binary_custom_dump(FILE * bin_file,
   block_header.attributes = attributes;
   block_header.block_len  = size;
   block_header.alignment  = 0;
+
   /* update main header */
   if(!binary_update_header(bin_file, &block_header))
   {
@@ -735,7 +814,11 @@ PLL_EXPORT void * pllmod_binary_custom_load(FILE * bin_file,
       /* find offset */
       offset = binary_get_offset(bin_file, block_id);
       if (offset == PLLMOD_BIN_INVALID_OFFSET)
+      {
+        pllmod_set_error(PLLMOD_BIN_ERROR_BINARY_IO,
+                         "Cannot retrieve offset for block %d", block_id);
         return NULL;
+      }
     }
 
     /* apply offset */

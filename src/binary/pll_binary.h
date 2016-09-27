@@ -115,6 +115,18 @@ PLL_EXPORT FILE * pllmod_binary_create(const char * filename,
  */
 PLL_EXPORT FILE * pllmod_binary_open(const char * filename,
                                      pll_binary_header_t * header);
+
+/**
+ *  Open file for appending
+ *
+ *  @param[in] filename file to append to
+ *  @param[out] header file header
+ *
+ *  @return pointer to the file
+ */
+PLL_EXPORT FILE * pllmod_binary_append_open(const char * filename,
+                                            pll_binary_header_t * header);
+
 /**
  *  Closes the binary file
  *
