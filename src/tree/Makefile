@@ -50,6 +50,7 @@ OBJS=pll_tree.o \
 		 utree_distances.o \
 		 treeinfo.o \
 		 consensus.o \
+		 tree_hashtable.o \
 		 $(DEPS)
 
 $(PROG): $(OBJS)

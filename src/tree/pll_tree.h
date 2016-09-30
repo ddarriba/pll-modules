@@ -54,6 +54,7 @@
 #define PLLMOD_TREE_ERROR_INVALID_TREE         3584 // B + {10...}
 #define PLLMOD_TREE_ERROR_INVALID_SPLIT        3712 // B + {10...}
 #define PLLMOD_TREE_ERROR_EMPTY_SPLIT          3840 // B + {10...}
+#define PLLMOD_TREE_ERROR_INVALID_THRESHOLD    3968 // B + {10...}
 
 #define PLLMOD_TREE_REARRANGE_SPR  0
 #define PLLMOD_TREE_REARRANGE_NNI  1
@@ -314,8 +315,11 @@ PLL_EXPORT int pllmod_utree_compatible_splits(pll_split_t s1,
 PLL_EXPORT pll_utree_t * pllmod_utree_from_splits(const pll_split_t * splits,
                                                   unsigned int split_count,
                                                   unsigned int tip_count,
-                                                  const char **tip_labels);
+                                                  char **tip_labels);
 
+PLL_EXPORT pll_utree_t * pllmod_utree_consensus(const char * trees_filename,
+                                                double threshold,
+                                                int extended);
 
 /* Additional utilities */
 /* functions at pll_tree.c */
