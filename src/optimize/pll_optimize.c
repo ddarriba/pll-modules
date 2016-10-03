@@ -808,6 +808,7 @@ static int recomp_iterative (pll_newton_tree_params_t * params,
     {
       /* fix new score */
       *loglikelihood_score = eval_loglikelihood;
+
 #endif
       /* update branch length in the tree structure */
       tr_p->length = xres;
@@ -986,7 +987,7 @@ PLL_EXPORT double pllmod_opt_optimize_branch_lengths_local (
     DBG("pllmod_opt_optimize_branch_lengths_local: iters %d, old: %f, new: %f\n",
         iters, loglikelihood, new_loglikelihood);
 
-    assert(new_loglikelihood >= loglikelihood);
+    assert(new_loglikelihood - loglikelihood > new_loglikelihood * 1e-14);
 
     iters --;
 
@@ -1096,6 +1097,9 @@ static void utree_derivative_func_multi (void * parameters, double proposal,
                                         params->precomp_buffers[p],
                                         &p_df, &p_ddf);
 
+    /* branches are scaled by the 1/(1.0-pinv) inside compute_derivatives !!! */
+    s /= (1. - params->partitions[p]->prop_invar[0]);
+
     /* chain rule! */
     *df += s * p_df;
     *ddf += s * s * p_ddf;
@@ -1141,8 +1145,6 @@ static int recomp_iterative_multi (pll_newton_tree_params_multi_t * params,
   xmax = params->branch_length_max;
   xtol = params->tolerance;
   xguess = tr_p->length;
-  if (xguess < xmin || xguess > xmax)
-    xguess = PLLMOD_OPT_DEFAULT_BRANCH_LEN;
 
   xres = pllmod_opt_minimize_newton (xmin, xguess, xmax, xtol,
                               10, params,
@@ -1150,6 +1152,8 @@ static int recomp_iterative_multi (pll_newton_tree_params_multi_t * params,
 
   if (pll_errno)
     return PLL_FAILURE;
+
+  assert(xres >= xmin);
 
   if (keep_update && fabs(tr_p->length - xres) > 1e-10)
   {
@@ -1181,6 +1185,9 @@ static int recomp_iterative_multi (pll_newton_tree_params_multi_t * params,
     /* check if the optimal found value improves the likelihood score */
     if (eval_loglikelihood >= *loglikelihood_score)
     {
+      DBG("ACCEPT: new BL: %.12lf, old BL: %.12lf, new LH: %.9lf, old LH: %.9lf\n",
+             xres, tr_p->length, eval_loglikelihood, *loglikelihood_score);
+
       /* fix new score */
       *loglikelihood_score = eval_loglikelihood;
 #endif
@@ -1192,6 +1199,9 @@ static int recomp_iterative_multi (pll_newton_tree_params_multi_t * params,
     }
     else
     {
+      DBG("REVERT: new BL: %.12lf, old BL: %.12lf, new LH: %.9lf, old LH: %.9lf\n",
+             xres, tr_p->length, eval_loglikelihood, *loglikelihood_score);
+
       /* reset branch length */
       for (p = 0; p < params->partition_count; ++p)
       {
@@ -1203,7 +1213,6 @@ static int recomp_iterative_multi (pll_newton_tree_params_multi_t * params,
                                  &(tr_p->pmatrix_index),
                                  &p_brlen, 1);
       }
-
     }
 #endif
   }
@@ -1291,6 +1300,7 @@ PLL_EXPORT double pllmod_opt_optimize_branch_lengths_local_multi (
   double loglikelihood = 0.0, new_loglikelihood;
   unsigned int sites_alloc;
   size_t p;
+  double result = (double) PLL_FAILURE;
 
   /**
    * preconditions:
@@ -1336,7 +1346,7 @@ PLL_EXPORT double pllmod_opt_optimize_branch_lengths_local_multi (
     {
       pllmod_set_error(PLL_ERROR_MEM_ALLOC,
                        "Cannot allocate memory for bl opt variables");
-      return PLL_FAILURE;
+      goto cleanup;
     }
 
     for (p = 0; p < partition_count; ++p)
@@ -1350,10 +1360,9 @@ PLL_EXPORT double pllmod_opt_optimize_branch_lengths_local_multi (
            sites_alloc * partition->rate_cats * partition->states_padded *
            sizeof(double), partition->alignment)) == NULL)
       {
-        // TODO: proper memory deallocation
         pllmod_set_error(PLL_ERROR_MEM_ALLOC,
                          "Cannot allocate memory for bl opt variables");
-        return PLL_FAILURE;
+        goto cleanup;
       }
     }
   }
@@ -1366,16 +1375,12 @@ PLL_EXPORT double pllmod_opt_optimize_branch_lengths_local_multi (
     /* iterate on first edge */
     params.tree = tree;
     if (!recomp_iterative_multi (&params, radius, &new_loglikelihood, keep_update))
-    {
-      return PLL_FAILURE;
-    }
+      goto cleanup;
 
     /* iterate on second edge */
     params.tree = tree->back;
     if (!recomp_iterative_multi (&params, radius-1, &new_loglikelihood, keep_update))
-    {
-      return PLL_FAILURE;
-    }
+      goto cleanup;
 
     /* compute likelihood after optimization */
     new_loglikelihood = pllmod_opt_compute_edge_loglikelihood_multi (
@@ -1389,10 +1394,10 @@ PLL_EXPORT double pllmod_opt_optimize_branch_lengths_local_multi (
                                                         params_indices,
                                                         NULL);
 
-    DBG("pllmod_opt_optimize_branch_lengths_local: iters %d, old: %f, new: %f\n",
-        iters, loglikelihood, new_loglikelihood);
+    DBG("BLO_multi: iteration %u, old LH: %.9f, new LH: %.9f\n",
+        (unsigned int) smoothings - iters, loglikelihood, new_loglikelihood);
 
-    assert(new_loglikelihood >= loglikelihood);
+    assert(new_loglikelihood - loglikelihood > new_loglikelihood * 1e-14);
 
     iters --;
 
@@ -1402,6 +1407,9 @@ PLL_EXPORT double pllmod_opt_optimize_branch_lengths_local_multi (
     loglikelihood = new_loglikelihood;
   }
 
+  result = -1*loglikelihood;
+
+cleanup:
   /* deallocate sumtable */
   if (!precomp_buffers)
   {
@@ -1413,5 +1421,5 @@ PLL_EXPORT double pllmod_opt_optimize_branch_lengths_local_multi (
     pll_aligned_free(params.precomp_buffers);
   }
 
-  return -1*loglikelihood;
+  return result;
 } /* pllmod_opt_optimize_branch_lengths_local */

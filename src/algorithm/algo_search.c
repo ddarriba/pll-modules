@@ -250,32 +250,19 @@ static double algo_optimize_bl_triplet(pll_utree_t * node,
                                        double bl_max,
                                        int smoothings)
 {
-  /* we don't really need this check, but let's be careful for now */
-  if (treeinfo->partition_count == 1)
-    return -1 * pllmod_opt_optimize_branch_lengths_local(
-                                                treeinfo->partitions[0],
-                                                node,
-                                                treeinfo->param_indices[0],
-                                                bl_min,
-                                                bl_max,
-                                                0.1,
-                                                smoothings,
-                                                1,
-                                                1);
-  else
-    return -1 * pllmod_opt_optimize_branch_lengths_local_multi(
-                                                    treeinfo->partitions,
-                                                    treeinfo->partition_count,
-                                                    node,
-                                                    treeinfo->param_indices,
-                                                    treeinfo->deriv_precomp,
-                                                    treeinfo->brlen_scalers,
-                                                    bl_min,
-                                                    bl_max,
-                                                    0.1,
-                                                    smoothings,
-                                                    1,    /* radius */
-                                                    1);    /* keep_update */
+  return -1 * pllmod_opt_optimize_branch_lengths_local_multi(
+                                                  treeinfo->partitions,
+                                                  treeinfo->partition_count,
+                                                  node,
+                                                  treeinfo->param_indices,
+                                                  treeinfo->deriv_precomp,
+                                                  treeinfo->brlen_scalers,
+                                                  bl_min,
+                                                  bl_max,
+                                                  0.1,
+                                                  smoothings,
+                                                  1,    /* radius */
+                                                  1);    /* keep_update */
 
 }
 
@@ -289,31 +276,19 @@ static double algo_optimize_bl_iterative(pllmod_treeinfo_t * treeinfo,
 
   pllmod_treeinfo_compute_loglh(treeinfo, 0);
 
-  /* we don't really need this check, but let's be careful for now */
-  if (treeinfo->partition_count == 1)
-    new_loglh = -1 * pllmod_opt_optimize_branch_lengths_iterative(
-                                                treeinfo->partitions[0],
-                                                treeinfo->root,
-                                                treeinfo->param_indices[0],
-                                                bl_min,
-                                                bl_max,
-                                                lh_epsilon,
-                                                smoothings,
-                                                1);
-  else
-    new_loglh = -1 * pllmod_opt_optimize_branch_lengths_local_multi(
-                                                    treeinfo->partitions,
-                                                    treeinfo->partition_count,
-                                                    treeinfo->root,
-                                                    treeinfo->param_indices,
-                                                    treeinfo->deriv_precomp,
-                                                    treeinfo->brlen_scalers,
-                                                    bl_min,
-                                                    bl_max,
-                                                    lh_epsilon,
-                                                    smoothings,
-                                                    -1,    /* radius */
-                                                    1);    /* keep_update */
+  new_loglh = -1 * pllmod_opt_optimize_branch_lengths_local_multi(
+                                                  treeinfo->partitions,
+                                                  treeinfo->partition_count,
+                                                  treeinfo->root,
+                                                  treeinfo->param_indices,
+                                                  treeinfo->deriv_precomp,
+                                                  treeinfo->brlen_scalers,
+                                                  bl_min,
+                                                  bl_max,
+                                                  lh_epsilon,
+                                                  smoothings,
+                                                  -1,    /* radius */
+                                                  1);    /* keep_update */
 
   return new_loglh;
 }
