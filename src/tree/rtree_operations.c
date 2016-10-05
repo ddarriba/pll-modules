@@ -246,6 +246,13 @@ PLL_EXPORT int pllmod_rtree_spr(pll_rtree_t * p_node,
   return PLL_SUCCESS;
 }
 
+/* re-roots the tree at the branch connecting `new_root` with its parent */
+PLL_EXPORT int pllmod_rtree_reroot(pll_rtree_t * root,
+                                   pll_rtree_t * new_root)
+{
+  return PLL_FAILURE;
+}
+
 static void rtree_nodes_at_node_dist_down(pll_rtree_t * root,
                                           pll_rtree_t ** outbuffer,
                                           unsigned int * node_count,

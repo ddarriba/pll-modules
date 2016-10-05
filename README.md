@@ -16,13 +16,21 @@ git clone https://github.com/ddarriba/pll-modules
 git submodule update --init --recursive
 ```
 
-To compile and install libpll with all modules, simply run:
+To compile and install libpll with all modules, run:
 
-```
-./install.sh <TARGET_DIR>
+```bash
+./autogen.sh
+./configure CPPFLAGS="-I/usr/local/include/libpll"
+make
+make install    # as root, otherwise run: sudo make install
 ```
 
-Alternatively, you can build libpll and individual modules manually, by running `make` in the respective `src` directories.
+The library will be installed on the operating system's standard paths.  For
+some GNU/Linux distributions it might be necessary to add that standard path
+(typically `/usr/local/lib`) to `/etc/ld.so.conf` and run `ldconfig`.
+
+Microsoft Windows compatibility was tested with a cross-compiler and seems to
+work out-of-the-box using [MingW](http://www.mingw.org/).
 
 ## Usage examples 
 
