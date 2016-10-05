@@ -70,6 +70,10 @@ have_avx=no
 have_sse=no
 have_ps2pdf=no
 
+#TODO: make it switchable
+#use_fast_blo=yes
+use_fast_blo=no
+
 AX_EXT
 
 if test "x${ax_cv_have_avx_ext}" = "xyes"; then
@@ -93,6 +97,7 @@ AS_IF([test "x${ax_cv_have_sse3_ext}" = "xyes"], [
 AM_CONDITIONAL(HAVE_AVX, test "x${have_avx}" = "xyes")
 AM_CONDITIONAL(HAVE_SSE, test "x${have_sse}" = "xyes")
 AM_CONDITIONAL(HAVE_PS2PDF, test "x${have_ps2pdf}" = "xyes")
+AM_CONDITIONAL(FAST_BLO, test "x${use_fast_blo}" = "xyes")
 AM_PROG_CC_C_O
 
 # check for PLL

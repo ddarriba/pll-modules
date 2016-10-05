@@ -12,6 +12,11 @@ else
 SSEFLAGS=
 endif
 
+OPTFLAGS=
+if FAST_BLO
+  OPTFLAGS+=-DNOCHECK_PERBRANCH_IMPR
+endif
+
 AM_CFLAGS=-Wall -Wsign-compare -D_GNU_SOURCE -std=c99 -O3
 
 LIBPLLHEADERS=\
@@ -27,7 +32,7 @@ libpll_optimize_la_SOURCES=\
      lbfgsb/subalgorithms.c \
 		 ../pllmod_common.c
 
-libpll_optimize_la_CFLAGS = $(AM_CFLAGS) $(AVXFLAGS) $(SSEFLAGS)
+libpll_optimize_la_CFLAGS = $(AM_CFLAGS) $(AVXFLAGS) $(SSEFLAGS) $(OPTFLAGS)
 
 # This is the version information for libtool and not the libpll version. For
 #  more information see:
