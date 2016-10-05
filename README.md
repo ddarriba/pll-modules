@@ -16,11 +16,17 @@ git clone https://github.com/ddarriba/pll-modules
 git submodule update --init --recursive
 ```
 
-To compile and install libpll with all modules, run:
+To compile and install module with the bundled version `libpll`, run:
+
+```bash
+./install-with-libpll.sh [TARGET_DIR]
+```
+
+Alternatively, if you want to use a different version of `libpll`, you can run:
 
 ```bash
 ./autogen.sh
-./configure CPPFLAGS="-Ilibs/libpll/src"
+./configure CPPFLAGS="-Ipath/to/libpll" LDFLAGS="-Lpath/to/libpll"
 make
 make install    # as root, otherwise run: sudo make install
 ```
