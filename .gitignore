@@ -29,3 +29,13 @@
 
 # Debug files
 *.dSYM/
+
+# Autotools
+config.*
+configure
+Makefile
+Makefile.in
+
+# Build files
+.deps
+.lib

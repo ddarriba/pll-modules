@@ -9,18 +9,34 @@ Exportable functions in this module start either with the prefix `pllmod_algo_`.
 
 ## Compilation instructions
 
-The module can be compiled using the included Makefile:
-
-`make`
-
-Microsoft Windows compatibility was tested with a cross-compiler and seems to
-work out-of-the-box using [MingW](http://www.mingw.org/).
+Read the compilation instructions at the main README file
 
 ## Code
 
 The code is written in C.
 
-    File              | Description
-----------------------|----------------
-**pll_modalgorithm.c** | High level algorithms.
-**algo_callback.c**    | Internal callback functions
+|     File              | Description                                |
+|-----------------------|--------------------------------------------|
+|**pllmod_algorithm.c** | High level algorithms.                     |
+|**algo_callback.c**    | Internal callback functions.               |
+|**algo_search.c**      | Internal functions for topological search. |
+
+## Type definitions
+
+* struct `cutoff_info_t`
+
+## Functions
+
+### Functions for optimization
+
+* `double pllmod_algo_opt_frequencies`
+* `double pllmod_algo_opt_subst_rates`
+* `double pllmod_algo_opt_alpha`
+* `double pllmod_algo_opt_pinv`
+* `double pllmod_algo_opt_alpha_pinv`
+* `double pllmod_algo_opt_rates_weights`
+* `double pllmod_algo_opt_brlen_scaler`
+
+### Functions for topological search
+
+* `double pllmod_algo_spr_round`
