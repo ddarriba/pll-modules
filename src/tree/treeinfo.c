@@ -214,6 +214,20 @@ PLL_EXPORT pllmod_treeinfo_t * pllmod_treeinfo_create(pll_utree_t * root,
   return treeinfo;
 }
 
+PLL_EXPORT
+int pllmod_treeinfo_set_parallel_context(pllmod_treeinfo_t * treeinfo,
+                                         void * parallel_context,
+                                         void (*parallel_reduce_cb)(void *,
+                                                                    double *,
+                                                                    size_t))
+{
+  treeinfo->parallel_context = parallel_context;
+  treeinfo->parallel_reduce_cb = parallel_reduce_cb;
+
+  return PLL_SUCCESS;
+}
+
+
 PLL_EXPORT int pllmod_treeinfo_init_partition(pllmod_treeinfo_t * treeinfo,
                                            unsigned int partition_index,
                                            pll_partition_t * partition,
@@ -626,10 +640,19 @@ PLL_EXPORT double pllmod_treeinfo_compute_loglh(pllmod_treeinfo_t * treeinfo,
                                             treeinfo->root->pmatrix_index,
                                             treeinfo->param_indices[p],
                                             NULL);
-
-    /* accumalate loglh by summing up over all the partitions */
-    total_loglh += treeinfo->partition_loglh[p];
   }
+
+  /* sum up likelihood from all threads */
+  if (treeinfo->parallel_reduce_cb)
+  {
+    treeinfo->parallel_reduce_cb(treeinfo->parallel_context,
+                                 treeinfo->partition_loglh,
+                                 p);
+  }
+
+  /* accumalate loglh by summing up over all the partitions */
+  for (p = 0; p < treeinfo->partition_count; ++p)
+    total_loglh += treeinfo->partition_loglh[p];
 
   /* restore original active partition */
   pllmod_treeinfo_set_active_partition(treeinfo, old_active_partition);

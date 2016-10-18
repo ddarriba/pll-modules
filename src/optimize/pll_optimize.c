@@ -18,6 +18,7 @@
  Exelixis Lab, Heidelberg Instutute for Theoretical Studies
  Schloss-Wolfsbrunnenweg 35, D-69118 Heidelberg, Germany
  */
+
 #include "pll_optimize.h"
 #include "lbfgsb/lbfgsb.h"
 #include "../pllmod_common.h"
@@ -1054,7 +1055,11 @@ PLL_EXPORT double pllmod_opt_compute_edge_loglikelihood_multi(
                                               int child_scaler_index,
                                               unsigned int matrix_index,
                                               unsigned int ** const params_indices,
-                                              double * persite_lnl)
+                                              double * persite_lnl,
+                                              void * parallel_context,
+                                              void (*parallel_reduce_cb)(void *,
+                                                                         double *,
+                                                                         size_t))
 {
   double total_loglh = 0.;
 
@@ -1070,6 +1075,9 @@ PLL_EXPORT double pllmod_opt_compute_edge_loglikelihood_multi(
                                                   params_indices[p],
                                                   NULL);
   }
+
+  if (parallel_reduce_cb)
+    parallel_reduce_cb(parallel_context, &total_loglh, 1);
 
   return total_loglh;
 }
@@ -1097,12 +1105,17 @@ static void utree_derivative_func_multi (void * parameters, double proposal,
                                         params->precomp_buffers[p],
                                         &p_df, &p_ddf);
 
-    /* branches are scaled by the 1/(1.0-pinv) inside compute_derivatives !!! */
-    s /= (1. - params->partitions[p]->prop_invar[0]);
-
     /* chain rule! */
     *df += s * p_df;
     *ddf += s * s * p_ddf;
+  }
+
+  if (params->parallel_reduce_cb)
+  {
+    double d[2] = {*df, *ddf};
+    params->parallel_reduce_cb(params->parallel_context, d, 2);
+    *df = d[0];
+    *ddf = d[1];
   }
 }
 
@@ -1180,7 +1193,9 @@ static int recomp_iterative_multi (pll_newton_tree_params_multi_t * params,
                                                       tr_p->back->scaler_index,
                                                       tr_p->pmatrix_index,
                                                       params->params_indices,
-                                                      NULL);
+                                                      NULL,
+                                                      params->parallel_context,
+                                                      params->parallel_reduce_cb);
 
     /* check if the optimal found value improves the likelihood score */
     if (eval_loglikelihood >= *loglikelihood_score)
@@ -1294,7 +1309,11 @@ PLL_EXPORT double pllmod_opt_optimize_branch_lengths_local_multi (
                                               double tolerance,
                                               int smoothings,
                                               int radius,
-                                              int keep_update)
+                                              int keep_update,
+                                              void * parallel_context,
+                                              void (*parallel_reduce_cb)(void *,
+                                                                         double *,
+                                                                         size_t))
 {
   unsigned int iters;
   double loglikelihood = 0.0, new_loglikelihood;
@@ -1318,7 +1337,9 @@ PLL_EXPORT double pllmod_opt_optimize_branch_lengths_local_multi (
                                                       tree->scaler_index,
                                                       tree->pmatrix_index,
                                                       params_indices,
-                                                      NULL);
+                                                      NULL,
+                                                      parallel_context,
+                                                      parallel_reduce_cb);
 
   /* set parameters for N-R optimization */
   pll_newton_tree_params_multi_t params;
@@ -1337,6 +1358,9 @@ PLL_EXPORT double pllmod_opt_optimize_branch_lengths_local_multi (
                               PLLMOD_OPT_TOL_BRANCH_LEN;
   params.precomp_buffers   = precomp_buffers;
   params.brlen_scalers     = brlen_scalers;
+
+  params.parallel_context = parallel_context;
+  params.parallel_reduce_cb = parallel_reduce_cb;
 
   /* allocate the sumtable if needed */
   if (!params.precomp_buffers)
@@ -1392,7 +1416,9 @@ PLL_EXPORT double pllmod_opt_optimize_branch_lengths_local_multi (
                                                         tree->scaler_index,
                                                         tree->pmatrix_index,
                                                         params_indices,
-                                                        NULL);
+                                                        NULL,
+                                                        parallel_context,
+                                                        parallel_reduce_cb);
 
     DBG("BLO_multi: iteration %u, old LH: %.9f, new LH: %.9f\n",
         (unsigned int) smoothings - iters, loglikelihood, new_loglikelihood);

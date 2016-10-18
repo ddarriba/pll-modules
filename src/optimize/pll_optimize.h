@@ -152,6 +152,10 @@ typedef struct
   double branch_length_min;
   double branch_length_max;
   double tolerance;
+  void * parallel_context;
+  void (*parallel_reduce_cb)(void *,
+                             double *,
+                             size_t);
 } pll_newton_tree_params_multi_t;
 
 /******************************************************************************/
@@ -254,7 +258,11 @@ PLL_EXPORT double pllmod_opt_optimize_branch_lengths_local_multi (
                                               double tolerance,
                                               int smoothings,
                                               int radius,
-                                              int keep_update);
+                                              int keep_update,
+                                              void * parallel_context,
+                                              void (*parallel_reduce_cb)(void *,
+                                                                         double *,
+                                                                         size_t));
 
 
 #endif /* PLL_OPTIMIZE_H_ */

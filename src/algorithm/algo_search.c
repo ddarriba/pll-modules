@@ -262,7 +262,9 @@ static double algo_optimize_bl_triplet(pll_utree_t * node,
                                                   0.1,
                                                   smoothings,
                                                   1,    /* radius */
-                                                  1);    /* keep_update */
+                                                  1,    /* keep_update */
+                                                  treeinfo->parallel_context,
+                                                  treeinfo->parallel_reduce_cb);
 
 }
 
@@ -288,7 +290,9 @@ static double algo_optimize_bl_iterative(pllmod_treeinfo_t * treeinfo,
                                                   lh_epsilon,
                                                   smoothings,
                                                   -1,    /* radius */
-                                                  1);    /* keep_update */
+                                                  1,    /* keep_update */
+                                                  treeinfo->parallel_context,
+                                                  treeinfo->parallel_reduce_cb);
 
   return new_loglh;
 }

@@ -172,6 +172,10 @@ typedef struct treeinfo
 
   // general-purpose counter
   unsigned int counter;
+
+  // parallelization stuff
+  void * parallel_context;
+  void (*parallel_reduce_cb)(void *, double *, size_t);
 } pllmod_treeinfo_t;
 
 /* Topological rearrangements */
@@ -365,6 +369,13 @@ PLL_EXPORT pllmod_treeinfo_t * pllmod_treeinfo_create(pll_utree_t * root,
                                                      unsigned int tips,
                                                      unsigned int partitions,
                                                      int brlen_linkage);
+
+PLL_EXPORT
+int pllmod_treeinfo_set_parallel_context(pllmod_treeinfo_t * treeinfo,
+                                         void * parallel_context,
+                                         void (*parallel_reduce_cb)(void *,
+                                                                    double *,
+                                                                    size_t));
 
 PLL_EXPORT int pllmod_treeinfo_init_partition(pllmod_treeinfo_t * treeinfo,
                                            unsigned int partition_index,
