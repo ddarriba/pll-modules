@@ -981,14 +981,17 @@ PLL_EXPORT pll_msa_t ** pllmod_msa_split(const pll_msa_t * msa,
   /* compute partition sizes */
   for (j = 0; j < (unsigned long) msa->length; j++)
   {
-    p = site_part[j]-1;
-    if (p < part_count)
-      part_len[p]++;
-    else
+    if (site_part[j])
     {
-      pllmod_set_error(PLLMOD_ERROR_INVALID_INDEX,
-                       "Partition index out of bounds: %u", p);
-      goto error_exit;
+      p = site_part[j]-1;
+      if (p < part_count)
+        part_len[p]++;
+      else
+      {
+        pllmod_set_error(PLLMOD_ERROR_INVALID_INDEX,
+                         "Partition index out of bounds: %u", p);
+        goto error_exit;
+      }
     }
   }
 
@@ -1015,12 +1018,16 @@ PLL_EXPORT pll_msa_t ** pllmod_msa_split(const pll_msa_t * msa,
 
   for (j = 0; j < (unsigned long) msa->length; j++)
   {
-    p = site_part[j]-1;
-    assert(p >= 0 && p < part_count);
-    const unsigned int len = (unsigned int) part_msa_list[p]->length;
-    part_msa_list[p]->length++;
-    for (i = 0; i < (unsigned long) msa->count; i++)
-      part_msa_list[p]->sequence[i][len] = msa->sequence[i][j];
+    /* partition index of 0 means that site should be skipped */
+    if (site_part[j])
+    {
+      p = site_part[j]-1;
+      assert(p >= 0 && p < part_count);
+      const unsigned int len = (unsigned int) part_msa_list[p]->length;
+      part_msa_list[p]->length++;
+      for (i = 0; i < (unsigned long) msa->count; i++)
+        part_msa_list[p]->sequence[i][len] = msa->sequence[i][j];
+    }
   }
 
   free(part_len);
