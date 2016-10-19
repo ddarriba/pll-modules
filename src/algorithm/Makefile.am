@@ -25,11 +25,13 @@ libpll_algorithm_la_SOURCES=\
 		 ../pllmod_common.c
 
 libpll_algorithm_la_CFLAGS = $(AM_CFLAGS) $(AVXFLAGS) $(SSEFLAGS)
-
-# This is the version information for libtool and not the libpll version. For
-#  more information see:
-# https://www.gnu.org/software/libtool/manual/html_node/Updating-version-info.html
 libpll_algorithm_la_LDFLAGS = -version-info 0:0:0
+if HAVE_PLL_DPKG
+  libpll_algorithm_la_CPPFLAGS = $(PLL_CFLAGS)
+else
+  libpll_algorithm_la_CPPFLAGS = -I$(includedir)/libpll
+endif
+
 
 pkgincludedir=$(includedir)/libpll
 pkginclude_HEADERS = pllmod_algorithm.h 

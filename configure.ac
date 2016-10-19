@@ -44,7 +44,9 @@ AC_CHECK_LIB([m],[exp])
 
 # Checks for header files.
 AC_CHECK_HEADERS([assert.h math.h stdio.h stdlib.h string.h ctype.h x86intrin.h])
-AC_CHECK_HEADERS([pll.h], [], [AC_MSG_ERROR([pll.h not found])])
+AC_CHECK_HEADERS([libpll/pll.h], [], [AC_MSG_ERROR([pll.h not found])])
+PKG_CHECK_MODULES([PLL], [libpll], [have_pll=yes], [have_pll=no])
+AM_CONDITIONAL(HAVE_PLL_DPKG, test "x${have_pll}" = "xyes")
 
 #AC_CHECK_HEADERS([pll.h],
 #        [mypj_found_int_headers=yes; break;])
@@ -61,10 +63,7 @@ AC_TYPE_UINT64_T
 AC_TYPE_UINT8_T
 
 # Checks for library functions.
-AC_FUNC_MALLOC
-AC_FUNC_ALLOCA
-AC_FUNC_REALLOC
-AC_CHECK_FUNCS([asprintf memcpy memset posix_memalign])
+AC_CHECK_FUNCS([malloc realloc asprintf memcpy memset])
 
 have_avx=no
 have_sse=no
