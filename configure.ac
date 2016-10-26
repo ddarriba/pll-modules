@@ -44,8 +44,8 @@ AC_CHECK_LIB([m],[exp])
 
 # Checks for header files.
 AC_CHECK_HEADERS([assert.h math.h stdio.h stdlib.h string.h ctype.h x86intrin.h])
-AC_CHECK_HEADERS([libpll/pll.h], [], [AC_MSG_ERROR([pll.h not found])])
-PKG_CHECK_MODULES([PLL], [libpll], [have_pll=yes], [have_pll=no])
+AC_CHECK_HEADERS([pll.h], [], [AC_MSG_ERROR([pll.h not found])])
+#PKG_CHECK_MODULES([PLL], [libpll], [have_pll=yes], [have_pll=no])
 AM_CONDITIONAL(HAVE_PLL_DPKG, test "x${have_pll}" = "xyes")
 
 #AC_CHECK_HEADERS([pll.h],
@@ -70,8 +70,8 @@ have_sse=no
 have_ps2pdf=no
 
 #TODO: make it switchable
-#use_fast_blo=yes
-use_fast_blo=no
+use_fast_blo=yes
+#use_fast_blo=no
 
 AX_EXT
 
