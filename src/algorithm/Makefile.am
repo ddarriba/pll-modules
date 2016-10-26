@@ -25,6 +25,7 @@ libpll_algorithm_la_SOURCES=\
 		 ../pllmod_common.c
 
 libpll_algorithm_la_CFLAGS = $(AM_CFLAGS) $(AVXFLAGS) $(SSEFLAGS)
+libpll_algorithm_la_CPPFLAGS = $(AM_CPPFLAGS) 
 libpll_algorithm_la_LDFLAGS = -version-info 0:0:0
 if HAVE_PLL_DPKG
   libpll_algorithm_la_CPPFLAGS += $(PLL_CFLAGS)
