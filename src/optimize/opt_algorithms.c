@@ -272,6 +272,255 @@ PLL_EXPORT double pllmod_opt_minimize_lbfgsb (double * x,
 #define SHFT(a,b,c,d) (a)=(b);(b)=(c);(c)=(d);
 #define SIGN(a,b) ((b) >= 0.0 ? fabs(a) : -fabs(a))
 
+struct opt_params
+{
+  double tol;
+  double *foptx;
+  double *f2optx;
+
+  int iter;
+  double a;
+  double b;
+  double d;
+  double etemp;
+  double fu;
+  double fv;
+  double fw;
+  double fx;
+  double p;
+  double q;
+  double r;
+  double tol1;
+  double tol2;
+  double u;
+  double v;
+  double w;
+  double x;
+  double xm;
+  double xw;
+  double wv;
+  double vx;
+  double e;
+};
+
+static int brent_opt_init (double ax, double bx, double cx, double tol,
+                         double *foptx, double *f2optx, double fax,
+                         double fbx, double fcx,
+                         struct opt_params * bp)
+{
+  memset(bp, 0, sizeof(struct opt_params));
+  double etemp;
+
+  bp->tol = tol;
+  bp->foptx = foptx;
+  bp->f2optx = f2optx;
+
+  bp->a = (ax < cx ? ax : cx);
+  bp->b = (ax > cx ? ax : cx);
+  bp->x = bx;
+  bp->fx = fbx;
+  if (fax < fcx)
+  {
+    bp->w = ax;
+    bp->fw = fax;
+    bp->v = cx;
+    bp->fv = fcx;
+  }
+  else
+  {
+    bp->w = cx;
+    bp->fw = fcx;
+    bp->v = ax;
+    bp->fv = fax;
+  }
+
+  /* pre-loop iteration 0 */
+  bp->iter = 1;
+
+  bp->xm = 0.5 * (bp->a + bp->b);
+  bp->tol2 = 2.0 * (bp->tol1 = bp->tol * fabs (bp->x) + ZEPS);
+  if (fabs (bp->x - bp->xm) <= (bp->tol2 - 0.5 * (bp->b - bp->a)))
+  {
+    *bp->foptx = bp->fx;
+    bp->xw = bp->x - bp->w;
+    bp->wv = bp->w - bp->v;
+    bp->vx = bp->v - bp->x;
+    *bp->f2optx = 2.0 * (bp->fv * bp->xw + bp->fx * bp->wv + bp->fw * bp->vx)
+        / (bp->v * bp->v * bp->xw + bp->x * bp->x * bp->wv + bp->w * bp->w * bp->vx);
+    return PLL_FAILURE;
+  }
+
+  if (fabs (bp->e) > bp->tol1)
+  {
+    bp->r = (bp->x - bp->w) * (bp->fx - bp->fv);
+    bp->q = (bp->x - bp->v) * (bp->fx - bp->fw);
+    bp->p = (bp->x - bp->v) * bp->q - (bp->x - bp->w) * bp->r;
+    bp->q = 2.0 * (bp->q - bp->r);
+    if (bp->q > 0.0)
+      bp->p = -bp->p;
+    bp->q = fabs (bp->q);
+    etemp = bp->e;
+    bp->e = bp->d;
+    if (fabs (bp->p) >= fabs (0.5 * bp->q * etemp) || bp->p <= bp->q * (bp->a - bp->x)
+        || bp->p >= bp->q * (bp->b - bp->x))
+      bp->d = CGOLD * (bp->e = (bp->x >= bp->xm ? bp->a - bp->x : bp->b - bp->x));
+    else /*TODO:CONTINUE HERE!!!!!!!!!!!!!!!!!!!!!!!!!*/
+    {
+      bp->d = bp->p / bp->q;
+      bp->u = bp->x + bp->d;
+      if (bp->u - bp->a < bp->tol2 || bp->b - bp->u < bp->tol2)
+        bp->d = SIGN(bp->tol1, bp->xm - bp->x);
+    }
+  }
+  else
+  {
+    bp->d = CGOLD * (bp->e = (bp->x >= bp->xm ? bp->a - bp->x : bp->b - bp->x));
+  }
+
+  bp->u = (fabs (bp->d) >= bp->tol1 ? bp->x + bp->d : bp->x + SIGN(bp->tol1, bp->d));
+  return PLL_SUCCESS;
+}
+
+static int brent_opt_post_loop (struct opt_params * bp)
+{
+  double etemp;
+
+  /* post-loop iteration i */
+
+  if (bp->fu <= bp->fx)
+  {
+    if (bp->u >= bp->x)
+      bp->a = bp->x;
+    else
+      bp->b = bp->x;
+
+    SHFT(bp->v, bp->w, bp->x, bp->u)
+    SHFT(bp->fv, bp->fw, bp->fx, bp->fu)
+  }
+  else
+  {
+    if (bp->u < bp->x)
+      bp->a = bp->u;
+    else
+      bp->b = bp->u;
+    if (bp->fu <= bp->fw || bp->w == bp->x)
+    {
+      bp->v = bp->w;
+      bp->w = bp->u;
+      bp->fv = bp->fw;
+      bp->fw = bp->fu;
+    }
+    else if (bp->fu <= bp->fv || bp->v == bp->x || bp->v == bp->w)
+    {
+      bp->v = bp->u;
+      bp->fv = bp->fu;
+    }
+  }
+
+  /* pre-loop iteration i+1*/
+
+  ++bp->iter;
+
+  bp->xm = 0.5 * (bp->a + bp->b);
+  bp->tol2 = 2.0 * (bp->tol1 = bp->tol * fabs (bp->x) + ZEPS);
+  if (fabs (bp->x - bp->xm) <= (bp->tol2 - 0.5 * (bp->b - bp->a)))
+  {
+    *bp->foptx = bp->fx;
+    bp->xw = bp->x - bp->w;
+    bp->wv = bp->w - bp->v;
+    bp->vx = bp->v - bp->x;
+    *bp->f2optx = 2.0 * (bp->fv * bp->xw + bp->fx * bp->wv + bp->fw * bp->vx)
+        / (bp->v * bp->v * bp->xw + bp->x * bp->x * bp->wv + bp->w * bp->w * bp->vx);
+    return PLL_FAILURE;
+  }
+
+  if (fabs (bp->e) > bp->tol1)
+  {
+    bp->r = (bp->x - bp->w) * (bp->fx - bp->fv);
+    bp->q = (bp->x - bp->v) * (bp->fx - bp->fw);
+    bp->p = (bp->x - bp->v) * bp->q - (bp->x - bp->w) * bp->r;
+    bp->q = 2.0 * (bp->q - bp->r);
+    if (bp->q > 0.0)
+      bp->p = -bp->p;
+    bp->q = fabs (bp->q);
+    etemp = bp->e;
+    bp->e = bp->d;
+    if (fabs (bp->p) >= fabs (0.5 * bp->q * etemp) || bp->p <= bp->q * (bp->a - bp->x)
+        || bp->p >= bp->q * (bp->b - bp->x))
+      bp->d = CGOLD * (bp->e = (bp->x >= bp->xm ? bp->a - bp->x : bp->b - bp->x));
+    else
+    {
+      bp->d = bp->p / bp->q;
+      bp->u = bp->x + bp->d;
+      if (bp->u - bp->a < bp->tol2 || bp->b - bp->u < bp->tol2)
+        bp->d = SIGN(bp->tol1, bp->xm - bp->x);
+    }
+  }
+  else
+  {
+    bp->d = CGOLD * (bp->e = (bp->x >= bp->xm ? bp->a - bp->x : bp->b - bp->x));
+  }
+
+  bp->u = (fabs (bp->d) >= bp->tol1 ? bp->x + bp->d : bp->x + SIGN(bp->tol1, bp->d));
+
+  return PLL_SUCCESS;
+}
+
+static double brent_opt_alt (double ax, double bx, double cx, double tol,
+                             double *foptx, double *f2optx, double fax,
+                             double fbx, double fcx,
+                             void * params,
+                             double (*target_funk)(
+                                 void *,
+                                 double))
+{
+  struct opt_params brent_params;
+  int iterate = 1;
+
+  /* this function is a refactored version of brent_opt */
+  /* if we consider the following structure:
+   *
+   * 	(a) initialization block
+   * 	(b) main loop:
+   * 	  (b.1) loop pre-score
+   * 	  (b.2) loop score (call to target)
+   * 	  (b.3) loop post-score
+   *
+   * the loop has been removed and it has been split into 2 functions:
+   *
+   * 1. brent_opt_init, that covers (a) and (b.1)
+   * 2. brent_opt_post_loop, that covers (b.3) and (b.1)
+   *
+   * This way, brent_opt can be refactored as follows:
+   *
+   * (A) brent_opt_init
+   * (B) main loop
+   * 	(B.1) loop score (call to target)
+   * 	(B.2) brent_opt_post_loop
+   *
+   * For parallel execution, the synchronization point occurs right at the
+   * beginning of the loop.
+   *
+   * Moreover, the optimization state is encapsulated in a `struct opt_params *`
+   * that can be defined as an array holding the optimization state for each
+   * local partition.
+   *
+   * I observed no impact in results nor in runtime
+   */
+
+
+  if (!brent_opt_init(ax, bx, cx, tol, foptx, f2optx, fax, fbx, fcx, &brent_params))
+    return brent_params.x;
+
+  while (iterate && brent_params.iter <= ITMAX)
+  {
+    brent_params.fu = target_funk (params, brent_params.u);
+    iterate = brent_opt_post_loop(&brent_params);
+  }
+
+  return brent_params.x;
+}
+
 static double brent_opt (double ax, double bx, double cx, double tol,
                          double *foptx, double *f2optx, double fax,
                          double fbx, double fcx,
@@ -448,7 +697,7 @@ PLL_EXPORT double pllmod_opt_minimize_brent(double xmin,
     cx = xmax;
   }
 
-  optx = brent_opt (ax, bx, cx, xtol, fx, f2x, fa, fb, fc, params,
+  optx = brent_opt_alt (ax, bx, cx, xtol, fx, f2x, fa, fb, fc, params,
                     target_funk);
   if (*fx > fb) // if worse, return initial value
   {
