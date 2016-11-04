@@ -6,7 +6,7 @@ if [ "$#" -eq 0 ]; then
 else
   PREFIX=$(readlink -f $1)
   PREFIX_ARG=--prefix=$PREFIX 
-  PLLMOD_PREFIX_ARG="$PREFIX_ARG CPPFLAGS=\"-I$PREFIX/include/libpll\" LDFLAGS=\"-L$PREFIX/lib\""
+  PLLMOD_PREFIX_ARG="$PREFIX_ARG CPPFLAGS="-I$PREFIX/include/libpll" LDFLAGS="-L$PREFIX/lib""
   mkdir -p $PREFIX
 fi
 
