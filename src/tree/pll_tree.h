@@ -154,6 +154,7 @@ typedef struct treeinfo
   double ** branch_lengths;
   double * brlen_scalers;
   double * partition_loglh;
+  int * params_to_optimize;
 
   /* precomputation buffers for derivatives (aka "sumtable") */
   double ** deriv_precomp;
@@ -380,6 +381,7 @@ int pllmod_treeinfo_set_parallel_context(pllmod_treeinfo_t * treeinfo,
 PLL_EXPORT int pllmod_treeinfo_init_partition(pllmod_treeinfo_t * treeinfo,
                                            unsigned int partition_index,
                                            pll_partition_t * partition,
+                                           int params_to_optimize,
                                            double alpha,
                                            const unsigned int * param_indices,
                                            const int * subst_matrix_symmetries);

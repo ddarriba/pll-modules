@@ -274,6 +274,9 @@ PLL_EXPORT double pllmod_opt_minimize_lbfgsb (double * x,
 
 struct opt_params
 {
+  double startx;
+  double fstartx;
+
   double tol;
   double *foptx;
   double *f2optx;
@@ -303,6 +306,12 @@ struct opt_params
   double e;
 };
 
+struct brent_wrapper_params
+{
+  double (*target_funk)(void *, double);
+  void * params;
+};
+
 static int brent_opt_init (double ax, double bx, double cx, double tol,
                          double *foptx, double *f2optx, double fax,
                          double fbx, double fcx,
@@ -317,8 +326,8 @@ static int brent_opt_init (double ax, double bx, double cx, double tol,
 
   bp->a = (ax < cx ? ax : cx);
   bp->b = (ax > cx ? ax : cx);
-  bp->x = bx;
-  bp->fx = fbx;
+  bp->startx = bp->x = bx;
+  bp->fstartx = bp->fx = fbx;
   if (fax < fcx)
   {
     bp->w = ax;
@@ -341,12 +350,16 @@ static int brent_opt_init (double ax, double bx, double cx, double tol,
   bp->tol2 = 2.0 * (bp->tol1 = bp->tol * fabs (bp->x) + ZEPS);
   if (fabs (bp->x - bp->xm) <= (bp->tol2 - 0.5 * (bp->b - bp->a)))
   {
-    *bp->foptx = bp->fx;
+    if (bp->foptx)
+      *bp->foptx = bp->fx;
     bp->xw = bp->x - bp->w;
     bp->wv = bp->w - bp->v;
     bp->vx = bp->v - bp->x;
-    *bp->f2optx = 2.0 * (bp->fv * bp->xw + bp->fx * bp->wv + bp->fw * bp->vx)
-        / (bp->v * bp->v * bp->xw + bp->x * bp->x * bp->wv + bp->w * bp->w * bp->vx);
+    if (bp->f2optx)
+    {
+      *bp->f2optx = 2.0 * (bp->fv * bp->xw + bp->fx * bp->wv + bp->fw * bp->vx)
+          / (bp->v * bp->v * bp->xw + bp->x * bp->x * bp->wv + bp->w * bp->w * bp->vx);
+    }
     return PLL_FAILURE;
   }
 
@@ -425,12 +438,16 @@ static int brent_opt_post_loop (struct opt_params * bp)
   bp->tol2 = 2.0 * (bp->tol1 = bp->tol * fabs (bp->x) + ZEPS);
   if (fabs (bp->x - bp->xm) <= (bp->tol2 - 0.5 * (bp->b - bp->a)))
   {
-    *bp->foptx = bp->fx;
+    if (bp->foptx)
+      *bp->foptx = bp->fx;
     bp->xw = bp->x - bp->w;
     bp->wv = bp->w - bp->v;
     bp->vx = bp->v - bp->x;
-    *bp->f2optx = 2.0 * (bp->fv * bp->xw + bp->fx * bp->wv + bp->fw * bp->vx)
-        / (bp->v * bp->v * bp->xw + bp->x * bp->x * bp->wv + bp->w * bp->w * bp->vx);
+    if (bp->f2optx)
+    {
+      *bp->f2optx = 2.0 * (bp->fv * bp->xw + bp->fx * bp->wv + bp->fw * bp->vx)
+          / (bp->v * bp->v * bp->xw + bp->x * bp->x * bp->wv + bp->w * bp->w * bp->vx);
+    }
     return PLL_FAILURE;
   }
 
@@ -466,16 +483,67 @@ static int brent_opt_post_loop (struct opt_params * bp)
   return PLL_SUCCESS;
 }
 
-static double brent_opt_alt (double ax, double bx, double cx, double tol,
-                             double *foptx, double *f2optx, double fax,
-                             double fbx, double fcx,
-                             void * params,
-                             double (*target_funk)(
-                                 void *,
-                                 double))
+double target_funk_wrapper(void * params,
+                           double * xopt,
+                           double * fxopt,
+                           int * converged)
 {
-  struct opt_params brent_params;
+  struct brent_wrapper_params * wrap_params =
+      (struct brent_wrapper_params *) params;
+
+  *fxopt = wrap_params->target_funk(wrap_params->params, *xopt);
+
+  return *fxopt;
+}
+
+static int brent_opt_alt (int xnum,
+                          double * xmin,
+                          double * xguess,
+                          double * xmax,
+                          double xtol,
+                          double * xopt,
+                          double * fx,
+                          double * f2x,
+                          void * params,
+                          double (*target_funk)(
+                                  void *,
+                                  double *,
+                                  double *,
+                                  int *),
+                          int global_range)
+{
+  struct opt_params * brent_params = (struct opt_params *)
+      calloc(xnum, sizeof(struct opt_params));
+
+  double * ax = (double *) calloc(xnum, sizeof(double));
+  double * cx = (double *) calloc(xnum, sizeof(double));
+  double * fa = (double *) calloc(xnum, sizeof(double));
+  double * fb = (double *) calloc(xnum, sizeof(double));
+  double * fc = (double *) calloc(xnum, sizeof(double));
+  double * fxmin = (double *) calloc(xnum, sizeof(double));
+  double * fxmax = (double *) calloc(xnum, sizeof(double));
+
+  double * l_xmin = NULL;
+  double * l_xmax = NULL;
+
+  int i;
   int iterate = 1;
+
+  if (global_range)
+  {
+    l_xmin = (double *) calloc(xnum, sizeof(double));
+    l_xmax = (double *) calloc(xnum, sizeof(double));
+    for (i = 0; i < xnum; ++i)
+    {
+      l_xmin[i] = *xmin;
+      l_xmax[i] = *xmax;
+    }
+  }
+  else
+  {
+    l_xmin = xmin;
+    l_xmax = xmax;
+  }
 
   /* this function is a refactored version of brent_opt */
   /* if we consider the following structure:
@@ -507,18 +575,119 @@ static double brent_opt_alt (double ax, double bx, double cx, double tol,
    *
    * I observed no impact in results nor in runtime
    */
-
-
-  if (!brent_opt_init(ax, bx, cx, tol, foptx, f2optx, fax, fbx, fcx, &brent_params))
-    return brent_params.x;
-
-  while (iterate && brent_params.iter <= ITMAX)
+  for (i = 0; i < xnum; ++i)
   {
-    brent_params.fu = target_funk (params, brent_params.u);
-    iterate = brent_opt_post_loop(&brent_params);
+    double eps;
+    int outbounds_ax, outbounds_cx;
+
+    /* first attempt to bracketize minimum */
+    if (xguess[i] < l_xmin[i])
+      xguess[i] = l_xmin[i];
+    if (xguess[i] > l_xmax[i])
+      xguess[i] = l_xmax[i];
+    eps = xguess[i] * xtol * 50.0;
+    ax[i] = xguess[i] - eps;
+    outbounds_ax = ax[i] < l_xmin[i];
+    if (outbounds_ax)
+      ax[i] = l_xmin[i];
+    cx[i] = xguess[i] + eps;
+    outbounds_cx = cx[i] > l_xmax[i];
+    if (outbounds_cx)
+      cx[i] = l_xmax[i];
   }
 
-  return brent_params.x;
+  target_funk (params, ax, fa, NULL);
+  target_funk (params, xguess, fb, NULL);
+  target_funk (params, cx, fc, NULL);
+  target_funk (params, l_xmin, fxmin, NULL);
+  target_funk (params, l_xmax, fxmax, NULL);
+
+  /* check if this works */
+  int init_failed = 0;
+  for (i = 0; i < xnum; ++i)
+  {
+    /* if it works use these borders else be conservative */
+    if ((fa[i] < fb[i]) || (fc[i] < fb[i]))
+    {
+      fa[i] = fxmin[i];
+      fc[i] = fxmax[i];
+      ax[i] = l_xmin[i];
+      cx[i] = l_xmax[i];
+    }
+
+    if (!brent_opt_init(ax[i], xguess[i], cx[i], xtol, fx, f2x,
+                        fa[i], fb[i], fc[i], &brent_params[i]))
+    {
+      init_failed = 1;
+      break;
+    }
+  }
+
+  free(ax);
+  free(cx);
+  free(fa);
+  free(fb);
+  free(fc);
+  free(fxmin);
+  free(fxmax);
+
+  if (global_range)
+  {
+    free(l_xmin);
+    free(l_xmax);
+  }
+
+  if (init_failed)
+  {
+    free(brent_params);
+    return PLL_FAILURE;
+  }
+
+  double * u = (double *) calloc(xnum, sizeof(double));
+  double * fu = (double *) calloc(xnum, sizeof(double));
+  int * converged = (int *) calloc(xnum, sizeof(int));
+
+  int iter_num = 0;
+  while (iterate)
+  {
+    for (i = 0; i < xnum; ++i)
+      u[i] = brent_params[i].u;
+
+    target_funk (params, u, fu, converged);
+
+    DBG("iter: %d, u: %lf, fu: %lf\n", iter_num, u[2], fu[2]);
+
+    iterate = 0;
+    for (i = 0; i < xnum; ++i)
+    {
+      if (!converged[i])
+      {
+        brent_params[i].fu = fu[i];
+        converged[i] = !brent_opt_post_loop(&brent_params[i]);
+        iterate |= !converged[i];
+      }
+    }
+
+    iter_num++;
+    iterate &= (iter_num <= ITMAX);
+  }
+
+  /* if new score is worse, return initial value */
+  for (i = 0; i < xnum; ++i)
+  {
+    xopt[i] = (brent_params[i].fx > brent_params[i].fstartx) ?
+        brent_params[i].startx : brent_params[i].x;
+  }
+
+  target_funk (params, xopt, fx, NULL);
+
+  DBG("xopt: %lf, LH: %lf\n", xopt[2], fx ? fx[2] : NAN);
+
+  free(u);
+  free(fu);
+  free(converged);
+  free(brent_params);
+  return PLL_SUCCESS;
 }
 
 static double brent_opt (double ax, double bx, double cx, double tol,
@@ -662,50 +831,56 @@ PLL_EXPORT double pllmod_opt_minimize_brent(double xmin,
                                                void *,
                                                double))
 {
-  double eps, optx, ax, bx, cx, fa, fb, fc;
-  int outbounds_ax, outbounds_cx;
+  double optx = xguess;
 
-  /* first attempt to bracketize minimum */
-  if (xguess < xmin)
-    xguess = xmin;
-  if (xguess > xmax)
-    xguess = xmax;
-  eps = xguess * xtol * 50.0;
-  ax = xguess - eps;
-  outbounds_ax = ax < xmin;
-  if (outbounds_ax)
-    ax = xmin;
-  bx = xguess;
-  cx = xguess + eps;
-  outbounds_cx = cx > xmax;
-  if (outbounds_cx)
-    cx = xmax;
+  struct brent_wrapper_params wrap_params;
+  wrap_params.target_funk = target_funk;
+  wrap_params.params = params;
 
-  /* check if this works */
-  fa = target_funk (params, ax);
-  fb = target_funk (params, bx);
-  fc = target_funk (params, cx);
+  brent_opt_alt (1, &xmin, &xguess, &xmax, xtol, &optx, fx, f2x, &wrap_params,
+                    target_funk_wrapper, 1);
 
-  /* if it works use these borders else be conservative */
-  if ((fa < fb) || (fc < fb))
-  {
-    if (!outbounds_ax)
-      fa = target_funk (params, xmin);
-    if (!outbounds_cx)
-      fc = target_funk (params, xmax);
-    ax = xmin;
-    cx = xmax;
-  }
-
-  optx = brent_opt_alt (ax, bx, cx, xtol, fx, f2x, fa, fb, fc, params,
-                    target_funk);
-  if (*fx > fb) // if worse, return initial value
-  {
-    *fx = target_funk (params, bx);
-    return bx;
-  }
+//  optx = brent_opt(xmin, xguess, xmax, xtol, fx, f2x, params, target_funk);
 
   return optx; /* return optimal x */
+}
+
+/**
+ * Run brent optimization for multiple variables in parallel
+ * (e.g., unlinked alphas for multiple partitions)
+ *
+ * @param xnum number of variables/partitions
+ * @param xmin minimum value(s) (see @param global_range)
+ * @param xguess array of staring values
+ * @param xmax maximum value(s) (see @param global_range)
+ * @param xtol tolerance
+ * @param xopt optimal variable values [out]
+ * @param fx target function values at xopt [out]
+ * @param f2x ??? [out]
+ * @param params parameters to be passed to target_funk
+ * @param target_funk target function, parameters: 1) params, 2) array of x values,
+ * 3) array of scores [out], 4) convergence flags
+ * @param global_range 0=xmin/xmax point to arrays of size xnum with individual
+ * per-variable ranges; 1=xmin/xmax is a global range for all variables
+ */
+PLL_EXPORT int pllmod_opt_minimize_brent_multi(int xnum,
+                                               double * xmin,
+                                               double * xguess,
+                                               double * xmax,
+                                               double xtol,
+                                               double * xopt,
+                                               double * fx,
+                                               double * f2x,
+                                               void * params,
+                                               double (*target_funk)(
+                                                       void *,
+                                                      double *,
+                                                      double *,
+                                                      int *),
+                                               int global_range)
+{
+  return brent_opt_alt (xnum, xmin, xguess, xmax, xtol, xopt, fx, f2x, params,
+                          target_funk, global_range);
 }
 
 /******************************************************************************/

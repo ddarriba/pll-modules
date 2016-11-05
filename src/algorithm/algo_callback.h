@@ -86,4 +86,7 @@ double target_weights_func(void *p, double *x);
 double target_brlen_scaler_func(void *p, double x);
 
 
+double target_alpha_func_multi(void *p, double *x, double *fx, int * converged);
+
+
 #endif /* ALGO_CALLBACK_H_ */

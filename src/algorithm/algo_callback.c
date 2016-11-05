@@ -258,3 +258,40 @@ double target_brlen_scaler_func(void *p, double x)
                                          1);  /* update partials */
   return score;
 }
+
+
+double target_alpha_func_multi(void *p, double *x, double *fx, int * converged)
+{
+  pllmod_treeinfo_t * treeinfo = (pllmod_treeinfo_t *) p;
+
+  size_t i, j=0;
+  for (i = 0; i < treeinfo->partition_count; ++i)
+  {
+    pll_partition_t * partition = treeinfo->partitions[i];
+
+    if (partition && (treeinfo->params_to_optimize[i] & PLLMOD_OPT_PARAM_ALPHA)
+        && (converged == NULL || !converged[i]))
+    {
+      /* update rate categories */
+      if (!pll_compute_gamma_cats (x[j++], partition->rate_cats, partition->rates))
+      {
+        return PLL_FAILURE;
+      }
+    }
+  }
+
+  /* compute negative score */
+  double score = -1 * pllmod_treeinfo_compute_loglh(treeinfo, 0);
+
+  /* copy per-partition likelihood to the output array */
+  if (fx)
+  {
+    j = 0;
+    for (i = 0; i < treeinfo->partition_count; ++i)
+      if (treeinfo->partitions[i] &&
+          (treeinfo->params_to_optimize[i] & PLLMOD_OPT_PARAM_ALPHA))
+        fx[j++] = -1 * treeinfo->partition_loglh[i];
+  }
+
+  return score;
+}

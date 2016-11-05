@@ -476,3 +476,57 @@ static void fill_weights (double *weights,
     }
   }
 }
+
+
+PLL_EXPORT double pllmod_algo_opt_alpha_treeinfo(pllmod_treeinfo_t * treeinfo,
+                                                 double min_alpha,
+                                                 double max_alpha,
+                                                 double tolerance)
+{
+  size_t param_count = 0;
+  size_t i;
+
+  /* check how many alphas have to be optimized */
+  for (i = 0; i < treeinfo->partition_count; ++i)
+  {
+    if (treeinfo->partitions[i] &&
+        (treeinfo->params_to_optimize[i] & PLLMOD_OPT_PARAM_ALPHA))
+      param_count++;
+  }
+
+  if (param_count > 0)
+  {
+    double * param_vals = (double *) malloc(param_count * sizeof(double));
+
+    /* collect current values of alphas */
+    size_t j = 0;
+    for (i = 0; i < treeinfo->partition_count; ++i)
+    {
+      if (treeinfo->partitions[i] &&
+          (treeinfo->params_to_optimize[i] & PLLMOD_OPT_PARAM_ALPHA))
+        param_vals[j++] = treeinfo->alphas[i];
+    }
+    assert(j == param_count);
+
+    int ret = pllmod_opt_minimize_brent_multi(param_count,
+                                              &min_alpha, param_vals, &max_alpha,
+                                              tolerance, param_vals,
+                                              NULL, NULL,
+                                              (void *) treeinfo,
+                                              &target_alpha_func_multi,
+                                              1 /* global_range */
+                                              );
+    j = 0;
+    for (i = 0; i < treeinfo->partition_count; ++i)
+    {
+      if (treeinfo->partitions[i] &&
+          (treeinfo->params_to_optimize[i] & PLLMOD_OPT_PARAM_ALPHA))
+        treeinfo->alphas[i] = param_vals[j++];
+    }
+    assert(j == param_count);
+  }
+
+  double cur_logl = pllmod_treeinfo_compute_loglh(treeinfo, 0);
+
+  return -1 * cur_logl;
+}

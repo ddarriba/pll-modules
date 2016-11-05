@@ -120,6 +120,11 @@ PLL_EXPORT double pllmod_algo_opt_brlen_scaler (pll_partition_t * partition,
                                                 double max_scaler,
                                                 double tolerance);
 
+/* functions to optimize multiple partitions in parallel, using treeinfo struct */
+PLL_EXPORT double pllmod_algo_opt_alpha_treeinfo(pllmod_treeinfo_t * treeinfo,
+                                                 double min_alpha,
+                                                 double max_alpha,
+                                                 double tolerance);
 
 /* search */
 
