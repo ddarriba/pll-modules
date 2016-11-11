@@ -82,6 +82,7 @@
 #define PLLMOD_OPT_ERROR_NEWTON_DERIV        2210
 #define PLLMOD_OPT_ERROR_NEWTON_LIMIT        2220
 #define PLLMOD_OPT_ERROR_NEWTON_UNKNOWN      2230
+#define PLLMOD_OPT_ERROR_NEWTON_WORSE_LK     2240
 
 /* Structure with information necessary for evaluating the likelihood */
 

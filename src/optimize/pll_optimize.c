@@ -910,6 +910,8 @@ PLL_EXPORT double pllmod_opt_optimize_branch_lengths_local (
   double loglikelihood = 0.0, new_loglikelihood;
   unsigned int sites_alloc;
 
+  pllmod_reset_error();
+
   /**
    * preconditions:
    *    (1) CLVs must be updated towards 'tree'
@@ -988,7 +990,17 @@ PLL_EXPORT double pllmod_opt_optimize_branch_lengths_local (
     DBG("pllmod_opt_optimize_branch_lengths_local: iters %d, old: %f, new: %f\n",
         iters, loglikelihood, new_loglikelihood);
 
+#if(CHECK_PERBRANCH_IMPR)
     assert(new_loglikelihood - loglikelihood > new_loglikelihood * 1e-14);
+#else
+    if (!(new_loglikelihood - loglikelihood > new_loglikelihood * 1e-14))
+    {
+      pllmod_set_error(PLLMOD_OPT_ERROR_NEWTON_WORSE_LK,
+                       "Local BL opt converged to a worse likelihood score by %f units",
+                       new_loglikelihood - loglikelihood);
+      return -1 * new_loglikelihood;
+    }
+#endif
 
     iters --;
 
@@ -1423,7 +1435,17 @@ PLL_EXPORT double pllmod_opt_optimize_branch_lengths_local_multi (
     DBG("BLO_multi: iteration %u, old LH: %.9f, new LH: %.9f\n",
         (unsigned int) smoothings - iters, loglikelihood, new_loglikelihood);
 
+#if(CHECK_PERBRANCH_IMPR)
     assert(new_loglikelihood - loglikelihood > new_loglikelihood * 1e-14);
+#else
+  if (!(new_loglikelihood - loglikelihood > new_loglikelihood * 1e-14))
+  {
+    pllmod_set_error(PLLMOD_OPT_ERROR_NEWTON_WORSE_LK,
+                     "BL opt converged to a worse likelihood score by %f units",
+                     new_loglikelihood - loglikelihood);
+    goto cleanup;
+  }
+#endif
 
     iters --;
 

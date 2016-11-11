@@ -39,7 +39,7 @@ static const unsigned int n_iters = 10;
 int main (int argc, char * argv[])
 {
   unsigned int rf_dist, i, iter;
-  const char **labels;
+  char **labels;
 
   /* tree properties */
   pll_utree_t * tree = NULL;
@@ -61,7 +61,7 @@ int main (int argc, char * argv[])
   pll_utree_t ** tipnodes = (pll_utree_t **) malloc(sizeof(pll_utree_t *) * tip_count);
   pll_utree_query_tipnodes(tree, tipnodes);
 
-  labels = (const char **) malloc(tip_count * sizeof(char *));
+  labels = (char **) malloc(tip_count * sizeof(char *));
   for (i=0; i<tip_count; ++i)
     labels[tipnodes[i]->node_index] = tipnodes[i]->label;
 

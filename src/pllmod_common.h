@@ -32,5 +32,6 @@
 #define PLLMOD_ERROR_INVALID_INDEX                1003
 
 void pllmod_set_error(int errno, const char* errmsg_fmt, ...);
+void pllmod_reset_error();
 
 #endif
