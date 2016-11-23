@@ -281,5 +281,20 @@ PLL_EXPORT int pllmod_opt_minimize_brent_multi(int xnum,
                                                       int *),
                                                int global_range);
 
+PLL_EXPORT double pllmod_opt_minimize_lbfgsb_multi(unsigned int xnum,
+                                                   double ** x,
+                                                   double ** xmin,
+                                                   double ** xmax,
+                                                   int ** bound,
+                                                   unsigned int * n,
+                                                   double factr,
+                                                   double pgtol,
+                                                   void * params,
+                                                   double (*target_funk)(void *,
+                                                                         double **,
+                                                                         double *,
+                                                                         int *));
+
+
 
 #endif /* PLL_OPTIMIZE_H_ */

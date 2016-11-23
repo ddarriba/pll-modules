@@ -262,6 +262,245 @@ PLL_EXPORT double pllmod_opt_minimize_lbfgsb (double * x,
   return score;
 } /* pllmod_opt_minimize_lbfgsb */
 
+struct bfgs_multi_opt
+{
+  unsigned int n;
+  double * x;
+  double * xmin;
+  double * xmax;
+  int * bound;
+  double factr;
+  double pgtol;
+
+  int iprint;
+  int max_corrections;
+  int task;
+
+  double *g, *wa;
+  int *iwa;
+  int csave;
+  double dsave[29];
+  int isave[44];
+  logical lsave[4];
+
+  double score;
+  double h, temp;
+};
+
+static int init_bfgs_opt(struct bfgs_multi_opt * opt, unsigned int n, double * x,
+                         double * xmin, double * xmax, int * bound, double factr,
+                         double pgtol)
+{
+  /* We start the iteration by initializing task. */
+  opt->task = (int) START;
+  opt->score = 0;
+
+  // some magic numbers
+  opt->iprint = -1;
+  opt->max_corrections = 5;
+
+  opt->n = n;
+  opt->x = x;
+  opt->xmin = xmin;
+  opt->xmax = xmax;
+  opt->bound = bound;
+  opt->factr = factr;
+  opt->pgtol = pgtol;
+
+  /* allocate memory */
+  opt->g = (double *) calloc ((size_t) n, sizeof(double));
+
+  opt->iwa = (int *) calloc (3 * (size_t) n, sizeof(int));
+  opt->wa = (double *) calloc (
+      (2 * (size_t)opt->max_corrections + 5) * (size_t)n
+          + 12 * (size_t)opt->max_corrections * ((size_t)opt->max_corrections + 1),
+      sizeof(double));
+
+  if (!opt->g || !opt->iwa || !opt->wa)
+  {
+    pllmod_set_error(PLL_ERROR_MEM_ALLOC,
+                     "Cannot allocate memory for l-bfgs-b variables");
+    return PLL_FAILURE;
+  }
+
+  return PLL_SUCCESS;
+}
+
+static void destroy_bfgs_opt(struct bfgs_multi_opt * opt)
+{
+  if (opt->g)
+    free(opt->g);
+  if (opt->iwa)
+    free(opt->iwa);
+  if (opt->wa)
+    free(opt->wa);
+}
+
+static int setulb_multi(struct bfgs_multi_opt * opt)
+{
+  return setulb ((int *)&opt->n, &opt->max_corrections, opt->x, opt->xmin,
+                 opt->xmax, opt->bound, &opt->score, opt->g, &opt->factr,
+                 &opt->pgtol, opt->wa, opt->iwa, &opt->task, &opt->iprint,
+                 &opt->csave, opt->lsave, opt->isave, opt->dsave);
+}
+
+PLL_EXPORT double pllmod_opt_minimize_lbfgsb_multi(unsigned int xnum,
+                                                   double ** x,
+                                                   double ** xmin,
+                                                   double ** xmax,
+                                                   int ** bound,
+                                                   unsigned int * n,
+                                                   double factr,
+                                                   double pgtol,
+                                                   void * params,
+                                                   double (*target_funk)(void *,
+                                                                         double **,
+                                                                         double *,
+                                                                         int *))
+{
+  unsigned int i, p;
+  unsigned int nmax = 0;
+
+  double score = (double) -INFINITY;
+
+  double * lh_old = (double *) calloc ((size_t) xnum, sizeof(double));
+  double * lh_new = (double *) calloc ((size_t) xnum, sizeof(double));
+  int * converged = (int *) calloc ((size_t) xnum, sizeof(int));
+  int * skip = (int *) calloc ((size_t) xnum, sizeof(int));
+
+  struct bfgs_multi_opt * opts = (struct bfgs_multi_opt *)
+                           calloc((size_t) xnum, sizeof(struct bfgs_multi_opt));
+
+  if (!lh_old || !lh_new || !converged || !skip || !opts)
+  {
+    pllmod_set_error(PLL_ERROR_MEM_ALLOC,
+                     "Cannot allocate memory for l-bfgs-b variables");
+    goto cleanup;
+  }
+
+  for (p = 0; p < xnum; p++)
+  {
+    if (!init_bfgs_opt(&opts[p], n[p], x[p], xmin[p], xmax[p], bound[p], factr,
+                       pgtol))
+      goto cleanup;
+
+    if (n[p] > nmax)
+      nmax = n[p];
+  }
+
+  /* reset errno */
+  pll_errno = 0;
+
+  int continue_opt = 1;
+  while (continue_opt)
+  {
+    continue_opt = 0;
+    int all_skip = 1;
+    for (p = 0; p < xnum; p++)
+    {
+      if (converged[p])
+      {
+        skip[p] = 1;
+        continue;
+      }
+
+      /*     This is the call to the L-BFGS-B code. */
+      setulb_multi(&opts[p]);
+
+      skip[p] = !IS_FG(opts[p].task);
+      converged[p] = skip[p] && (opts[p].task != NEW_X);
+      continue_opt |= !converged[p];
+      all_skip &= skip[p];
+    }
+
+    if (!all_skip && continue_opt)
+    {
+      /*
+       * the minimization routine has returned to request the
+       * function f and gradient g values at the current x.
+       * Compute function value f for the sample problem.
+       */
+      score = target_funk (params, x, lh_old, skip);
+
+      if (is_nan(score) || d_equals(score, (double) -INFINITY))
+        break;
+
+      for (p = 0; p < xnum; p++)
+        opts[p].score = lh_old[p];
+
+      for (i = 0; i < nmax; i++)
+      {
+        for (p = 0; p < xnum; p++)
+        {
+          if (i >= n[p])
+          {
+            /* this partition has less parameters than max -> skip it */
+            skip[p] = 1;
+          }
+
+          if (skip[p])
+            continue;
+
+          opts[p].temp = x[p][i];
+          opts[p].h = PLL_LBFGSB_ERROR * fabs (opts[p].temp);
+          if (opts[p].h < 1e-12)
+            opts[p].h = PLL_LBFGSB_ERROR;
+
+          x[p][i] = opts[p].temp + opts[p].h;
+          opts[p].h = x[p][i] - opts[p].temp;
+        }
+
+        double lnderiv = target_funk(params, x, lh_new, skip);
+
+        for (p = 0; p < xnum; p++)
+        {
+          if (skip[p])
+            continue;
+
+          /* compute partial derivative */
+          opts[p].g[i] = (lh_new[p] - lh_old[p]) / opts[p].h;
+
+          /* reset variable */
+          x[p][i] = opts[p].temp;
+
+//          printf("P%d  lh_old: %f, lh_new: %f\n", p, lh_old[p], lh_new[p]);
+        }
+      }
+    }
+  }
+
+  /* fix optimal parameters */
+  score = target_funk (params, x, NULL, NULL);
+
+cleanup:
+  if (lh_old)
+    free(lh_old);
+  if (lh_new)
+    free(lh_new);
+  if (converged)
+    free(converged);
+  if (skip)
+    free(skip);
+  if (opts)
+  {
+    for (p = 0; p < xnum; p++)
+      destroy_bfgs_opt(&opts[p]);
+    free(opts);
+  }
+
+  if (is_nan(score))
+  {
+    score = (double) -INFINITY;
+    /* set errno only if it was not set by some inner function */
+    if (!pll_errno)
+    {
+      pllmod_set_error(PLLMOD_OPT_ERROR_LBFGSB_UNKNOWN, "Unknown LBFGSB error");
+    }
+  }
+
+  return score;
+} /* pllmod_opt_minimize_lbfgsb */
+
 /******************************************************************************/
 /* BRENT'S OPTIMIZATION */
 /******************************************************************************/

@@ -23,6 +23,7 @@
 
 #include "pll_optimize.h"
 #include "pll_tree.h"
+#include "pllmod_util.h"
 
 #define PLLMOD_ALGO_MIN_WEIGHT_RATIO   0.1
 #define PLLMOD_ALGO_MAX_WEIGHT_RATIO    10
@@ -125,6 +126,23 @@ PLL_EXPORT double pllmod_algo_opt_alpha_treeinfo(pllmod_treeinfo_t * treeinfo,
                                                  double min_alpha,
                                                  double max_alpha,
                                                  double tolerance);
+
+PLL_EXPORT
+double pllmod_algo_opt_subst_rates_treeinfo (pllmod_treeinfo_t * treeinfo,
+                                             unsigned int params_index,
+                                             double min_rate,
+                                             double max_rate,
+                                             double bfgs_factor,
+                                             double tolerance);
+
+PLL_EXPORT
+double pllmod_algo_opt_frequencies_treeinfo (pllmod_treeinfo_t * treeinfo,
+                                             unsigned int params_index,
+                                             double min_freq,
+                                             double max_freq,
+                                             double bfgs_factor,
+                                             double tolerance);
+
 
 /* search */
 

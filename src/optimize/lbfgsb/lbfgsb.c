@@ -21,7 +21,7 @@
 #include <time.h>
 #include <assert.h>
 
-static int c__1 = 1;
+__thread int c__1 = 1;
 
 #ifdef DEBUG
 static int prn1lb (int *n, int *m, double *l, double *u, double *x, int *iprint,
