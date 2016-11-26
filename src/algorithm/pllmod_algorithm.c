@@ -477,20 +477,30 @@ static void fill_weights (double *weights,
   }
 }
 
-
-PLL_EXPORT double pllmod_algo_opt_alpha_treeinfo(pllmod_treeinfo_t * treeinfo,
-                                                 double min_alpha,
-                                                 double max_alpha,
-                                                 double tolerance)
+PLL_EXPORT double pllmod_algo_opt_onedim_treeinfo(pllmod_treeinfo_t * treeinfo,
+                                                  int param_to_optimize,
+                                                  double min_value,
+                                                  double max_value,
+                                                  double tolerance)
 {
   size_t param_count = 0;
   size_t i;
 
+  /* check parameters: only ONE of the following params is allowed */
+  const int supported_params = PLLMOD_OPT_PARAM_ALPHA |
+                               PLLMOD_OPT_PARAM_PINV |
+                               PLLMOD_OPT_PARAM_BRANCH_LEN_SCALER;
+
+  if (__builtin_popcount(param_to_optimize & supported_params) != 1)
+  {
+    return -INFINITY;
+    pllmod_set_error(PLL_ERROR_PARAM_INVALID, "Unsupported parameter");
+  }
+
   /* check how many alphas have to be optimized */
   for (i = 0; i < treeinfo->partition_count; ++i)
   {
-    if (treeinfo->partitions[i] &&
-        (treeinfo->params_to_optimize[i] & PLLMOD_OPT_PARAM_ALPHA))
+    if (treeinfo->params_to_optimize[i] & param_to_optimize)
       param_count++;
   }
 
@@ -502,26 +512,66 @@ PLL_EXPORT double pllmod_algo_opt_alpha_treeinfo(pllmod_treeinfo_t * treeinfo,
     size_t j = 0;
     for (i = 0; i < treeinfo->partition_count; ++i)
     {
-      if (treeinfo->partitions[i] &&
-          (treeinfo->params_to_optimize[i] & PLLMOD_OPT_PARAM_ALPHA))
-        param_vals[j++] = treeinfo->alphas[i];
+      if (treeinfo->params_to_optimize[i] & param_to_optimize)
+      {
+        pll_partition_t * partition = treeinfo->partitions[i];
+
+        switch (param_to_optimize)
+        {
+          case PLLMOD_OPT_PARAM_ALPHA:
+            param_vals[j] = treeinfo->alphas[i];
+            break;
+          case PLLMOD_OPT_PARAM_PINV:
+            param_vals[j] = partition->prop_invar[treeinfo->param_indices[i][0]];
+            break;
+          case PLLMOD_OPT_PARAM_BRANCH_LEN_SCALER:
+            param_vals[j] = treeinfo->brlen_scalers[i];
+            break;
+          default:
+            assert(0);
+        }
+        j++;
+      }
     }
     assert(j == param_count);
 
+    struct treeinfo_opt_params opt_params;
+    opt_params.treeinfo           = treeinfo;
+    opt_params.param_to_optimize  = param_to_optimize;
+
+    /* run BRENT optimization for all partitions in parallel */
     int ret = pllmod_opt_minimize_brent_multi(param_count,
-                                              &min_alpha, param_vals, &max_alpha,
+                                              &min_value, param_vals, &max_value,
                                               tolerance, param_vals,
                                               NULL, NULL,
-                                              (void *) treeinfo,
-                                              &target_alpha_func_multi,
+                                              (void *) &opt_params,
+                                              &target_func_onedim_treeinfo,
                                               1 /* global_range */
                                               );
+
     j = 0;
     for (i = 0; i < treeinfo->partition_count; ++i)
     {
-      if (treeinfo->partitions[i] &&
-          (treeinfo->params_to_optimize[i] & PLLMOD_OPT_PARAM_ALPHA))
-        treeinfo->alphas[i] = param_vals[j++];
+      if (treeinfo->params_to_optimize[i] & param_to_optimize)
+      {
+        pll_partition_t * partition = treeinfo->partitions[i];
+
+        switch (param_to_optimize)
+        {
+          case PLLMOD_OPT_PARAM_ALPHA:
+            treeinfo->alphas[i] = param_vals[j];
+            break;
+          case PLLMOD_OPT_PARAM_PINV:
+            /* p-inv was updated by target function directly in the partition */
+            break;
+          case PLLMOD_OPT_PARAM_BRANCH_LEN_SCALER:
+            treeinfo->brlen_scalers[i] = param_vals[j];
+            break;
+          default:
+            assert(0);
+        }
+        j++;
+      }
     }
     assert(j == param_count);
   }
@@ -603,29 +653,29 @@ double pllmod_algo_opt_subst_rates_treeinfo (pllmod_treeinfo_t * treeinfo,
 
     if (!symmetries)
     {
-      subst_free_params[i] = subst_params - 1;
+      subst_free_params[part] = subst_params - 1;
     }
     else
     {
-      subst_free_params[i] = 0;
+      subst_free_params[part] = 0;
       for (k=0; k<subst_params; ++k)
       {
-        if ((unsigned int)symmetries[k] > subst_free_params[i])
+        if ((unsigned int)symmetries[k] > subst_free_params[part])
         {
           /* check that symmetries vector is correctly formatted */
-          assert((unsigned int)symmetries[k] == (subst_free_params[i]+1));
-          ++subst_free_params[i];
+          assert((unsigned int)symmetries[k] == (subst_free_params[part]+1));
+          ++subst_free_params[part];
         }
       }
     }
 
-    x[part]  = (double *) malloc(sizeof(double) * (subst_free_params[i]));
+    x[part]  = (double *) malloc(sizeof(double) * (subst_free_params[part]));
     bt[part] = bt[0];
     lb[part] = lb[0];
     ub[part] = ub[0];
 
     l = 0;
-    for (k = 0; k < subst_free_params[i]; ++k)
+    for (k = 0; k < subst_free_params[part]; ++k)
     {
       if (symmetries)
       {
@@ -656,7 +706,7 @@ double pllmod_algo_opt_subst_rates_treeinfo (pllmod_treeinfo_t * treeinfo,
 
   assert(part == part_count);
 
-  struct bfgs_multi_params opt_params;
+  struct treeinfo_opt_params opt_params;
   opt_params.treeinfo        = treeinfo;
   opt_params.params_index    = params_index;
   opt_params.num_free_params = subst_free_params;
@@ -741,7 +791,7 @@ double pllmod_algo_opt_frequencies_treeinfo (pllmod_treeinfo_t * treeinfo,
     ub[0][j] = max_freq;
   }
 
-  struct bfgs_multi_params opt_params;
+  struct treeinfo_opt_params opt_params;
   opt_params.treeinfo       = treeinfo;
   opt_params.params_index   = params_index;
   opt_params.fixed_var_index = (unsigned int *) calloc(part_count,

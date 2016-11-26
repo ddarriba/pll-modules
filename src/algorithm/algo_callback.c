@@ -259,17 +259,19 @@ double target_brlen_scaler_func(void *p, double x)
   return score;
 }
 
-
-double target_alpha_func_multi(void *p, double *x, double *fx, int * converged)
+double target_func_onedim_treeinfo(void *p, double *x, double *fx, int * converged)
 {
-  pllmod_treeinfo_t * treeinfo = (pllmod_treeinfo_t *) p;
+  struct treeinfo_opt_params * params = (struct treeinfo_opt_params *) p;
 
-  size_t i, j=0;
+  pllmod_treeinfo_t * treeinfo = params->treeinfo;
+  int param_to_optimize        = params->param_to_optimize;
+
+  size_t i, j=0, k;
   for (i = 0; i < treeinfo->partition_count; ++i)
   {
     pll_partition_t * partition = treeinfo->partitions[i];
 
-    if (treeinfo->params_to_optimize[i] & PLLMOD_OPT_PARAM_ALPHA)
+    if (treeinfo->params_to_optimize[i] & param_to_optimize)
     {
       if (converged && converged[j])
       {
@@ -278,11 +280,28 @@ double target_alpha_func_multi(void *p, double *x, double *fx, int * converged)
         continue;
       }
 
-      /* update rate categories */
-      if (!pll_compute_gamma_cats (x[j++], partition->rate_cats, partition->rates))
+      switch (param_to_optimize)
       {
-        return PLL_FAILURE;
+        case PLLMOD_OPT_PARAM_ALPHA:
+          /* update rate categories */
+          if (!pll_compute_gamma_cats (x[j], partition->rate_cats, partition->rates))
+            return PLL_FAILURE;
+          break;
+        case PLLMOD_OPT_PARAM_PINV:
+          /* update proportion of invariant sites */
+          for (k = 0; k < partition->rate_cats; ++k)
+            pll_update_invariant_sites_proportion(partition,
+                                                  treeinfo->param_indices[i][k],
+                                                  x[j]);
+          break;
+        case PLLMOD_OPT_PARAM_BRANCH_LEN_SCALER:
+          treeinfo->brlen_scalers[i] = x[j];
+          break;
+        default:
+          assert(0);
       }
+
+      j++;
     }
   }
 
@@ -294,8 +313,7 @@ double target_alpha_func_multi(void *p, double *x, double *fx, int * converged)
   {
     j = 0;
     for (i = 0; i < treeinfo->partition_count; ++i)
-      if (treeinfo->partitions[i] &&
-          (treeinfo->params_to_optimize[i] & PLLMOD_OPT_PARAM_ALPHA))
+      if (treeinfo->params_to_optimize[i] & param_to_optimize)
         fx[j++] = -1 * treeinfo->partition_loglh[i];
   }
 
@@ -305,7 +323,7 @@ double target_alpha_func_multi(void *p, double *x, double *fx, int * converged)
 double target_subst_params_func_multi(void * p, double ** x, double * fx,
                                       int * converged)
 {
-  struct bfgs_multi_params * params = (struct bfgs_multi_params *) p;
+  struct treeinfo_opt_params * params = (struct treeinfo_opt_params *) p;
 
   pllmod_treeinfo_t * treeinfo      = params->treeinfo;
   unsigned int params_index         = params->params_index;
@@ -386,7 +404,7 @@ double target_subst_params_func_multi(void * p, double ** x, double * fx,
 double target_freqs_func_multi(void * p, double ** x, double * fx,
                                int * converged)
 {
-  struct bfgs_multi_params * params = (struct bfgs_multi_params *) p;
+  struct treeinfo_opt_params * params = (struct treeinfo_opt_params *) p;
 
   pllmod_treeinfo_t * treeinfo      = params->treeinfo;
   unsigned int params_index         = params->params_index;

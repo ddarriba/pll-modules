@@ -60,8 +60,9 @@ struct brlen_scaler_params {
   double old_scaler;                 /* previous value of branch length scaler*/
 };
 
-struct bfgs_multi_params {
+struct treeinfo_opt_params {
   pllmod_treeinfo_t * treeinfo;
+  int param_to_optimize;            /* which parameter is being optimized */
   unsigned int params_index;        /* which matrix to optimize */
   unsigned int * num_free_params;   /* number of free params for each partition*/
   unsigned int * fixed_var_index;   /* which variable is not being optimized */
@@ -93,8 +94,9 @@ double target_weights_func(void *p, double *x);
 double target_brlen_scaler_func(void *p, double x);
 
 
-double target_alpha_func_multi(void * p, double * x, double * fx,
-                               int * converged);
+double target_func_onedim_treeinfo(void *p, double *x, double *fx,
+                                   int * converged);
+
 
 double target_subst_params_func_multi(void * p, double ** x, double * fx,
                                       int * converged);
