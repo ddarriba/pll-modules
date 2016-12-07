@@ -665,3 +665,39 @@ PLL_EXPORT double pllmod_treeinfo_compute_loglh(pllmod_treeinfo_t * treeinfo,
 
   return total_loglh;
 }
+
+PLL_EXPORT
+int pllmod_treeinfo_normalize_brlen_scalers(pllmod_treeinfo_t * treeinfo)
+{
+  double sum_scalers = 0.;
+  double sum_sites = 0.;
+  unsigned int p;
+
+  for (p = 0; p < treeinfo->partition_count; ++p)
+  {
+    const double pat_sites = treeinfo->partitions[p]->pattern_weight_sum;
+    sum_sites += pat_sites;
+    sum_scalers += treeinfo->brlen_scalers[p] * pat_sites;
+  }
+
+  /* sum up scalers and sites from all threads */
+  if (treeinfo->parallel_reduce_cb)
+  {
+    // TODO: although this reduce is unlikely to become a bottleneck, it can
+    // be avoided by storing _total_ pattern_weight_sum in treeinfo
+    treeinfo->parallel_reduce_cb(treeinfo->parallel_context,
+                                 &sum_scalers,
+                                 1);
+
+    treeinfo->parallel_reduce_cb(treeinfo->parallel_context,
+                                 &sum_sites,
+                                 1);
+  }
+
+  const double mean_rate = sum_scalers / sum_sites;
+  pllmod_utree_scale_branches(treeinfo->root, mean_rate);
+  for (p = 0; p < treeinfo->partition_count; ++p)
+    treeinfo->brlen_scalers[p] /= mean_rate;
+
+  return PLL_SUCCESS;
+}

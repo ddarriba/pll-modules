@@ -419,4 +419,8 @@ PLL_EXPORT void pllmod_treeinfo_invalidate_clv(pllmod_treeinfo_t * treeinfo,
 PLL_EXPORT double pllmod_treeinfo_compute_loglh(pllmod_treeinfo_t * treeinfo,
                                                 int incremental);
 
+PLL_EXPORT
+int pllmod_treeinfo_normalize_brlen_scalers(pllmod_treeinfo_t * treeinfo);
+
+
 #endif /* PLL_TREE_H_ */
