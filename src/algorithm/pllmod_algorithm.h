@@ -145,6 +145,13 @@ double pllmod_algo_opt_frequencies_treeinfo (pllmod_treeinfo_t * treeinfo,
                                              double bfgs_factor,
                                              double tolerance);
 
+PLL_EXPORT
+double pllmod_algo_opt_rates_weights_treeinfo (pllmod_treeinfo_t * treeinfo,
+                                               double min_rate,
+                                               double max_rate,
+                                               double bfgs_factor,
+                                               double tolerance);
+
 
 /* search */
 

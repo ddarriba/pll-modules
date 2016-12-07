@@ -320,6 +320,80 @@ double target_func_onedim_treeinfo(void *p, double *x, double *fx, int * converg
   return score;
 }
 
+double target_func_multidim_treeinfo(void * p, double ** x, double * fx,
+                                     int * converged)
+{
+  struct treeinfo_opt_params * params = (struct treeinfo_opt_params *) p;
+
+  pllmod_treeinfo_t * treeinfo      = params->treeinfo;
+  unsigned int * fixed_var_index    = params->fixed_var_index;
+  int param_to_optimize        = params->param_to_optimize;
+
+  size_t i, j;
+  size_t part = 0;
+  for (i = 0; i < treeinfo->partition_count; ++i)
+  {
+    pll_partition_t * partition = treeinfo->partitions[i];
+
+    if (treeinfo->params_to_optimize[i] & param_to_optimize)
+    {
+      if (converged && converged[part])
+      {
+        /* partitions has converged, skip it */
+        part++;
+        continue;
+      }
+
+      switch (param_to_optimize)
+      {
+        case PLLMOD_OPT_PARAM_FREE_RATES:
+          /* update rate categories */
+          memcpy(partition->rates, x[part], partition->rate_cats*sizeof(double));
+          break;
+        case PLLMOD_OPT_PARAM_RATE_WEIGHTS:
+        {
+          unsigned int highest_weight_state = fixed_var_index[part];
+          unsigned int n_weights            = partition->rate_cats;
+          double sum_ratios = 1.0;
+
+          double * weights = partition->rate_weights;
+          unsigned int i, cur_weight;
+
+          for (i = 0; i < (n_weights - 1); ++i)
+            sum_ratios += x[part][i];
+
+          cur_weight = 0;
+          for (i = 0; i < (n_weights); ++i)
+            if (i != highest_weight_state)
+            {
+              weights[i] = x[part][cur_weight++] / sum_ratios;
+            }
+          weights[highest_weight_state] = 1.0 / sum_ratios;
+          break;
+        }
+        default:
+          assert(0);
+      }
+
+      part++;
+    }
+  }
+
+  /* compute negative score */
+  double score = -1 * pllmod_treeinfo_compute_loglh(treeinfo, 0);
+
+  /* copy per-partition likelihood to the output array */
+  if (fx)
+  {
+    j = 0;
+    for (i = 0; i < treeinfo->partition_count; ++i)
+      if (treeinfo->params_to_optimize[i] & param_to_optimize)
+        fx[j++] = -1 * treeinfo->partition_loglh[i];
+  }
+
+  return score;
+}
+
 double target_subst_params_func_multi(void * p, double ** x, double * fx,
                                       int * converged)
 {

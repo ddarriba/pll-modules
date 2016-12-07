@@ -97,6 +97,8 @@ double target_brlen_scaler_func(void *p, double x);
 double target_func_onedim_treeinfo(void *p, double *x, double *fx,
                                    int * converged);
 
+double target_func_multidim_treeinfo(void * p, double ** x, double * fx,
+                                     int * converged);
 
 double target_subst_params_func_multi(void * p, double ** x, double * fx,
                                       int * converged);
