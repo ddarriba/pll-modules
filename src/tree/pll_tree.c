@@ -677,6 +677,176 @@ PLL_EXPORT int pllmod_rtree_traverse_apply(pll_rtree_t * root,
 
   return retval;
 }
+
+/* auxiliary structure for the callback function below */
+struct serial_tree_s {
+  pll_utree_t * serialized_tree;
+  int node_count;
+  int max_nodes;
+};
+
+/* callback function to fill the serialized tree */
+static int cb_serialize(pll_utree_t * tree,
+                        void * data)
+{
+  struct serial_tree_s * list = (struct serial_tree_s *) data;
+  pll_utree_t * serialized_tree = list->serialized_tree;
+  int cur_pos = list->node_count;
+
+  assert(cur_pos < list->max_nodes);
+
+  memcpy(&(serialized_tree[cur_pos]), tree, sizeof(pll_utree_t));
+  serialized_tree[cur_pos].data  = 0;
+  serialized_tree[cur_pos].label = 0;
+  if (!pllmod_utree_is_tip(tree))
+  {
+    /* set to arbitrary non-junk value */
+    serialized_tree[cur_pos].next = (pll_utree_t *) 1;
+  }
+
+  ++list->node_count;
+  return 1;
+}
+
+//TODO: serialize/expand using a compressed format instead of pll_utree_t
+PLL_EXPORT pll_utree_t * pllmod_utree_serialize(pll_utree_t * tree,
+                                                unsigned int tip_count)
+{
+  unsigned int node_count;
+  pll_utree_t * serialized_tree;
+  struct serial_tree_s data;
+
+  node_count = 2*tip_count - 2;
+
+  /* allocate the serialized structure */
+  serialized_tree = (pll_utree_t *) malloc(node_count * sizeof (pll_utree_t));
+
+  /* fill data for callback function */
+  data.serialized_tree = serialized_tree;
+  data.node_count      = 0;
+  data.max_nodes       = node_count;
+
+  /* if tree is a tip, move to its back position */
+  if (pllmod_utree_is_tip(tree)) tree = tree->back;
+
+  /* apply callback function to serialize */
+  pllmod_utree_traverse_apply(tree,
+                              NULL,
+                              NULL,
+                              cb_serialize,
+                              &data);
+
+  if (data.node_count != data.max_nodes)
+  {
+    /* if the number of serialized nodes is not correct, return error */
+    pllmod_set_error(PLLMOD_TREE_ERROR_INVALID_TREE,
+                     "tree structure ot tip_count are invalid");
+    free(serialized_tree);
+    serialized_tree = NULL;
+  }
+
+  return serialized_tree;
+}
+
+PLL_EXPORT pll_utree_t * pllmod_utree_expand(pll_utree_t * serialized_tree,
+                                             unsigned int tip_count)
+{
+  unsigned int i, node_count, next_node_index;
+  pll_utree_t ** tree_stack;
+  pll_utree_t * tree;
+  unsigned int tree_stack_top;
+
+  pllmod_reset_error();
+
+  node_count  = 2*tip_count - 2;
+
+  /* allocate stack for at most 'n_tips' nodes */
+  tree_stack = (pll_utree_t **) malloc(tip_count * sizeof (pll_utree_t *));
+  tree_stack_top = 0;
+
+  next_node_index = tip_count;
+
+  /* read nodes */
+  for (i=0; i<node_count; ++i)
+  {
+    pll_utree_t * t = 0;                   /* new node */
+    pll_utree_t t_s = serialized_tree[i];  /* serialized node */
+    if (t_s.next)
+    {
+      /* build inner node and connect */
+      pll_utree_t *t_cr, *t_r, *t_cl, *t_l;
+      t = pllmod_utree_create_node(t_s.clv_index,
+                                   t_s.scaler_index,
+                                   0,  /* label */
+                                   0); /* data */
+      t_r = t->next;
+      t_l = t->next->next;
+
+      t->node_index = next_node_index++;
+      t_r->node_index = next_node_index++;
+      t_l->node_index = next_node_index++;
+
+      /* pop and connect */
+      t_cr = tree_stack[--tree_stack_top];
+      t_r->back = t_cr; t_cr->back = t_r;
+      t_cl = tree_stack[--tree_stack_top];
+      t_l->back = t_cl; t_cl->back = t_l;
+
+      /* set branch attributes */
+      t->length = t_s.length;
+      t->pmatrix_index = t_s.pmatrix_index;
+      t_r->pmatrix_index = t_cr->pmatrix_index;
+      t_r->length = t_cr->length;
+      t_l->pmatrix_index = t_cl->pmatrix_index;
+      t_l->length = t_cl->length;
+    }
+    else
+    {
+      t = (pll_utree_t *)calloc(1, sizeof(pll_utree_t));
+      memcpy(t, &t_s, sizeof(pll_utree_t));
+      assert(t->node_index < tip_count);
+    }
+
+    /* push */
+    tree_stack[tree_stack_top++] = t;
+  }
+
+  /* root vertices must be in the stack */
+  assert (tree_stack_top == 2);
+  assert (next_node_index == (4*tip_count - 6));
+
+  tree = tree_stack[--tree_stack_top];
+  tree->back = tree_stack[--tree_stack_top];
+  tree->back->back = tree;
+
+  if(tree->pmatrix_index != tree->back->pmatrix_index)
+  {
+    /* if pmatrix indices differ, connecting branch must be a tip */
+    if(tree->back->next)
+    {
+      pllmod_set_error(PLLMOD_TREE_ERROR_INVALID_TREE,
+                       "pmatrix indices do not match in serialized tree");
+    }
+    tree->pmatrix_index = tree->back->pmatrix_index;
+  }
+
+  if(tree->length != tree->back->length)
+  {
+    pllmod_set_error(PLLMOD_TREE_ERROR_INVALID_TREE,
+                     "branch lengths do not matchin serialized tree");
+  }
+
+  if (pll_errno)
+  {
+    pll_utree_destroy(tree);
+    tree = 0;
+  }
+
+  free(tree_stack);
+
+  return tree;
+}
+
 /******************************************************************************/
 /* Static functions */
 

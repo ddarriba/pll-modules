@@ -197,7 +197,11 @@ PLL_EXPORT int pllmod_utree_nni(pll_utree_t * edge,
 
 PLL_EXPORT int pllmod_tree_rollback(pll_tree_rollback_t * rollback_info);
 
+PLL_EXPORT pll_utree_t * pllmod_utree_serialize(pll_utree_t * tree,
+                                                unsigned int tip_count);
 
+PLL_EXPORT pll_utree_t * pllmod_utree_expand(pll_utree_t * serialized_tree,
+                                             unsigned int tip_count);
 
 /* Topological operations */
 
