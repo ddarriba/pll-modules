@@ -18,6 +18,16 @@
  Exelixis Lab, Heidelberg Instutute for Theoretical Studies
  Schloss-Wolfsbrunnenweg 35, D-69118 Heidelberg, Germany
  */
+
+ /**
+  * @file pll_msa.c
+  *
+  * @brief Operations on multiple sequence alignments
+  *
+  * @author Diego Darriba
+  * @author Alexey Kozlov
+  */
+
 #include <search.h>
 
 #include "pll_msa.h"
@@ -950,7 +960,7 @@ error_exit:
  * original MSA
  * @param part_count number of partitions
  *
- * @returns list of per-partition MSA objects
+ * @return list of per-partition MSA objects
  *
  *  Example:
  *
@@ -1103,4 +1113,3 @@ PLL_EXPORT int pllmod_msa_save_phylip(const pll_msa_t * msa,
 
   return PLL_SUCCESS;
 }
-

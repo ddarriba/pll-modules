@@ -19,6 +19,14 @@
  Schloss-Wolfsbrunnenweg 35, D-69118 Heidelberg, Germany
  */
 
+ /**
+  * @file bionary_io_operations.c
+  *
+  * @brief Auxiliary functions for I/O module
+  *
+  * @author Diego Darriba
+  */
+
 #include "binary_io_operations.h"
 #include "../pllmod_common.h"
 
@@ -299,7 +307,7 @@ int binary_clv_apply (FILE * bin_file,
                       int (*bin_func)(void *, size_t, size_t, FILE *))
 {
   UNUSED(attributes);
-  
+
   if (clv_index > (partition->tips + partition->clv_buffers))
   {
     pllmod_set_error(PLLMOD_BIN_ERROR_INVALID_INDEX,

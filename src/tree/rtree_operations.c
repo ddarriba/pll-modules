@@ -22,6 +22,14 @@
 
 #include "../pllmod_common.h"
 
+/**
+ * @file rtree_operations.c
+ *
+ * @brief Operations on rooted tree structures
+ *
+ * @author Diego Darriba
+ */
+
 /* finds the self and sister pointers */
 PLL_EXPORT int pllmod_rtree_get_sibling_pointers(pll_rtree_t * node,
                                                  pll_rtree_t ***self,
@@ -125,9 +133,12 @@ PLL_EXPORT pll_rtree_t * pllmod_rtree_prune(pll_rtree_t * node)
 
 /**
  * @brief Regrafts a dettached subtree into a branch
+ * 
  * @param node the node to regraft
  * @param tree the target branch
- * @return true if the operation was performed succesfully
+ *
+ * @return PLL_SUCCESS if the operation was applied correctly,
+ *         PLL_FAILURE otherwise (check pll_errmsg for details)
  */
 PLL_EXPORT int pllmod_rtree_regraft(pll_rtree_t * node,
                                     pll_rtree_t * tree)
@@ -189,7 +200,8 @@ PLL_EXPORT int pllmod_rtree_regraft(pll_rtree_t * node,
  * @param[in] r_tree Edge to be regrafted
  * @param[in] root The tree root (it might change)
  * @param[in,out] rollback_info Rollback information
- * @returns true, if the move was applied correctly
+ * @return PLL_SUCCESS if the move was applied correctly,
+ *         PLL_FAILURE otherwise (check pll_errmsg for details)
  */
 PLL_EXPORT int pllmod_rtree_spr(pll_rtree_t * p_node,
                                 pll_rtree_t * r_tree,

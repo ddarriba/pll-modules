@@ -90,120 +90,39 @@ typedef struct
   size_t block_len;          //! block length
 } pll_block_header_t;
 
-/**
- *  Open file for writing
- *
- *  @param[in] filename file to write to
- *  @param[out] header file header
- *  @param access_type PLLMOD_BIN_ACCESS_[SEQUENTIAL|RANDOM]
- *  @param n_blocks actual or maximum number of blocks if access is random
- *
- *  @return pointer to the file
- */
 PLL_EXPORT FILE * pllmod_binary_create(const char * filename,
                                        pll_binary_header_t * header,
                                        unsigned int access_type,
                                        unsigned int n_blocks);
 
-/**
- *  Open file for reading
- *
- *  @param[in] filename file to read from
- *  @param[out] header file header
- *
- *  @return pointer to the file
- */
 PLL_EXPORT FILE * pllmod_binary_open(const char * filename,
                                      pll_binary_header_t * header);
 
-/**
- *  Open file for appending
- *
- *  @param[in] filename file to append to
- *  @param[out] header file header
- *
- *  @return pointer to the file
- */
 PLL_EXPORT FILE * pllmod_binary_append_open(const char * filename,
                                             pll_binary_header_t * header);
 
-/**
- *  Closes the binary file
- *
- *  @param[in] bin_file the file
- *
- *  @return true, if OK
- */
 PLL_EXPORT int pllmod_binary_close(FILE * bin_file);
 
 PLL_EXPORT pll_block_map_t * pllmod_binary_get_map(FILE * bin_file,
                                                    unsigned int * n_blocks);
 
-/**
- *  Save a partition to the binary file
- *
- *  @param[in] bin_file binary file
- *  @param[in] block_id id of the block for random access, or local id
- *  @param[in] partition the saved partition
- *  @param[in] attributes the dumped attributes
- *
- *  @return true, if OK
- */
 PLL_EXPORT int pllmod_binary_partition_dump(FILE * bin_file,
                                          int block_id,
                                          pll_partition_t * partition,
                                          unsigned int attributes);
 
-/**
- *  Load a partition from the binary file
- *
- *  @param[in] bin_file binary file
- *  @param[in] block_id id of the block for random access
- *  @param[in,out] partition if NULL, creates a new partition
- *  @param[out] attributes the loaded attributes
- *  @param offset offset to the data block, if known
- *                0, if access is sequential
- *                PLLMOD_BIN_ACCESS_SEEK, for searching in the file header
- *
- *  @return pointer to the updated (or new) partition
- */
 PLL_EXPORT pll_partition_t * pllmod_binary_partition_load(FILE * bin_file,
                                                     int block_id,
                                                     pll_partition_t * partition,
                                                     unsigned int * attributes,
                                                     long int offset);
 
-/**
- *  Save a partition to the binary file
- *
- *  @param[in] bin_file binary file
- *  @param[in] block_id id of the block for random access, or local id
- *  @param[in] partition the partition containing the saved CLV
- *  @param[in] clv_index the index of the CLV
- *  @param[in] attributes the dumped attributes
- *
- *  @return true, if OK
- */
 PLL_EXPORT int pllmod_binary_clv_dump(FILE * bin_file,
                                       int block_id,
                                       pll_partition_t * partition,
                                       unsigned int clv_index,
                                       unsigned int attributes);
 
-/**
- *  Load a CLV from the binary file
- *
- *  @param[in] bin_file binary file
- *  @param[in] block_id id of the block for random access
- *  @param[in,out] partition the partition where the CLV will be stored
- *  @param[in] clv_index index of the CLV
- *  @param[out] attributes the loaded attributes
- *  @param offset offset to the data block, if known
- *                0, if access is sequential
- *                PLLMOD_BIN_ACCESS_SEEK, for searching in the file header
- *
- *  @return true, if OK
- */
 PLL_EXPORT int pllmod_binary_clv_load(FILE * bin_file,
                                       int block_id,
                                       pll_partition_t * partition,
@@ -211,48 +130,23 @@ PLL_EXPORT int pllmod_binary_clv_load(FILE * bin_file,
                                       unsigned int * attributes,
                                       long int offset);
 
-/**
- *  Save an unrooted tree to the binary file
- *
- *  @param[in] bin_file binary file
- *  @param[in] block_id id of the block for random access, or local id
- *  @param[in] tree the unrooted tree to be dumped
- *  @param[in] tip_count the number of tips in the tree
- *  @param[in] attributes the loaded attributes
- *
- *  @return true, if OK
- */
 PLL_EXPORT int pllmod_binary_utree_dump(FILE * bin_file,
                                         int block_id,
                                         pll_utree_t * tree,
                                         unsigned int tip_count,
                                         unsigned int attributes);
 
-/**
- *  Load an unrooted tree from the binary file
- *
- *  @param[in] bin_file binary file
- *  @param[in] block_id id of the block for random access
- *  @param[out] attributes the block attributes
- *  @param offset offset to the data block, if known
- *                0, if access is sequential
- *                PLLMOD_BIN_ACCESS_SEEK, for searching in the file header
- *
- *  @return pointer to the updated (or new) partition
- */
 PLL_EXPORT pll_utree_t * pllmod_binary_utree_load(FILE * bin_file,
                                                   int block_id,
                                                   unsigned int * attributes,
                                                   long int offset);
 
-//Warning: untested
 PLL_EXPORT int pllmod_binary_custom_dump(FILE * bin_file,
                                         int block_id,
                                         void * data,
                                         size_t size,
                                         unsigned int attributes);
 
-//Warning: untested
 PLL_EXPORT void * pllmod_binary_custom_load(FILE * bin_file,
                                            int block_id,
                                            size_t * size,

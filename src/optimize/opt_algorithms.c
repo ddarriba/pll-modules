@@ -22,6 +22,14 @@
 #include "lbfgsb/lbfgsb.h"
 #include "../pllmod_common.h"
 
+/**
+ * @file opt_algorithms.c
+ *
+ * @brief Core optimization algorithms
+ *
+ * @author Diego Darriba, Alexey Kozlov
+ */
+
 static inline int is_nan(double v)
 {
   return v!=v;

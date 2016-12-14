@@ -7,7 +7,9 @@ High Level modules for the Low Level Phylogenetic Likelihood Library
 
 PLL-Modules depends on the PLL library submodule (libs/libpll), so you have to clone the repository as follows:
 
-```git clone --recursive https://github.com/ddarriba/pll-modules```
+```bash
+git clone --recursive https://github.com/ddarriba/pll-modules
+```
 
 or
 
@@ -37,6 +39,23 @@ some GNU/Linux distributions it might be necessary to add that standard path
 
 Microsoft Windows compatibility was tested with a cross-compiler and seems to
 work out-of-the-box using [MingW](http://www.mingw.org/).
+
+## Documentation
+
+PLL-Modules is documented with Doxygen. Run the following command to generate
+the API description in HTML and LaTeX formats:
+
+```bash
+doxygen doxy.cfg
+```
+
+Afterwards, the html API documentation is available at `doc/html/index.html`.
+Additionally, you can generate pdf documentation by compiling the LaTeX output:
+
+```bash
+cd doc/latex
+make
+```
 
 ## Usage examples 
 

@@ -19,6 +19,15 @@
  Schloss-Wolfsbrunnenweg 35, D-69118 Heidelberg, Germany
  */
 
+ /**
+  * @file pll_optimize.c
+  *
+  * @brief Optimization algorithms
+  *
+  * @author Diego Darriba
+  * @author Alexey Kozlov
+  */
+
 #include "pll_optimize.h"
 #include "lbfgsb/lbfgsb.h"
 #include "../pllmod_common.h"

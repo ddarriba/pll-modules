@@ -19,6 +19,15 @@ Heidelberg Institute for Theoretical Studies,
 Schloss-Wolfsbrunnenweg 35, D-69118 Heidelberg, Germany
 */
 
+ /**
+  * @file algo_search.c
+  *
+  * @brief Core topological search algorithms
+  *
+  * @author Alexey Kozlov
+  * @author Diego Darriba
+  */
+
 #include "pllmod_algorithm.h"
 #include "../pllmod_common.h"
 

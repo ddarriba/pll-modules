@@ -18,6 +18,15 @@
  Exelixis Lab, Heidelberg Instutute for Theoretical Studies
  Schloss-Wolfsbrunnenweg 35, D-69118 Heidelberg, Germany
  */
+
+ /**
+  * @file pll_tree.c
+  *
+  * @brief Operations on tree structures
+  *
+  * @author Diego Darriba
+  */
+
 #include "pll_tree.h"
 #include "../pllmod_common.h"
 
@@ -50,8 +59,11 @@ struct cb_params
  *
  * @param[in] b_edge bisection point
  * @param[in] r_edge reconnection point
+ * @param[out] rollback_info Rollback information for undoing this move.
+ *                           If it is NULL, rollback information is ignored.
  *
- * @returns true, if the move was applied correctly
+ * @return PLL_SUCCESS if the move was applied correctly,
+ *         PLL_FAILURE otherwise (check pll_errmsg for details)
  */
 PLL_EXPORT int pllmod_utree_tbr(pll_utree_t * b_edge,
                                 pll_tree_edge_t * r_edge,
@@ -134,8 +146,11 @@ PLL_EXPORT int pllmod_utree_tbr(pll_utree_t * b_edge,
  *
  * @param[in] p_edge Edge to be pruned
  * @param[in] r_edge Edge to be regrafted
+ * @param[out] rollback_info Rollback information for undoing this move.
+ *                           If it is NULL, rollback information is ignored.
  *
- * @returns true, if the move was applied correctly
+ * @return PLL_SUCCESS if the move was applied correctly,
+ *         PLL_FAILURE otherwise (check pll_errmsg for details)
  */
 PLL_EXPORT int pllmod_utree_spr(pll_utree_t * p_edge,
                                 pll_utree_t * r_edge,
@@ -177,9 +192,11 @@ PLL_EXPORT int pllmod_utree_spr(pll_utree_t * p_edge,
  *
  * @param[in] edge NNI interchange edge
  * @param[in] type move type: PLL_NNI_LEFT, PLL_NNI_RIGHT
- * @param[out] rollback_info Rollback information
+ * @param[out] rollback_info Rollback information for undoing this move.
+ *                           If it is NULL, rollback information is ignored.
  *
- * @returns true, if the move was applied correctly
+ * @return PLL_SUCCESS if the move was applied correctly,
+ *         PLL_FAILURE otherwise (check pll_errmsg for details)
  */
 PLL_EXPORT int pllmod_utree_nni(pll_utree_t * edge,
                                 int type,
@@ -223,6 +240,12 @@ PLL_EXPORT int pllmod_utree_nni(pll_utree_t * edge,
   return PLL_SUCCESS;
 }
 
+/**
+ * Rollback the previous move
+ * @param  rollback_info the rollback info returned by the previous move
+ * @return PLL_SUCCESS if the rollback move was applied correctly, 
+ *         PLL_FAILURE otherwise (check pll_errmsg for details)
+ */
 PLL_EXPORT int pllmod_tree_rollback(pll_tree_rollback_t * rollback_info)
 {
   int retval = PLL_FAILURE;
@@ -390,6 +413,7 @@ PLL_EXPORT pll_utree_t * pllmod_utree_create_random(unsigned int taxa_count,
 }
 
 /* static functions */
+
 static int utree_find_node_in_subtree(pll_utree_t * root,
                                                  pll_utree_t * node)
 {
@@ -779,8 +803,8 @@ PLL_EXPORT pll_utree_t * pllmod_utree_expand(pll_utree_t * serialized_tree,
                                    t_s.scaler_index,
                                    0,  /* label */
                                    0); /* data */
-      t_r = t->next;
-      t_l = t->next->next;
+      t_l = t->next;
+      t_r = t->next->next;
 
       t->node_index = next_node_index++;
       t_r->node_index = next_node_index++;

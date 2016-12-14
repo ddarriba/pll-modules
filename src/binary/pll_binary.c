@@ -18,47 +18,32 @@
  Exelixis Lab, Heidelberg Instutute for Theoretical Studies
  Schloss-Wolfsbrunnenweg 35, D-69118 Heidelberg, Germany
  */
+
+/**
+ * @file pll_binary.c
+ *
+ * @brief Binary I/O operations for PLL
+ *
+ * @author Diego Darriba
+ */
+
 #include "pll_binary.h"
 #include "binary_io_operations.h"
 #include "../pllmod_common.h"
 
+static unsigned int get_current_alignment( unsigned int attributes );
+static int cb_full_traversal(pll_utree_t * node);
+
 /**
- * Notes:
- *     1. Memory alignment could be different when saving and loading the binary
- *        file. Data will be saved without modifying the alignment, but we need
- *        to check if it is the correct one when loading.
- *     2. Binary file should be created using pllmod_binary_create. This will place
- *        the header at the beginning of the file. When a block is added, the
- *        header is updated.
- *     3. Random access binary files require some space allocated at the
- *        beginning for the hashtable.
+ *  Open file for writing
  *
- *     4.1. Each save operation:
- *          a) Dump block header and block
- *          b) Update main header
- *          c) Update map (if necessary)
- *          d) Return file pointer to EOF
- *     4.2. Each load operation:
- *          a) If random, check map and apply offset
- *          b) Check and validate block header
- *          c) Load block
- *          d) Apply operations (e.g., new memory alignment)
-  */
-
-static unsigned int get_current_alignment( unsigned int attributes )
-{
-  unsigned int alignment = PLL_ALIGNMENT_CPU;
-#ifdef HAVE_SSE
-  if (attributes & PLL_ATTRIB_ARCH_SSE)
-  alignment = PLL_ALIGNMENT_SSE;
-#endif
-#ifdef HAVE_AVX
-  if (attributes & PLL_ATTRIB_ARCH_AVX)
-  alignment = PLL_ALIGNMENT_AVX;
-#endif
-  return alignment;
-}
-
+ *  @param[in] filename file to write to
+ *  @param[out] header file header
+ *  @param access_type PLLMOD_BIN_ACCESS_[SEQUENTIAL|RANDOM]
+ *  @param n_blocks actual or maximum number of blocks if access is random
+ *
+ *  @return pointer to the file
+ */
 PLL_EXPORT FILE * pllmod_binary_create(const char * filename,
                                        pll_binary_header_t * header,
                                        unsigned int access_type,
@@ -107,6 +92,14 @@ PLL_EXPORT FILE * pllmod_binary_create(const char * filename,
   return file;
 }
 
+/**
+ *  Open file for reading
+ *
+ *  @param[in] filename file to read from
+ *  @param[out] header file header
+ *
+ *  @return pointer to the file
+ */
 PLL_EXPORT FILE * pllmod_binary_open(const char * filename,
                                      pll_binary_header_t * header)
 {
@@ -133,6 +126,14 @@ PLL_EXPORT FILE * pllmod_binary_open(const char * filename,
   return file;
 }
 
+/**
+ *  Open file for appending
+ *
+ *  @param[in] filename file to append to
+ *  @param[out] header file header
+ *
+ *  @return pointer to the file
+ */
 FILE * pllmod_binary_append_open(const char * filename,
                                  pll_binary_header_t * header)
 {
@@ -174,10 +175,29 @@ FILE * pllmod_binary_append_open(const char * filename,
   return file;
 }
 
+/**
+ *  Closes the binary file
+ *
+ *  @param[in] bin_file the file
+ *
+ *  @return true, if OK
+ */
 PLL_EXPORT int pllmod_binary_close(FILE * bin_file)
 {
   return fclose(bin_file);
 }
+
+/**
+ *  Save a partition to the binary file
+ *
+ *  @param[in] bin_file binary file
+ *  @param[in] block_id id of the block for random access, or local id
+ *  @param[in] partition the saved partition
+ *  @param[in] attributes the dumped attributes
+ *
+ * @return PLL_SUCCESS if the data was correctly saved
+ *         PLL_FAILURE otherwise (check pll_errmsg for details)
+ */
 
 PLL_EXPORT int pllmod_binary_partition_dump(FILE * bin_file,
                                             int block_id,
@@ -240,6 +260,20 @@ PLL_EXPORT int pllmod_binary_partition_dump(FILE * bin_file,
 
   return PLL_SUCCESS;
 }
+
+/**
+ *  Load a partition from the binary file
+ *
+ *  @param[in] bin_file binary file
+ *  @param[in] block_id id of the block for random access
+ *  @param[in,out] partition if NULL, creates a new partition
+ *  @param[out] attributes the loaded attributes
+ *  @param offset offset to the data block, if known
+ *                0, if access is sequential
+ *                PLLMOD_BIN_ACCESS_SEEK, for searching in the file header
+ *
+ *  @return pointer to the updated (or new) partition
+ */
 
 PLL_EXPORT pll_partition_t * pllmod_binary_partition_load(FILE * bin_file,
                                                           int block_id,
@@ -404,7 +438,18 @@ PLL_EXPORT pll_partition_t * pllmod_binary_partition_load(FILE * bin_file,
   return local_partition;
 }
 
-
+/**
+ *  Save a CLV to the binary file
+ *
+ *  @param[in] bin_file binary file
+ *  @param[in] block_id id of the block for random access, or local id
+ *  @param[in] partition the partition containing the saved CLV
+ *  @param[in] clv_index the index of the CLV
+ *  @param[in] attributes the dumped attributes
+ *
+ *  @return PLL_SUCCESS if the data was correctly saved
+ *          PLL_FAILURE otherwise (check pll_errmsg for details)
+ */
 PLL_EXPORT int pllmod_binary_clv_dump(FILE * bin_file,
                                       int block_id,
                                       pll_partition_t * partition,
@@ -447,6 +492,22 @@ PLL_EXPORT int pllmod_binary_clv_dump(FILE * bin_file,
 
   return retval;
 }
+
+/**
+ *  Load a CLV from the binary file
+ *
+ *  @param[in] bin_file binary file
+ *  @param[in] block_id id of the block for random access
+ *  @param[in,out] partition the partition where the CLV will be stored
+ *  @param[in] clv_index index of the CLV
+ *  @param[out] attributes the loaded attributes
+ *  @param offset offset to the data block, if known
+ *                0, if access is sequential
+ *                PLLMOD_BIN_ACCESS_SEEK, for searching in the file header
+ *
+ *  @return PLL_SUCCESS if the data was correctly loaded
+ *          PLL_FAILURE otherwise (check pll_errmsg for details)
+ */
 
 PLL_EXPORT int pllmod_binary_clv_load(FILE * bin_file,
                                       int block_id,
@@ -517,12 +578,18 @@ PLL_EXPORT int pllmod_binary_clv_load(FILE * bin_file,
   return retval;
 }
 
-static int cb_full_traversal(pll_utree_t * node)
-{
-  UNUSED(node);
-  return 1;
-}
-
+/**
+ *  Save an unrooted tree to the binary file
+ *
+ *  @param[in] bin_file binary file
+ *  @param[in] block_id id of the block for random access, or local id
+ *  @param[in] tree the unrooted tree to be dumped
+ *  @param[in] tip_count the number of tips in the tree
+ *  @param[in] attributes the loaded attributes
+ *
+ *  @return PLL_SUCCESS if the data was correctly saved
+ *          PLL_FAILURE otherwise (check pll_errmsg for details)
+ */
 PLL_EXPORT int pllmod_binary_utree_dump(FILE * bin_file,
                                         int block_id,
                                         pll_utree_t * tree,
@@ -613,6 +680,18 @@ PLL_EXPORT int pllmod_binary_utree_dump(FILE * bin_file,
   return PLL_SUCCESS;
 }
 
+/**
+ *  Load an unrooted tree from the binary file
+ *
+ *  @param[in] bin_file binary file
+ *  @param[in] block_id id of the block for random access
+ *  @param[out] attributes the block attributes
+ *  @param offset offset to the data block, if known
+ *                0, if access is sequential
+ *                PLLMOD_BIN_ACCESS_SEEK, for searching in the file header
+ *
+ *  @return pointer to the updated (or new) partition
+ */
 PLL_EXPORT pll_utree_t * pllmod_binary_utree_load(FILE * bin_file,
                                                   int block_id,
                                                   unsigned int * attributes,
@@ -732,6 +811,18 @@ PLL_EXPORT pll_utree_t * pllmod_binary_utree_load(FILE * bin_file,
   return tree;
 }
 
+/**
+ *  Save a custom block to the binary file
+ *
+ *  @param[in] bin_file binary file
+ *  @param[in] block_id id of the block for random access, or local id
+ *  @param[in] data the data to store in the binary file
+ *  @param[in] size the size of the data
+ *  @param[in] attributes the dumped attributes
+ *
+ *  @return PLL_SUCCESS if the data was correctly saved
+ *          PLL_FAILURE otherwise (check pll_errmsg for details)
+ */
 PLL_EXPORT int pllmod_binary_custom_dump(FILE * bin_file,
                                         int block_id,
                                         void * data,
@@ -794,6 +885,20 @@ PLL_EXPORT pll_block_map_t * pllmod_binary_get_map(FILE * bin_file,
   return map;
 }
 
+/**
+ *  Load a custom block from the binary file
+ *
+ *  @param[in] bin_file binary file
+ *  @param[in] block_id id of the block for random access
+ *  @param[out] size size of the block
+ *  @param[out] type type of the block
+ *  @param[out] attributes the block attributes
+ *  @param offset offset to the data block, if known
+ *                0, if access is sequential
+ *                PLLMOD_BIN_ACCESS_SEEK, for searching in the file header
+ *
+ *  @return pointer to the loaded data
+ */
 PLL_EXPORT void * pllmod_binary_custom_load(FILE * bin_file,
                                            int block_id,
                                            size_t * size,
@@ -861,4 +966,49 @@ PLL_EXPORT void * pllmod_binary_custom_load(FILE * bin_file,
   }
 
   return data;
+}
+
+/* static functions */
+
+static int cb_full_traversal(pll_utree_t * node)
+{
+  UNUSED(node);
+  return 1;
+}
+
+/**
+ * Notes:
+ *     1. Memory alignment could be different when saving and loading the binary
+ *        file. Data will be saved without modifying the alignment, but we need
+ *        to check if it is the correct one when loading.
+ *     2. Binary file should be created using pllmod_binary_create. This will place
+ *        the header at the beginning of the file. When a block is added, the
+ *        header is updated.
+ *     3. Random access binary files require some space allocated at the
+ *        beginning for the hashtable.
+ *
+ *     4.1. Each save operation:
+ *          a) Dump block header and block
+ *          b) Update main header
+ *          c) Update map (if necessary)
+ *          d) Return file pointer to EOF
+ *     4.2. Each load operation:
+ *          a) If random, check map and apply offset
+ *          b) Check and validate block header
+ *          c) Load block
+ *          d) Apply operations (e.g., new memory alignment)
+  */
+
+static unsigned int get_current_alignment( unsigned int attributes )
+{
+  unsigned int alignment = PLL_ALIGNMENT_CPU;
+#ifdef HAVE_SSE
+  if (attributes & PLL_ATTRIB_ARCH_SSE)
+  alignment = PLL_ALIGNMENT_SSE;
+#endif
+#ifdef HAVE_AVX
+  if (attributes & PLL_ATTRIB_ARCH_AVX)
+  alignment = PLL_ALIGNMENT_AVX;
+#endif
+  return alignment;
 }

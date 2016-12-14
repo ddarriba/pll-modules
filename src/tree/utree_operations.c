@@ -18,6 +18,15 @@
  Exelixis Lab, Heidelberg Instutute for Theoretical Studies
  Schloss-Wolfsbrunnenweg 35, D-69118 Heidelberg, Germany
  */
+
+ /**
+  * @file rtree_operations.c
+  *
+  * @brief Operations on unrooted tree structures
+  *
+  * @author Diego Darriba
+  */
+
 #include "pll_tree.h"
 
 #include "../pllmod_common.h"
@@ -214,7 +223,8 @@ PLL_EXPORT pll_utree_t * pllmod_utree_prune(pll_utree_t * edge)
  *
  * @param edge the edge to regraft
  * @param tree the tree to connect `edge` to
- * @return true, if the operation was applied correctly
+ * @return PLL_SUCCESS if the operation was applied correctly,
+ *         PLL_FAILURE otherwise (check pll_errmsg for details)
  */
 PLL_EXPORT int pllmod_utree_regraft(pll_utree_t * edge,
                                     pll_utree_t * tree)
@@ -254,7 +264,8 @@ PLL_EXPORT int pllmod_utree_regraft(pll_utree_t * edge,
  * CLV and scaler indices, and labels are interchanged between nodes to match
  * the other 2 nodes in the triplet.
  *
- * @return true, if the move was applied correctly
+ * @return PLL_SUCCESS if the operation was applied correctly,
+ *         PLL_FAILURE otherwise (check pll_errmsg for details)
  */
 PLL_EXPORT int pllmod_utree_interchange(pll_utree_t * node1,
                                         pll_utree_t * node2)

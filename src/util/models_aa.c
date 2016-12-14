@@ -14,10 +14,19 @@
  You should have received a copy of the GNU Affero General Public License
  along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
- Contact: Alexey Kozlov <Alexey.Kozlov@h-its.org>,
+ Contact: Diego Darriba <Diego.Darriba@h-its.org>,
  Exelixis Lab, Heidelberg Instutute for Theoretical Studies
  Schloss-Wolfsbrunnenweg 35, D-69118 Heidelberg, Germany
  */
+
+/**
+ * @file models_aa.c
+ *
+ * @brief
+ *
+ * @author Alexey Kozlov
+ */
+
 #include <string.h>
 
 #include "pllmod_util.h"
@@ -284,4 +293,3 @@ PLL_EXPORT int pllmod_util_model_set_protmix(pll_partition_t * partition, const 
       return PLL_FAILURE;
     }
 }
-

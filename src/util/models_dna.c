@@ -1,5 +1,5 @@
 /*
- Copyright (C) 2016 Alexey Kozlov
+ Copyright (C) 2016 Alexey Kozlov, Diego Darriba
 
  This program is free software: you can redistribute it and/or modify
  it under the terms of the GNU Affero General Public License as
@@ -14,16 +14,26 @@
  You should have received a copy of the GNU Affero General Public License
  along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
- Contact: Alexey Kozlov <Alexey.Kozlov@h-its.org>,
+ Contact: Diego Darriba <Diego.Darriba@h-its.org>,
  Exelixis Lab, Heidelberg Instutute for Theoretical Studies
  Schloss-Wolfsbrunnenweg 35, D-69118 Heidelberg, Germany
  */
+
+/**
+ * @file models_dna.c
+ *
+ * @brief
+ *
+ * @author Alexey Kozlov
+ * @author Diego Darriba
+ */
+
 #include <string.h>
 
 #include "pllmod_util.h"
 #include "../pllmod_common.h"
 
-#define DNA_MODELS_COUNT 7
+#define DNA_MODELS_COUNT 22
 
 /*                                 AC AG AT CG CT GT       */
 static double dna_rates_equal[] = {1, 1, 1, 1, 1, 1};
@@ -40,23 +50,60 @@ static int dna_sym_rate_equal[] = {0, 0, 0, 0, 0, 0};
 static int dna_sym_rate_free[]  = {0, 1, 2, 3, 4, 5};
 static int dna_sym_rate_tvts[]  = {0, 1, 0, 0, 1, 0};
 static int dna_sym_rate_tn93[]  = {0, 1, 0, 0, 2, 0};
+static int dna_sym_rate_k81[]   = {0, 1, 2, 2, 1, 0};
+static int dna_sym_rate_tpm2[]  = {0, 1, 0, 2, 1, 2};
+static int dna_sym_rate_tpm3[]  = {0, 1, 2, 0, 1, 2};
+static int dna_sym_rate_tim1[]  = {0, 1, 2, 2, 3, 0};
+static int dna_sym_rate_tim2[]  = {0, 1, 0, 2, 3, 2};
+static int dna_sym_rate_tim3[]  = {0, 1, 2, 0, 3, 2};
+static int dna_sym_rate_tvm[]   = {0, 1, 2, 3, 1, 4};
 
 static const pllmod_subst_model_t dna_model_list[DNA_MODELS_COUNT] =
 {
     /*       states  model rates         model freqs      rate symmetries     frequencies sym.           */
-    {"JC",   4,      dna_rates_equal,    dna_freqs_equal, dna_sym_rate_equal, dna_sym_freq_equal },
+    {"JC",     4,    dna_rates_equal,   dna_freqs_equal, dna_sym_rate_equal, dna_sym_freq_equal },
 
-    {"K80",  4,      NULL,               dna_freqs_equal, dna_sym_rate_tvts,  dna_sym_freq_equal },
+    {"K80",    4,    NULL,              dna_freqs_equal, dna_sym_rate_tvts,  dna_sym_freq_equal },
 
-    {"F81",  4,      dna_rates_equal,    NULL,            dna_sym_rate_equal, dna_sym_freq_free  },
+    {"F81",    4,    dna_rates_equal,   NULL,            dna_sym_rate_equal, dna_sym_freq_free  },
 
-    {"HKY",  4,      NULL,               NULL,            dna_sym_rate_tvts,  dna_sym_freq_free  },
+    {"HKY",    4,    NULL,              NULL,            dna_sym_rate_tvts,  dna_sym_freq_free  },
 
-    {"TN93", 4,      NULL,               NULL,            dna_sym_rate_tn93,  dna_sym_freq_free  },
+    {"TN93ef", 4,    NULL,              dna_freqs_equal, dna_sym_rate_tn93,  dna_sym_freq_equal },
 
-    {"SYM",  4,      NULL,               dna_freqs_equal, dna_sym_rate_free,  dna_sym_freq_equal },
+    {"TN93",   4,    NULL,              NULL,            dna_sym_rate_tn93,  dna_sym_freq_free  },
 
-    {"GTR",  4,      NULL,               NULL,            dna_sym_rate_free,  dna_sym_freq_free  }
+    {"K81",    4,    NULL,              dna_freqs_equal, dna_sym_rate_k81,   dna_sym_freq_equal },
+
+    {"K81uf",  4,    NULL,              NULL,            dna_sym_rate_k81,   dna_sym_freq_free  },
+
+    {"TPM2",   4,    NULL,              dna_freqs_equal, dna_sym_rate_tpm2,  dna_sym_freq_equal },
+
+    {"TPM2uf", 4,    NULL,              NULL,            dna_sym_rate_tpm2,  dna_sym_freq_free  },
+
+    {"TPM3",   4,    NULL,              dna_freqs_equal, dna_sym_rate_tpm3,  dna_sym_freq_equal },
+
+    {"TPM3uf", 4,    NULL,              NULL,            dna_sym_rate_tpm3,  dna_sym_freq_free  },
+
+    {"TIM1",   4,    NULL,              dna_freqs_equal, dna_sym_rate_tim1,  dna_sym_freq_equal },
+
+    {"TIM1uf", 4,    NULL,              NULL,            dna_sym_rate_tim1,  dna_sym_freq_free  },
+
+    {"TIM2",   4,    NULL,              dna_freqs_equal, dna_sym_rate_tim2,  dna_sym_freq_equal },
+
+    {"TIM2uf", 4,    NULL,              NULL,            dna_sym_rate_tim2,  dna_sym_freq_free  },
+
+    {"TIM3",   4,    NULL,              dna_freqs_equal, dna_sym_rate_tim3,  dna_sym_freq_equal },
+
+    {"TIM3uf", 4,    NULL,              NULL,            dna_sym_rate_tim3,  dna_sym_freq_free  },
+
+    {"TVMef",  4,    NULL,              dna_freqs_equal, dna_sym_rate_tvm,   dna_sym_freq_equal },
+
+    {"TVM",    4,    NULL,              NULL,            dna_sym_rate_tvm,   dna_sym_freq_free  },
+
+    {"SYM",    4,    NULL,              dna_freqs_equal, dna_sym_rate_free,  dna_sym_freq_equal },
+
+    {"GTR",    4,    NULL,              NULL,            dna_sym_rate_free,  dna_sym_freq_free  }
 };
 
 static int get_model_index(const char * model_name)
