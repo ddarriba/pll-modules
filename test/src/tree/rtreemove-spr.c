@@ -402,7 +402,7 @@ int main (int argc, char * argv[])
   free (branch_lengths);
   free (matrix_indices);
   free (operations);
-  pll_rtree_destroy (tree);
+  pll_rtree_destroy (tree, NULL);
 
   printf ("Test OK!\n");
 

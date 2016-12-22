@@ -318,7 +318,7 @@ int main (int argc, char * argv[])
 
   /* clean */
   pll_partition_destroy(partition);
-  pll_utree_destroy(tree);
+  pll_utree_destroy(tree, NULL);
 
   /* reload */
   pll_binary_header_t input_header;
@@ -401,7 +401,7 @@ pllmod_binary_close(bin_file);
 
   /* clean */
   pll_partition_destroy(partition);
-  pll_utree_destroy(tree);
+  pll_utree_destroy(tree, NULL);
 
   free(travbuffer);
   free(branch_lengths);

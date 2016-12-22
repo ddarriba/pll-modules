@@ -881,7 +881,7 @@ PLL_EXPORT double pllmod_algo_spr_round(pllmod_treeinfo_t * treeinfo,
       DBG("Best tree LH: %f\n", loglh);
 
       if (best_tree)
-        pll_utree_destroy(best_tree);
+        pll_utree_destroy(best_tree, NULL);
 
       best_tree = pll_utree_clone(treeinfo->root);
       best_lh = loglh;
@@ -891,7 +891,7 @@ PLL_EXPORT double pllmod_algo_spr_round(pllmod_treeinfo_t * treeinfo,
     {
 #ifndef  PLLMOD_SEARCH_GREEDY_BLO
       /* restore original brlens */
-      pll_utree_destroy(treeinfo->root);
+      pll_utree_destroy(treeinfo->root, NULL);
       treeinfo->root = tmp_tree;
 #endif
 
@@ -904,7 +904,7 @@ PLL_EXPORT double pllmod_algo_spr_round(pllmod_treeinfo_t * treeinfo,
 
   if (best_tree)
   {
-    pll_utree_destroy(treeinfo->root);
+    pll_utree_destroy(treeinfo->root, NULL);
     treeinfo->root = best_tree;
   }
 

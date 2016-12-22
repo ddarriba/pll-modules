@@ -113,7 +113,7 @@ int main (int argc, char * argv[])
    assert(!rf_distance);
 
    /* try now with root at tip */
-   pll_utree_destroy(tree);
+   pll_utree_destroy(tree, NULL);
    while(tree2->node_index > n_taxa) tree2 = tree2->next?tree2->next->back:tree2->back;
    printf("Root set to %d\n", tree2->node_index);
 
@@ -136,7 +136,7 @@ int main (int argc, char * argv[])
                                           n_taxa);
    assert(!rf_distance);
 
-   pll_utree_destroy(tree);
-   pll_utree_destroy(tree2->back);
+   pll_utree_destroy(tree, NULL);
+   pll_utree_destroy(tree2->back, NULL);
    return PLL_SUCCESS;
 }

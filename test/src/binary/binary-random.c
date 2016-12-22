@@ -359,7 +359,7 @@ int main (int argc, char * argv[])
 
   /* clean */
   pll_partition_destroy(partition);
-  pll_utree_destroy(tree);
+  pll_utree_destroy(tree, NULL);
 
   printf("\n\n");
 
@@ -513,7 +513,7 @@ pllmod_binary_close(bin_file);
 
   /* clean */
   pll_partition_destroy(partition);
-  pll_utree_destroy(tree);
+  pll_utree_destroy(tree, NULL);
 
   free(block_map);
   free(travbuffer);

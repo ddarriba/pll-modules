@@ -239,7 +239,7 @@ static pll_utree_t * read_tree(FILE * file,
         pllmod_set_error(
           PLLMOD_TREE_ERROR_INVALID_TREE,
           "Cannot match labels");
-        pll_utree_destroy(tree);
+        pll_utree_destroy(tree, NULL);
         tree = NULL;
       }
     }
@@ -356,7 +356,7 @@ PLL_EXPORT pll_utree_t * pllmod_utree_consensus(const char * trees_filename,
     split_system = pllmod_utree_split_create(next_tree,
                                              tip_count,
                                              &n_splits);
-    if (next_tree != reference_tree) pll_utree_destroy(next_tree);
+    if (next_tree != reference_tree) pll_utree_destroy(next_tree, NULL);
 
     /* insert splits */
     for (i=0; i<n_splits; ++i)
@@ -390,7 +390,7 @@ PLL_EXPORT pll_utree_t * pllmod_utree_consensus(const char * trees_filename,
     free(aux_errmsg);
     string_hash_destroy(string_hashtable);
     hash_destroy(splits_hash);
-    pll_utree_destroy(reference_tree);
+    pll_utree_destroy(reference_tree, NULL);
     return NULL;
   }
 
@@ -423,7 +423,7 @@ PLL_EXPORT pll_utree_t * pllmod_utree_consensus(const char * trees_filename,
 
   /* cleanup */
   string_hash_destroy(string_hashtable);
-  pll_utree_destroy(reference_tree);
+  pll_utree_destroy(reference_tree, NULL);
   for (i=0; i<cons_split_count; ++i)
     free(split_system[i]);
   free(split_system);

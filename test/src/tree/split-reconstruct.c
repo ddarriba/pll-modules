@@ -103,14 +103,14 @@ int main (int argc, char * argv[])
       fatal("Error: Initial and reconstructed trees differ!");
 
     /* in-loop cleanup */
-    pll_utree_destroy (constree);
+    pll_utree_destroy (constree, NULL);
     pllmod_utree_split_destroy(splits2);
   }
 
 
   /* clean */
   free(labels);
-  pll_utree_destroy (tree);
+  pll_utree_destroy (tree, NULL);
   pllmod_utree_split_destroy(splits);
 
   return (0);

@@ -414,7 +414,7 @@ int main (int argc, char * argv[])
 
   printf ("Destroy tree\n");
   /* we will no longer need the tree structure */
-  pll_utree_destroy (tree);
+  pll_utree_destroy (tree, NULL);
 
   return (EXIT_SUCCESS);
 }

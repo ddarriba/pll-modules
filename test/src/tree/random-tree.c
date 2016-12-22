@@ -215,6 +215,6 @@ int main (int argc, char * argv[])
    free (operations);
 
    pll_partition_destroy (partition);
-   pll_utree_destroy(tree);
+   pll_utree_destroy(tree, NULL);
    return PLL_SUCCESS;
 }

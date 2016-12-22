@@ -349,7 +349,7 @@ PLL_EXPORT double pllmod_algo_opt_brlen_scaler (pll_partition_t * partition,
 
   cur_logl = target_brlen_scaler_func(&opt_params, xres);
 
-  pll_utree_destroy(scaled_tree);
+  pll_utree_destroy(scaled_tree, NULL);
 
   *scaler = xres;
 

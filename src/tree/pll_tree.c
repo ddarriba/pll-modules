@@ -862,7 +862,7 @@ PLL_EXPORT pll_utree_t * pllmod_utree_expand(pll_utree_t * serialized_tree,
 
   if (pll_errno)
   {
-    pll_utree_destroy(tree);
+    pll_utree_destroy(tree, NULL);
     tree = 0;
   }
 
