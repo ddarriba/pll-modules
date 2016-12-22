@@ -28,6 +28,8 @@ ifdef LIBPLL_INC
   else
     CFLAGS += -L$(LIBPLL_INC)
   endif
+else
+  CFLAGS += -I../install/include/libpll -L../install/lib
 endif
 
 MODULES = binary optimize tree
@@ -37,6 +39,7 @@ CFILES = src/binary/binary-sequential.c \
          src/optimize/blopt-minimal.c \
          src/optimize/blopt-5states.c \
          src/tree/random-tree.c \
+         src/tree/parsimony-tree.c \
          src/tree/treemove-nni.c \
          src/tree/treemove-spr.c \
          src/tree/rtreemove-spr.c \

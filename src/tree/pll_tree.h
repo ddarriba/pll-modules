@@ -277,6 +277,18 @@ PLL_EXPORT int pllmod_utree_nodes_at_edge_dist(pll_utree_t * edge,
 PLL_EXPORT pll_utree_t * pllmod_utree_create_random(unsigned int taxa_count,
                                                     const char * const* names);
 
+PLL_EXPORT
+pll_utree_t * pllmod_utree_create_parsimony(unsigned int taxa_count,
+                                            unsigned int seq_length,
+                                            char ** names,
+                                            char ** sequences,
+                                            const unsigned int * site_weights,
+                                            const unsigned int * charmap,
+                                            unsigned int states,
+                                            unsigned int attributes,
+                                            unsigned int random_seed,
+                                            unsigned int * score);
+
 
 
 /* Discrete operations */
@@ -349,6 +361,11 @@ PLL_EXPORT int pllmod_utree_is_tip(pll_utree_t * node);
 
 PLL_EXPORT void pllmod_utree_set_length(pll_utree_t * edge,
                                      double length);
+
+PLL_EXPORT void pllmod_utree_set_length_recursive(pll_utree_t * tree,
+                                                  double length,
+                                                  int missing_only);
+
 
 PLL_EXPORT void pllmod_utree_scale_branches(pll_utree_t * tree,
                                          double branch_length_scaler);

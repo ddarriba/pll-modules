@@ -40,6 +40,8 @@ static int utree_rollback_spr(pll_tree_rollback_t * rollback_info);
 static int utree_rollback_nni(pll_tree_rollback_t * rollback_info);
 static int utree_find_node_in_subtree(pll_utree_t * root, pll_utree_t * node);
 static int cb_update_matrices_partials(pll_utree_t * node, void *data);
+static void utree_set_length_recursive(pll_utree_t * tree, double length,
+                                       int missing_only);
 static void scale_branch_length_recursive (pll_utree_t * tree, double factor);
 
 struct cb_params
@@ -412,6 +414,70 @@ PLL_EXPORT pll_utree_t * pllmod_utree_create_random(unsigned int taxa_count,
   return (new_tree);
 }
 
+/**
+ * Creates a maximum parsimony topology using randomized stepwise-addition
+ * algorithm. All branch lengths will be set to default.
+ */
+PLL_EXPORT
+pll_utree_t * pllmod_utree_create_parsimony(unsigned int taxa_count,
+                                            unsigned int seq_length,
+                                            char ** names,
+                                            char ** sequences,
+                                            const unsigned int * site_weights,
+                                            const unsigned int * charmap,
+                                            unsigned int states,
+                                            unsigned int attributes,
+                                            unsigned int random_seed,
+                                            unsigned int * score)
+{
+  size_t i;
+  pll_utree_t * tree = NULL;
+
+  pll_partition_t * partition = pll_partition_create(taxa_count,
+                                                     0,   /* number of CLVs */
+                                                     states,
+                                                     seq_length,
+                                                     1,
+                                                     1, /* pmatrix count */
+                                                     1,  /* rate_cats */
+                                                     0,  /* scale buffers */
+                                                     attributes);
+
+
+  /* set pattern weights and free the weights array */
+  if (site_weights)
+    pll_set_pattern_weights(partition, site_weights);
+
+  /* find sequences in hash table and link them with the corresponding taxa */
+  for (i = 0; i < taxa_count; ++i)
+    pll_set_tip_states(partition, i, charmap, sequences[i]);
+
+  pll_parsimony_t * parsimony = pll_fastparsimony_init(partition);
+
+  if (parsimony)
+  {
+    tree = pll_fastparsimony_stepwise(&parsimony, (char **) names,
+                                                    score, 1, random_seed);
+
+    /* update pmatrix/scaler/node indices */
+    pll_utree_reset_template_indices(tree, taxa_count);
+
+    /* set default branch lengths */
+    pllmod_utree_set_length_recursive(tree,
+                                      PLLMOD_TREE_DEFAULT_BRANCH_LENGTH,
+                                      0);
+
+    /* destroy parsimony */
+    pll_parsimony_destroy(parsimony);
+  }
+
+  /* destroy all structures allocated for the concrete PLL partition instance */
+  pll_partition_destroy(partition);
+
+
+  return tree;
+}
+
 /* static functions */
 
 static int utree_find_node_in_subtree(pll_utree_t * root,
@@ -514,6 +580,14 @@ PLL_EXPORT void pllmod_utree_set_length(pll_utree_t * edge,
                                             double length)
 {
   edge->length = edge->back->length = length;
+}
+
+PLL_EXPORT void pllmod_utree_set_length_recursive(pll_utree_t * tree,
+                                                  double length,
+                                                  int missing_only)
+{
+  utree_set_length_recursive(tree, length, missing_only);
+  utree_set_length_recursive(tree->back, length, missing_only);
 }
 
 PLL_EXPORT void pllmod_utree_scale_branches(pll_utree_t * tree,
@@ -1038,6 +1112,32 @@ static void scale_branch_length_recursive (pll_utree_t * tree,
     {
       scale_branch_length_recursive (tree->next->back, factor);
       scale_branch_length_recursive (tree->next->next->back, factor);
+    }
+  }
+}
+
+/*
+ * traverse the tree and set all branch lengths to a fixed value
+ * */
+static void utree_set_length_recursive(pll_utree_t * tree,
+                                       double length, int missing_only)
+{
+  if (tree)
+  {
+    /* set branch length to the fixed value if not set */
+    if (!tree->length || !missing_only)
+      tree->length = length;
+
+    if (tree->next)
+    {
+      if (!tree->next->length || !missing_only)
+        tree->next->length = length;
+
+      if (!tree->next->next->length || !missing_only)
+        tree->next->next->length = length;
+
+      utree_set_length_recursive(tree->next->back, length, missing_only);
+      utree_set_length_recursive(tree->next->next->back, length, missing_only);
     }
   }
 }
