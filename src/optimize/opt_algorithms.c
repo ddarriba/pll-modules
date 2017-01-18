@@ -27,7 +27,14 @@
  *
  * @brief Core optimization algorithms
  *
- * @author Diego Darriba, Alexey Kozlov
+ * This file implements low-level optimization algorithms.
+ * Algorithms here are not specific for phylogenetic analysis and can be used
+ * given the proper parameters. In general, boundaries for the variable/s and
+ * a target function that returns a score (to be minimized) given parameter
+ * value/s.
+ *
+ * @author Diego Darriba
+ * @author Alexey Kozlov
  */
 
 static inline int is_nan(double v)
@@ -44,6 +51,23 @@ static inline int d_equals(double a, double b)
 /* NEWTON-RAPHSON OPTIMIZATION */
 /******************************************************************************/
 
+/**
+ * Minimize a function using Newton-Raphson.
+ *
+ * The target function must compute the derivatives at a certain point,
+ * and it requires 4 parameters: (1) custom data (if needed), (2) the value at
+ * which derivatives are computed, and (3,4) lower and upper bounds.
+ *
+ * @param  x1         lower bound
+ * @param  xguess     first guess for the free variable
+ * @param  x2         upper bound
+ * @param  tolerance  tolerance of the minimization method
+ * @param  max_iters  maximum number of iterations (bounds the effect of slow convergence)
+ * @param  params     custom parameters required by the target function
+ * @param  deriv_func target function
+ *
+ * @return            the parameter value that minimizes the function in [x1,x2]
+ */
 PLL_EXPORT double pllmod_opt_minimize_newton(double x1,
                                             double xguess,
                                             double x2,
@@ -146,6 +170,33 @@ PLL_EXPORT double pllmod_opt_minimize_newton(double x1,
 /* L-BFGS-B OPTIMIZATION */
 /******************************************************************************/
 
+/**
+ * Minimize a multi-parameter function using L-BFGS-B.
+ *
+ * The target function must compute the score at a certain state,
+ * and it requires 2 parameters: (1) custom data (if needed),
+ * and (2) the values at which score is computed.
+ *
+ * @param  x[in,out]   first guess and result of the minimization process
+ * @param  xmin        lower bound for each of the variables
+ * @param  xmax        upper bound for each of the variables
+ * @param  bound       bound type (PLL_LBFGSB_BOUND_[NONE|LOWER|UPPER|BOTH]
+ * @param  n           number of variables
+ * @param  factr       convergence tolerance for L-BFGS-B relative to machine epsilon
+ * @param  pgtol       absolute gradient tolerance for L-BFGS-B
+ * @param  params      custom parameters required by the target function
+ * @param  target_funk target function
+ *
+ * `factr` is a double precision variable. The iteration will stop when
+ * (f^k - f^{k+1})/max{|f^k|,|f^{k+1}|,1} <= factr*epsmch
+ * where epsmch is the machine epsilon
+ *
+ * `pgtol` is a double precision variable. The iteration will stop when
+ * max{|proj g_i | i = 1, ..., n} <= pgtol
+ * where pg_i is the ith component of the projected gradient.
+ *
+ * @return             the minimal score found
+ */
 PLL_EXPORT double pllmod_opt_minimize_lbfgsb (double * x,
                                              double * xmin,
                                              double * xmax,
@@ -1067,6 +1118,23 @@ static double brent_opt (double ax, double bx, double cx, double tol,
  * Bui Quang Minh, Minh Anh Thi Nguyen, and Arndt von Haeseler (2013)
  * Ultrafast approximation for phylogenetic bootstrap.
  * Mol. Biol. Evol., 30:1188-1195. (free reprint, DOI: 10.1093/molbev/mst024) */
+
+ /**
+  * Minimize a single-variable function using Brent.
+  *
+  * The target function must evaluate the function at a certain point,
+  * and it requires 2 parameters: (1) custom data (if needed),
+  * and (2) the value where the function is evaluated.
+  *
+  * @param  xmin       lower bound
+  * @param  xguess     first guess for the free variable
+  * @param  xmax       upper bound
+  * @param  xtol       tolerance of the minimization method
+  * @param  params     custom parameters required by the target function
+  * @param  deriv_func target function
+  *
+  * @return            the parameter value that minimizes the function in [xmin,xmax]
+  */
 PLL_EXPORT double pllmod_opt_minimize_brent(double xmin,
                                            double xguess,
                                            double xmax,
@@ -1102,8 +1170,8 @@ PLL_EXPORT double pllmod_opt_minimize_brent(double xmin,
  * @param xmax maximum value(s) (see @param global_range)
  * @param xtol tolerance
  * @param xopt optimal variable values [out]
- * @param fx target function values at xopt [out]
- * @param f2x ??? [out]
+ * @param fx auxiliary variable to keep state between runs [out]
+ * @param f2x auxiliary variable to keep state between runs [out]
  * @param params parameters to be passed to target_funk
  * @param target_funk target function, parameters: 1) params, 2) array of x values,
  * 3) array of scores [out], 4) convergence flags

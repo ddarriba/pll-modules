@@ -24,6 +24,11 @@
   *
   * @brief Optimization algorithms
   *
+  * This file implements high-level optimization algorithms. Most of the
+  * functions listed here provide wrappers to call low-level algorithms in
+  * `opt_algorithms.c` given a complex structure containing PLL features such
+  * as partitions (`pll_partition_t`) or trees (`pll_utree_t`).
+  *
   * @author Diego Darriba
   * @author Alexey Kozlov
   */
@@ -388,6 +393,18 @@ static double brent_target(void * p, double x)
   return score;
 }
 
+/**
+ * Optimize one dimension variable with Brent algorithm within a defined range.
+ * Target function minimizes the negative likelihood score (i.e., a double
+ * precision positive value) given the input parameters.
+ * The optimal parameter value is updated in `params`.
+ *
+ * @param[in,out]  params optimization parameters structure
+ * @param      umin   lower bound for target variable
+ * @param      umax   upper bound for target variable
+ *
+ * @return    the negative likelihood score
+ */
 PLL_EXPORT double pllmod_opt_optimize_onedim(pll_optimize_options_t * params,
                                              double umin,
                                              double umax)
@@ -423,11 +440,11 @@ PLL_EXPORT double pllmod_opt_optimize_onedim(pll_optimize_options_t * params,
   }
 
   double xres = pllmod_opt_minimize_brent(xmin, xguess, xmax,
-                                           params->pgtol,
-                                           &score,
-                                           &f2x,
-                                           (void *) params,
-                                           &brent_target);
+                                          params->pgtol,
+                                          &score,
+                                          &f2x,
+                                          (void *) params,
+                                          &brent_target);
   set_x_to_parameters(params, &xres);
 
   return score;
@@ -437,6 +454,19 @@ PLL_EXPORT double pllmod_opt_optimize_onedim(pll_optimize_options_t * params,
 /* L-BFGS-B OPTIMIZATION */
 /******************************************************************************/
 
+/**
+ * Optimize multi-dimensional variable with L-BFGS-B algorithm within a defined
+ * range.
+ * Target function minimizes the negative likelihood score (i.e., a double
+ * precision positive value) given the input parameters.
+ * The optimal parameter values are updated in `params`.
+ *
+ * @param[in,out]  params optimization parameters structure
+ * @param  umin   array containing lower bounds for target variables
+ * @param  umax   array containing upper bounds for target variables
+ *
+ * @return        the negative likelihood score
+ */
 PLL_EXPORT double pllmod_opt_optimize_multidim (pll_optimize_options_t * params,
                                                 double *umin,
                                                 double *umax)
@@ -903,7 +933,39 @@ static int recomp_iterative (pll_newton_tree_params_t * params,
 
 } /* recomp_iterative */
 
-
+/**
+ * Optimize branch lengths within a certain radius around the virtual rooted
+ * using Newton-Raphson minimization algorithm.
+ *
+ * There are 2 preconditions for this function:
+ *
+ * 1. When this function is called, CLVs must be up-to-date towards the virtual
+ * root defined by `tree`. This condition cannot be checked, so make sure they
+ * are correct.
+ *
+ * 2. Pmatrix indices must be unique for the involved branches, otherwise there
+ * will be side effects when the branches are optimized.
+ *
+ *
+ * `keep_update` determines whether after optimizing a branch, the resulting
+ * length is updated in the tree and partition structures before proceeding to
+ * the next branch. Otherwise, all branches are optimized given the original
+ * branch lengths and CLVs and updated all together at the end of each iteration.
+ * In general, `keep_update` provides better fitness, but the results may not be
+ * reproducible if several branches are optimized in parallel.
+ *
+ * @param[in,out]  partition         the PLL partition structure
+ * @param[in,out]  tree              the PLL unrotted tree structure
+ * @param  params_indices    the indices of the parameter sets
+ * @param  branch_length_min lower bound for branch lengths
+ * @param  branch_length_max upper bound for branch lengths
+ * @param  tolerance         tolerance for Newton-Raphson algorithm
+ * @param  smoothings        number of iterations over the branches
+ * @param  radius            radius from the virtual root
+ * @param  keep_update       if true, branch lengths are iteratively updated in the tree structure
+ *
+ * @return                   the likelihood score after optimizing branch lengths
+ */
 PLL_EXPORT double pllmod_opt_optimize_branch_lengths_local (
                                               pll_partition_t * partition,
                                               pll_utree_t * tree,
@@ -921,7 +983,7 @@ PLL_EXPORT double pllmod_opt_optimize_branch_lengths_local (
 
   pllmod_reset_error();
 
-  /**
+  /*
    * preconditions:
    *    (1) CLVs must be updated towards 'tree'
    *    (2) Pmatrix indices must be **unique** for each branch
@@ -976,14 +1038,16 @@ PLL_EXPORT double pllmod_opt_optimize_branch_lengths_local (
     params.tree = tree;
     if (!recomp_iterative (&params, radius, &new_loglikelihood, keep_update))
     {
-      return PLL_FAILURE;
+      loglikelihood = PLL_FAILURE;
+      break;
     }
 
     /* iterate on second edge */
     params.tree = tree->back;
     if (!recomp_iterative (&params, radius-1, &new_loglikelihood, keep_update))
     {
-      return PLL_FAILURE;
+      loglikelihood = PLL_FAILURE;
+      break;
     }
 
     /* compute likelihood after optimization */
@@ -1007,7 +1071,8 @@ PLL_EXPORT double pllmod_opt_optimize_branch_lengths_local (
       pllmod_set_error(PLLMOD_OPT_ERROR_NEWTON_WORSE_LK,
                        "Local BL opt converged to a worse likelihood score by %f units",
                        new_loglikelihood - loglikelihood);
-      return -1 * new_loglikelihood;
+      loglikelihood = new_loglikelihood;
+      break;
     }
 #endif
 
@@ -1025,6 +1090,22 @@ PLL_EXPORT double pllmod_opt_optimize_branch_lengths_local (
   return -1*loglikelihood;
 } /* pllmod_opt_optimize_branch_lengths_local */
 
+/**
+ * Optimize branch lengths using Newton-Raphson minimization algorithm.
+ *
+ * Check `pllmod_opt_optimize_branch_lengths_local` documentation.
+ *
+ * @param[in,out]  partition         the PLL partition structure
+ * @param[in,out]  tree              the PLL unrotted tree structure
+ * @param  params_indices    the indices of the parameter sets
+ * @param  branch_length_min lower bound for branch lengths
+ * @param  branch_length_max upper bound for branch lengths
+ * @param  tolerance         tolerance for Newton-Raphson algorithm
+ * @param  smoothings        number of iterations over the branches
+ * @param  keep_update       if true, branch lengths are iteratively updated in the tree structure
+ *
+ * @return                   the likelihood score after optimizing branch lengths
+ */
 PLL_EXPORT double pllmod_opt_optimize_branch_lengths_iterative (
                                               pll_partition_t * partition,
                                               pll_utree_t * tree,
@@ -1048,6 +1129,14 @@ PLL_EXPORT double pllmod_opt_optimize_branch_lengths_iterative (
   return loglikelihood;
 } /* pllmod_opt_optimize_branch_lengths_iterative */
 
+/**
+ * Compute the likelihood function derivatives for a specific branch length
+ *
+ * @param parameters  `pll_optimize_options_t` structure
+ * @param proposal    the branch length where the derivatives are computed
+ * @param df[out]         first derivative of the likelihood function
+ * @param ddf[out]        second derivative of the likelihood function
+ */
 PLL_EXPORT void pllmod_opt_derivative_func(void * parameters,
                                           double proposal,
                                           double *df, double *ddf)
@@ -1067,6 +1156,23 @@ PLL_EXPORT void pllmod_opt_derivative_func(void * parameters,
  *  multi-partition optimization routines
  */
 
+/**
+ * Compute the likelihood score at a given edge on a multiple partition
+ *
+ * @param  partitions          list of partitions
+ * @param  partition_count     number of partitions in `partitions`
+ * @param  parent_clv_index    parent clv index
+ * @param  parent_scaler_index parent scaler index
+ * @param  child_clv_index     child clv index
+ * @param  child_scaler_index  child scaler index
+ * @param  matrix_index        matrix index of the edge
+ * @param  params_indices      the indices of the parameter sets
+ * @param  persite_lnl         per-site likelihoods (if 0, they are omitted)
+ * @param  parallel_context    context for parallel computation
+ * @param  parallel_reduce_cb  callback function for parallel reduction
+ *
+ * @return                     the likelihood score at the given edge
+ */
 PLL_EXPORT double pllmod_opt_compute_edge_loglikelihood_multi(
                                               pll_partition_t ** partitions,
                                               size_t partition_count,
@@ -1318,6 +1424,27 @@ static int recomp_iterative_multi (pll_newton_tree_params_multi_t * params,
 
 } /* recomp_iterative */
 
+/**
+ * Optimize branch lengths locally around a given edge using Newton-Raphson
+ * minimization algorithm on a multiple partition.
+ *
+ * Check `pllmod_opt_optimize_branch_lengths_local` documentation.
+ *
+ * @param[in,out]  partitions    list of partitions
+ * @param  partition_count   number of partitions in `partitions`
+ * @param[in,out]  tree          the PLL unrotted tree structure
+ * @param  params_indices    the indices of the parameter sets
+ * @param  branch_length_min lower bound for branch lengths
+ * @param  branch_length_max upper bound for branch lengths
+ * @param  tolerance         tolerance for Newton-Raphson algorithm
+ * @param  smoothings        number of iterations over the branches
+ * * @param  radius            radius from the virtual root
+ * @param  keep_update       if true, branch lengths are iteratively updated in the tree structure
+ * @param  parallel_context      context for parallel computation
+ * @param  parallel_reduce_cb    callback function for parallel reduction
+ *
+ * @return                   the likelihood score after optimizing branch lengths
+ */
 PLL_EXPORT double pllmod_opt_optimize_branch_lengths_local_multi (
                                               pll_partition_t ** partitions,
                                               size_t partition_count,
