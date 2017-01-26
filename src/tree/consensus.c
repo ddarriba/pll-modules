@@ -112,12 +112,7 @@ PLL_EXPORT pll_utree_t * pllmod_utree_from_splits(const pll_split_t * splits,
   pll_split_t rootsplit1, rootsplit2, next_split;
   pll_split_t * all_splits;
 
-  if (split_count == 0)
-  {
-    pllmod_set_error(PLLMOD_TREE_ERROR_INVALID_SPLIT,
-                     "There are no splits");
-    return NULL;
-  }
+  // TODO: Build special case when split_count == 0
 
   all_splits = (pll_split_t *) malloc((split_count + tip_count) *
                                                     sizeof(pll_split_t));
@@ -133,8 +128,8 @@ PLL_EXPORT pll_utree_t * pllmod_utree_from_splits(const pll_split_t * splits,
   }
 
   /* create initial tree with 2 connected nodes of degree 1 */
-  rootsplit1 = clone_split(splits[0], split_len);
-  rootsplit2 = clone_split(splits[0], split_len);
+  rootsplit1 = clone_split(all_splits[0], split_len);
+  rootsplit2 = clone_split(all_splits[0], split_len);
   reverse_split(rootsplit2, tip_count);
 
   /* build tree out of the first split */
@@ -274,6 +269,15 @@ static FILE *get_number_of_trees(unsigned int *tree_count,
   return f;
 }
 
+/**
+ * Build a consensus tree out of a set of trees in a file in NEWICK format
+ *
+ * @param  trees_filename trees filename
+ * @param  threshold      consensus threshold in [0.5,1]
+ * @param  extended       whether to include compatible splits
+ *
+ * @return                consensus unrooted tree structure
+ */
 PLL_EXPORT pll_utree_t * pllmod_utree_consensus(const char * trees_filename,
                                                 double threshold,
                                                 int extended)
@@ -313,7 +317,7 @@ PLL_EXPORT pll_utree_t * pllmod_utree_consensus(const char * trees_filename,
     return NULL;
   }
 
-  min_support = (unsigned int) ceil(threshold * tree_count);
+  min_support = (unsigned int) floor(threshold * tree_count);
 
   /* read first tree */
   reference_tree = read_tree(trees_file, &n_chunks, &tip_count, NULL);
@@ -405,7 +409,7 @@ PLL_EXPORT pll_utree_t * pllmod_utree_consensus(const char * trees_filename,
     {
       // This works for MR and STRICT consensus (i.e., threshold >= 0.5)
       // TODO: Implement also MR extended
-      if (e->support >= (int) min_support)
+      if (e->support > (int) min_support)
       {
         assert (cons_split_count < max_splits);
         split_system[cons_split_count++] = clone_split(e->bit_vector, split_len);
@@ -725,6 +729,12 @@ static void reset_template_indices(pll_utree_t * node,
   unsigned int inner_clv_index = tip_count;
   unsigned int inner_node_index = tip_count;
   int inner_scaler_index = 0;
+
+  if (pllmod_utree_is_tip(node))
+  {
+    node = node->back;
+    assert(!pllmod_utree_is_tip(node));
+  }
 
   recursive_assign_indices(node->back,
                            &inner_clv_index,
