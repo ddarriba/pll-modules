@@ -45,6 +45,7 @@ static int compare_splits (pll_split_t s1,
                            unsigned int split_len);
 static unsigned int get_utree_splitmap_id(pll_utree_t * node,
                                           unsigned int tip_count);
+static unsigned int split_length(unsigned int tip_count);
 
 struct cb_split_params
 {
@@ -195,6 +196,9 @@ PLL_EXPORT unsigned int pllmod_utree_rf_distance(pll_utree_t * t1,
   pll_split_t * s1 = pllmod_utree_split_create(t1, tip_count, &split_count);
   pll_split_t * s2 = pllmod_utree_split_create(t2, tip_count, &split_count);
 
+  pllmod_utree_split_normalize_and_sort(s1, tip_count, split_count, 1);
+  pllmod_utree_split_normalize_and_sort(s2, tip_count, split_count, 1);
+
   /* compute distance */
   rf_distance = pllmod_utree_split_rf_distance(s1, s2, tip_count);
 
@@ -214,9 +218,7 @@ PLL_EXPORT unsigned int pllmod_utree_split_rf_distance(pll_split_t * s1,
                                                        unsigned int tip_count)
 {
   unsigned int split_count = tip_count - 3;
-  unsigned int split_size  = (sizeof(pll_split_base_t) * 8);
-  unsigned int split_len   = (tip_count / split_size) +
-                            (tip_count % (sizeof(pll_split_base_t) * 8) > 0);
+  unsigned int split_len   = split_length(tip_count);
   unsigned int equal = 0;
   unsigned int s1_idx = 0,
                s2_idx = 0;
@@ -260,22 +262,66 @@ PLL_EXPORT unsigned int pllmod_utree_split_rf_distance(pll_split_t * s1,
  * you should keep a pointer to the original first position such that you can
  * deallocate it afterwards!
  */
+/**
+ * normalizes and sorts a set of splits
+ *
+ * @param s           set of splits
+ * @param tip_count   number of tips
+ * @param split_count numer of splits in 's'
+ * @param keep_first  do not change first pointer in 's' (i.e., s[0])
+ *
+ * `keep_fist` parameter is important if the set of splits were allocated in
+ * a contiguous chunk of memory and you want to use s[0] to deallocate it in
+ * the future.
+ */
 PLL_EXPORT void pllmod_utree_split_normalize_and_sort(pll_split_t * s,
                                                       unsigned int tip_count,
-                                                      unsigned int split_count)
+                                                      unsigned int split_count,
+                                                      int keep_first)
 {
   unsigned int i;
+  unsigned int split_len;
+
+  pllmod_reset_error();
+
+  pll_split_t first_split;
   for (i=0; i<split_count;++i)
     normalize_split(s[i], tip_count);
 
+  first_split = s[0];
   qsort(s, split_count, sizeof(pll_split_t), _cmp_splits);
+
+  if (keep_first && first_split != s[0])
+  {
+    split_len = split_length(tip_count);
+
+    /* find first split */
+    for (i=1; s[i] != first_split && i < split_count; ++i);
+    assert(i < split_count);
+
+    /* swap */
+    void * aux_mem = malloc(sizeof(pll_split_base_t) * split_len);
+    if (!aux_mem)
+    {
+      pllmod_set_error(PLL_ERROR_MEM_ALLOC,
+                       "Cannot allocate memory for auxiliary array\n");
+      return;
+    }
+
+    memcpy(aux_mem, first_split,  sizeof(pll_split_base_t) * split_len);
+    memcpy(first_split, s[0],     sizeof(pll_split_base_t) * split_len);
+    memcpy(s[0], aux_mem, sizeof(pll_split_base_t) * split_len);
+    free(aux_mem);
+    s[i] = s[0];
+    s[0] = first_split;
+  }
 }
 
 PLL_EXPORT void pllmod_utree_split_show(pll_split_t split, unsigned int tip_count)
 {
-  unsigned int split_size = sizeof(pll_split_base_t) * 8;
+  unsigned int split_size   = sizeof(pll_split_base_t) * 8;
   unsigned int split_offset = tip_count % split_size;
-  unsigned int split_len  = tip_count / split_size + (split_offset>0);
+  unsigned int split_len    = split_length(tip_count);;
   unsigned int i, j;
 
   for (i=0; i<(split_len-1); ++i)
@@ -361,44 +407,9 @@ PLL_EXPORT pll_split_t * pllmod_utree_split_create(pll_utree_t * tree,
   for (i=0; i<split_count;++i)
     normalize_split(split_list[i], tip_count);
 
-  /* sort splits and keep first position pointing to the allocated array */
-  pll_split_t aux = split_list[0];
+  if (_split_count)
+    *_split_count = split_count;
 
-  qsort(split_list, split_count, sizeof(pll_split_t), _cmp_splits);
-
-#ifdef ULTRADEBUG
-  /* check */
-  for (i=1; i<split_count; ++i)
-    if (compare_splits(split_list[i], split_list[i-1], split_len) <= 0)
-    {
-      printf("Error %d %d\n", i, _cmp_splits(&split_list[i], &split_list[i-1]));
-      pllmod_utree_split_show(split_list[i], tip_count);
-      pllmod_utree_split_show(split_list[i-1], tip_count);
-    }
-#endif
-
-  for (i=0; split_list[i] != aux && i < split_count; ++i);
-  assert(i < split_count);
-  if (i>0)
-  {
-    /* swap */
-    void * aux_mem = malloc(sizeof(pll_split_base_t) * split_len);
-    if (!aux_mem)
-    {
-      pllmod_set_error(PLL_ERROR_MEM_ALLOC,
-                       "Cannot allocate memory for auxiliary array\n");
-      return NULL;
-    }
-
-    memcpy(aux_mem, aux,           sizeof(pll_split_base_t) * split_len);
-    memcpy(aux, split_list[0],     sizeof(pll_split_base_t) * split_len);
-    memcpy(split_list[0], aux_mem, sizeof(pll_split_base_t) * split_len);
-    free(aux_mem);
-    split_list[i] = split_list[0];
-    split_list[0] = aux;
-  }
-
-  if (_split_count) *_split_count = split_count;
   return split_list;
 }
 
@@ -518,6 +529,7 @@ static int compare_splits (pll_split_t s1,
                            unsigned int split_len)
 {
   unsigned int i;
+
   for (i=0; i<split_len; ++i)
   {
     if (s1[i] != s2[i])
@@ -542,9 +554,9 @@ static int _cmp_splits (const void * a, const void * b)
 
 static void normalize_split(pll_split_t split, unsigned int tip_count)
 {
-  unsigned int split_size = sizeof(pll_split_base_t) * 8;
+  unsigned int split_size  = sizeof(pll_split_base_t) * 8;
   unsigned int split_offset = tip_count % split_size;
-  unsigned int split_len  = tip_count / split_size + (split_offset>0);
+  unsigned int split_len    = split_length(tip_count);
   unsigned int i;
 
   int normalized = split[0]&1;
@@ -569,4 +581,12 @@ static unsigned int get_utree_splitmap_id(pll_utree_t * node,
   unsigned int node_id = node->node_index;
   assert(node_id >= tip_count);
   return node_id - tip_count;
+}
+
+static unsigned int split_length(unsigned int tip_count)
+{
+  unsigned int split_size = sizeof(pll_split_base_t) * 8;
+  unsigned int split_offset = tip_count % split_size;
+
+  return tip_count / split_size + (split_offset>0);
 }

@@ -63,6 +63,7 @@ static int cb_destroy_data(pll_utree_t * node, void * d)
   free(data->split);
   free(data);
   node->data = NULL;
+
   return PLL_SUCCESS;
 }
 
@@ -112,65 +113,95 @@ PLL_EXPORT pll_utree_t * pllmod_utree_from_splits(const pll_split_t * splits,
   pll_split_t rootsplit1, rootsplit2, next_split;
   pll_split_t * all_splits;
 
-  // TODO: Build special case when split_count == 0
-
-  all_splits = (pll_split_t *) malloc((split_count + tip_count) *
-                                                    sizeof(pll_split_t));
-  memcpy(all_splits, splits, split_count * sizeof(pll_split_t));
-  for (i=0; i<tip_count; ++i)
+  if (split_count == 0)
   {
-    all_splits[split_count+i] = (pll_split_t) calloc(split_len,
-                                               sizeof(pll_split_base_t));
+    // build star tree
+    rootsplit1 = (pll_split_t) calloc(split_len,
+                                      sizeof(pll_split_base_t));
+    rootsplit1[0] = 1;
+    rootsplit2 = clone_split(rootsplit1, split_len);
+    reverse_split(rootsplit1, tip_count);
+
+    tree = create_consensus_node(NULL, rootsplit1, split_len, tip_count);
+    tree->back = create_consensus_node(NULL, rootsplit2, split_len, tip_count);
+    tree->back->back = tree;
+
+    for (i=1; i<tip_count; ++i)
     {
       unsigned int split_id   = i / split_size;
-      all_splits[split_count+i][split_id] = (1 << (i % split_size));
+      next_split = (pll_split_t) calloc(split_len,
+                                        sizeof(pll_split_base_t));
+      next_split[split_id] = (1 << (i % split_size));
+      pll_utree_t * next_n = create_consensus_node(tree, next_split, split_len, tip_count);
     }
+
+    return_tree = tree;
   }
-
-  /* create initial tree with 2 connected nodes of degree 1 */
-  rootsplit1 = clone_split(all_splits[0], split_len);
-  rootsplit2 = clone_split(all_splits[0], split_len);
-  reverse_split(rootsplit2, tip_count);
-
-  /* build tree out of the first split */
-  tree = create_consensus_node(NULL, rootsplit1, split_len, tip_count);
-  tree->back = create_consensus_node(NULL, rootsplit2, split_len, tip_count);
-  tree->back->back = tree;
-
-  return_tree = tree;
-
-  /* add splits individually */
-  for (i=1; i<(split_count+tip_count); ++i)
+  else
   {
-    next_split = clone_split(all_splits[i], split_len);
-
-    /* select branch */
-    if (is_subsplit(next_split, rootsplit1, split_len))
-      next_parent = tree;
-    else if (is_subsplit(next_split, rootsplit2, split_len))
-      next_parent = tree->back;
-    else
+    all_splits = (pll_split_t *) malloc((split_count + tip_count) *
+                                                      sizeof(pll_split_t));
+    memcpy(all_splits, splits, split_count * sizeof(pll_split_t));
+    for (i=0; i<tip_count; ++i)
     {
-      reverse_split(next_split, tip_count);
+      all_splits[split_count+i] = (pll_split_t) calloc(split_len,
+                                                 sizeof(pll_split_base_t));
+      {
+        unsigned int split_id   = i / split_size;
+        all_splits[split_count+i][split_id] = (1 << (i % split_size));
+      }
+    }
+
+    /* create initial tree with 2 connected nodes of degree 1 */
+    rootsplit1 = clone_split(all_splits[0], split_len);
+    rootsplit2 = clone_split(all_splits[0], split_len);
+    reverse_split(rootsplit2, tip_count);
+
+    /* build tree out of the first split */
+    tree = create_consensus_node(NULL, rootsplit1, split_len, tip_count);
+    tree->back = create_consensus_node(NULL, rootsplit2, split_len, tip_count);
+    tree->back->back = tree;
+
+    return_tree = tree;
+
+    /* add splits individually */
+    for (i=1; i<(split_count+tip_count); ++i)
+    {
+      next_split = clone_split(all_splits[i], split_len);
+
+      /* select branch */
       if (is_subsplit(next_split, rootsplit1, split_len))
         next_parent = tree;
       else if (is_subsplit(next_split, rootsplit2, split_len))
         next_parent = tree->back;
       else
       {
-        pllmod_set_error(PLLMOD_TREE_ERROR_INVALID_SPLIT,
-                         "Splits are incompatible");
-        return_tree = NULL;
-        break;
+        reverse_split(next_split, tip_count);
+        if (is_subsplit(next_split, rootsplit1, split_len))
+          next_parent = tree;
+        else if (is_subsplit(next_split, rootsplit2, split_len))
+          next_parent = tree->back;
+        else
+        {
+          pllmod_set_error(PLLMOD_TREE_ERROR_INVALID_SPLIT,
+                           "Splits are incompatible");
+          return_tree = NULL;
+          break;
+        }
       }
+
+      /* select node */
+      next_parent = find_splitnode_recurse(next_split, next_parent, split_len);
+      assert(next_parent);
+
+      /* create new node for the split*/
+      create_consensus_node(next_parent, next_split, split_len, tip_count);
     }
 
-    /* select node */
-    next_parent = find_splitnode_recurse(next_split, next_parent, split_len);
-    assert(next_parent);
-
-    /* create new node for the split*/
-    create_consensus_node(next_parent, next_split, split_len, tip_count);
+    /* clean */
+    for (i=0; i<tip_count; ++i)
+      free(all_splits[split_count+i]);
+    free(all_splits);
   }
 
   build_tips_recurse(tree, tip_labels);
@@ -179,10 +210,6 @@ PLL_EXPORT pll_utree_t * pllmod_utree_from_splits(const pll_split_t * splits,
 
   reset_template_indices(tree, tip_count);
 
-  /* clean */
-  for (i=0; i<tip_count; ++i)
-    free(all_splits[split_count+i]);
-  free(all_splits);
   pllmod_utree_traverse_apply(tree,
                               cb_destroy_data, /* pre  */
                               NULL,            /*  in  */
@@ -282,6 +309,7 @@ PLL_EXPORT pll_utree_t * pllmod_utree_consensus(const char * trees_filename,
                                                 double threshold,
                                                 int extended)
 {
+time_t start_t = time(NULL);
   FILE * trees_file;
   pll_utree_t * consensus_tree = NULL, /* final consensus tree */
               * reference_tree = NULL, /* reference tree for consistency */
@@ -348,6 +376,7 @@ PLL_EXPORT pll_utree_t * pllmod_utree_consensus(const char * trees_filename,
   split_offset = tip_count % split_size;
   split_len  = tip_count / split_size + (split_offset>0);
 
+printf("hashing start %ld\n", time(NULL) - start_t);
   /* create hashtable */
   splits_hash = hash_init(tip_count * 10);
 
@@ -398,6 +427,7 @@ PLL_EXPORT pll_utree_t * pllmod_utree_consensus(const char * trees_filename,
     return NULL;
   }
 
+printf("split filter start %ld\n", time(NULL) - start_t);
   /* build final split system */
   unsigned int max_splits = tip_count - 3;
   split_system = (pll_split_t *) malloc (sizeof(pll_split_t) * max_splits);
@@ -419,12 +449,14 @@ PLL_EXPORT pll_utree_t * pllmod_utree_consensus(const char * trees_filename,
   }
   hash_destroy(splits_hash);
 
+printf("build tree start (%d) %ld\n", cons_split_count, time(NULL) - start_t);
   /* buld tree from splits */
   consensus_tree = pllmod_utree_from_splits(split_system,
                                       cons_split_count,
                                       tip_count,
                                       string_hashtable->labels);
 
+printf("cleanup start %ld\n", time(NULL) - start_t);
   /* cleanup */
   string_hash_destroy(string_hashtable);
   pll_utree_destroy(reference_tree, NULL);
@@ -622,7 +654,7 @@ static pll_utree_t * create_consensus_node(pll_utree_t * parent,
                                     malloc (sizeof(consensus_data_t));
   data->split     = split;
   data->degree    = 1;
-  data->tip_count    = tip_count;
+  data->tip_count = tip_count;
   data->split_len = split_len;
 
   new_node->data  = data;
@@ -736,6 +768,7 @@ static void reset_template_indices(pll_utree_t * node,
     assert(!pllmod_utree_is_tip(node));
   }
 
+  if (node->back)
   recursive_assign_indices(node->back,
                            &inner_clv_index,
                            &inner_scaler_index,
@@ -763,7 +796,8 @@ static void reset_template_indices(pll_utree_t * node,
   node->next->scaler_index = inner_scaler_index;
   node->next->next->scaler_index = inner_scaler_index;
 
-  node->pmatrix_index = node->back->pmatrix_index;
+  if (node->back)
+    node->pmatrix_index = node->back->pmatrix_index;
   node->next->pmatrix_index = node->next->back->pmatrix_index;
   node->next->next->pmatrix_index = node->next->next->back->pmatrix_index;
 }

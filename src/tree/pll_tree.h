@@ -320,7 +320,8 @@ PLL_EXPORT pll_split_t * pllmod_utree_split_create(pll_utree_t * tree,
 
 PLL_EXPORT void pllmod_utree_split_normalize_and_sort(pll_split_t * s,
                                                       unsigned int tip_count,
-                                                      unsigned int n_splits);
+                                                      unsigned int n_splits,
+                                                      int keep_first);
 
 PLL_EXPORT void pllmod_utree_split_show(pll_split_t split,
                                         unsigned int tip_count);

@@ -245,7 +245,7 @@ PLL_EXPORT int pllmod_utree_nni(pll_utree_t * edge,
 /**
  * Rollback the previous move
  * @param  rollback_info the rollback info returned by the previous move
- * @return PLL_SUCCESS if the rollback move was applied correctly, 
+ * @return PLL_SUCCESS if the rollback move was applied correctly,
  *         PLL_FAILURE otherwise (check pll_errmsg for details)
  */
 PLL_EXPORT int pllmod_tree_rollback(pll_tree_rollback_t * rollback_info)
@@ -558,6 +558,8 @@ PLL_EXPORT int pllmod_utree_traverse_apply(pll_utree_t * root,
                                            void *data)
 {
   int retval = 1;
+
+  assert(root);
 
   if (pllmod_utree_is_tip(root)) return PLL_FAILURE;
 

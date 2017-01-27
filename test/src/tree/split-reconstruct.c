@@ -69,8 +69,13 @@ int main (int argc, char * argv[])
 
   unsigned int n_splits;
   pll_split_t * splits = pllmod_utree_split_create(tree,
-                                                    tip_count,
-                                                    &n_splits);
+                                                   tip_count,
+                                                   &n_splits);
+
+  pllmod_utree_split_normalize_and_sort(splits,
+                                        tip_count,
+                                        n_splits,
+                                        1);
 
   for (iter=0; iter<n_iters; ++iter)
   {
@@ -91,10 +96,16 @@ int main (int argc, char * argv[])
                                                       tip_count,
                                                       &n_splits);
 
+    pllmod_utree_split_normalize_and_sort(splits2,
+                                          tip_count,
+                                          n_splits,
+                                          1);
+
     /* sort splits back */
     pllmod_utree_split_normalize_and_sort(splits,
                                           tip_count,
-                                          n_splits);
+                                          n_splits,
+                                          0);
 
     rf_dist = pllmod_utree_split_rf_distance(splits, splits2, tip_count);
     printf(" RF DIST = %d\n", rf_dist);
@@ -106,7 +117,6 @@ int main (int argc, char * argv[])
     pll_utree_destroy (constree, NULL);
     pllmod_utree_split_destroy(splits2);
   }
-
 
   /* clean */
   free(labels);
