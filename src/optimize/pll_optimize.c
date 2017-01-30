@@ -787,6 +787,8 @@ static int recomp_iterative (pll_newton_tree_params_t * params,
   pll_update_sumtable (params->partition,
                        tr_p->clv_index,
                        tr_p->back->clv_index,
+                       tr_p->scaler_index,
+                       tr_p->back->scaler_index,
                        params->params_indices,
                        params->sumtable);
 
@@ -1257,6 +1259,8 @@ static int recomp_iterative_multi (pll_newton_tree_params_multi_t * params,
     pll_update_sumtable (params->partitions[p],
                          tr_p->clv_index,
                          tr_p->back->clv_index,
+                         tr_p->scaler_index,
+                         tr_p->back->scaler_index,
                          params->params_indices[p],
                          params->precomp_buffers[p]);
   }
