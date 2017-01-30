@@ -1,5 +1,5 @@
 /*
- Copyright (C) 2016 Diego Darriba
+ Copyright (C) 2016 Diego Darriba, Pierre Barbera
 
  This program is free software: you can redistribute it and/or modify
  it under the terms of the GNU Affero General Public License as
@@ -37,10 +37,11 @@
 
 #define PLLMOD_BIN_INVALID_OFFSET    -1
 
-#define PLLMOD_BIN_ATTRIB_UPDATE_MAP           (1<<0)
-#define PLLMOD_BIN_ATTRIB_PARTITION_DUMP_CLV   (1<<1)
-#define PLLMOD_BIN_ATTRIB_PARTITION_DUMP_WGT   (1<<2)
-#define PLLMOD_BIN_ATTRIB_ALIGNED              (1<<3)
+#define PLLMOD_BIN_ATTRIB_UPDATE_MAP              (1<<0)
+#define PLLMOD_BIN_ATTRIB_PARTITION_DUMP_CLV      (1<<1)
+#define PLLMOD_BIN_ATTRIB_PARTITION_DUMP_WGT      (1<<2)
+#define PLLMOD_BIN_ATTRIB_ALIGNED                 (1<<3)
+#define PLLMOD_BIN_ATTRIB_PARTITION_LOAD_SKELETON (1<<4)
 
 #define PLLMOD_BIN_ERROR_BLOCK_MISMATCH         4001
 #define PLLMOD_BIN_ERROR_BLOCK_LENGTH           4002

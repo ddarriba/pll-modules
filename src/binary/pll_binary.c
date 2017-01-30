@@ -1,5 +1,5 @@
 /*
- Copyright (C) 2016 Diego Darriba
+ Copyright (C) 2017 Diego Darriba, Pierre Barbera
 
  This program is free software: you can redistribute it and/or modify
  it under the terms of the GNU Affero General Public License as
@@ -25,6 +25,7 @@
  * @brief Binary I/O operations for PLL
  *
  * @author Diego Darriba
+ * @author Pierre Barbera
  */
 
 #include "pll_binary.h"
@@ -267,7 +268,11 @@ PLL_EXPORT int pllmod_binary_partition_dump(FILE * bin_file,
  *  @param[in] bin_file binary file
  *  @param[in] block_id id of the block for random access
  *  @param[in,out] partition if NULL, creates a new partition
- *  @param[out] attributes the loaded attributes
+ *  @param[in,out] attributes the loaded attributes. If
+ *                 PLLMOD_BIN_ATTRIB_PARTITION_LOAD_SKELETON passed here,
+ *                 only pointers to the CLVs, tipchars and scalers are
+ *                 allocated instead ofthe full memory. Pointers will
+ *                 be initialized with NULL
  *  @param offset offset to the data block, if known
  *                0, if access is sequential
  *                PLLMOD_BIN_ACCESS_SEEK, for searching in the file header
@@ -286,6 +291,9 @@ PLL_EXPORT pll_partition_t * pllmod_binary_partition_load(FILE * bin_file,
   assert(offset >= 0 || offset == PLLMOD_BIN_ACCESS_SEEK);
   unsigned int sites_alloc;
   unsigned int i;
+
+  const int load_skeleton = 
+    *attributes & PLLMOD_BIN_ATTRIB_PARTITION_LOAD_SKELETON;
 
   if (offset != 0)
   {
@@ -334,16 +342,49 @@ PLL_EXPORT pll_partition_t * pllmod_binary_partition_load(FILE * bin_file,
       return NULL;
     }
 
+    unsigned int clv_buffers = load_skeleton ? 1 : aux_partition.clv_buffers;
+    unsigned int tips = load_skeleton ? 0 : aux_partition.tips;
+    unsigned int scale_buffers = load_skeleton ? 1 : aux_partition.scale_buffers;
+
     local_partition = pll_partition_create(
-        aux_partition.tips,
-        aux_partition.clv_buffers,
+        tips,
+        clv_buffers,
         aux_partition.states,
         aux_partition.sites,
         aux_partition.rate_matrices,
         aux_partition.prob_matrices,
         aux_partition.rate_cats,
-        aux_partition.scale_buffers,
+        scale_buffers,
         aux_partition.attributes);
+
+    if (load_skeleton)
+    {
+      if (local_partition->clv)
+      {
+        size_t start = (local_partition->attributes & PLL_ATTRIB_PATTERN_TIP) ?
+                        local_partition->tips : 0;
+        for (i = start; i < local_partition->clv_buffers + local_partition->tips; ++i)
+          pll_aligned_free(local_partition->clv[i]);
+      }
+      free(local_partition->clv);
+      local_partition->clv_buffers = aux_partition.clv_buffers;
+      local_partition->tips = aux_partition.tips;
+      local_partition->clv = (double**) calloc(local_partition->clv_buffers + 
+                                               local_partition->tips, 
+                                               sizeof(double*));
+
+      if (local_partition->scale_buffer)
+        for (i = 0; i < local_partition->scale_buffers; ++i)
+      free(local_partition->scale_buffer[i]);
+      free(local_partition->scale_buffer);
+      local_partition->scale_buffers = aux_partition.scale_buffers;
+      local_partition->scale_buffer = (unsigned int **) calloc(
+                                                local_partition->scale_buffers, 
+                                                sizeof(unsigned int *));
+
+      // manually set the tips so that the rest of the code callocs correctly
+      local_partition->tips = aux_partition.tips;
+    }
 
     /* initialize extra variables */
     local_partition->maxstates = aux_partition.maxstates;
@@ -381,15 +422,18 @@ PLL_EXPORT pll_partition_t * pllmod_binary_partition_load(FILE * bin_file,
         return PLL_FAILURE;
       }
 
-      for (i = 0; i < local_partition->tips; ++i)
+      if (!load_skeleton)
       {
-        local_partition->tipchars[i] = (unsigned char *)malloc(sites_alloc *
-                                                         sizeof(unsigned char));
-        if (!local_partition->tipchars[i])
+        for (i = 0; i < local_partition->tips ; ++i)
         {
-          pllmod_set_error(PLL_ERROR_MEM_ALLOC,
-                    "Cannot allocate space for storing tip characters.");
-          return PLL_FAILURE;
+          local_partition->tipchars[i] = (unsigned char *)malloc(sites_alloc *
+                                                           sizeof(unsigned char));
+          if (!local_partition->tipchars[i])
+          {
+            pllmod_set_error(PLL_ERROR_MEM_ALLOC,
+                      "Cannot allocate space for storing tip characters.");
+            return PLL_FAILURE;
+          }
         }
       }
 

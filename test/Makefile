@@ -36,6 +36,7 @@ MODULES = binary optimize tree
 
 CFILES = src/binary/binary-sequential.c \
          src/binary/binary-random.c \
+         src/binary/binary-skeleton.c \
          src/optimize/blopt-minimal.c \
          src/optimize/blopt-5states.c \
          src/tree/random-tree.c \
@@ -45,7 +46,7 @@ CFILES = src/binary/binary-sequential.c \
          src/tree/rtreemove-spr.c \
          src/tree/treemove-tbr.c \
          src/tree/serialize.c \
-				 src/tree/split-reconstruct.c
+		 src/tree/split-reconstruct.c
 
 OBJFILES = $(patsubst src/%.c, obj/%, $(CFILES))
 
