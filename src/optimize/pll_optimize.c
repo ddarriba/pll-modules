@@ -741,8 +741,8 @@ static void update_partials_and_scalers(pll_partition_t ** partitions,
                                         pll_utree_t * right_child,
                                         pll_utree_t * left_child)
 {
-  unsigned int i;
   pll_operation_t op;
+  size_t p;
 
   /* set CLV */
   op.parent_clv_index    = parent->clv_index;
@@ -754,28 +754,9 @@ static void update_partials_and_scalers(pll_partition_t ** partitions,
   op.child2_matrix_index = left_child->back->pmatrix_index;
   op.child2_scaler_index = left_child->back->scaler_index;
 
-  size_t p;
   for (p = 0; p < partition_count; ++p)
   {
-    pll_partition_t * partition = partitions[p];
-    /* update scalers */
-    if (parent->scaler_index != PLL_SCALE_BUFFER_NONE)
-    {
-      unsigned int n = partition->sites +
-          ((partition->attributes&PLL_ATTRIB_AB_FLAG)?partition->states:0);
-      for (i=0; i<n; i++)
-      {
-        partition->scale_buffer[parent->scaler_index][i] =
-            partition->scale_buffer[parent->scaler_index][i]
-                + ((right_child->back->scaler_index != PLL_SCALE_BUFFER_NONE) ?
-                    partition->scale_buffer[right_child->back->scaler_index][i] :
-                    0)
-                - ((parent->back->scaler_index != PLL_SCALE_BUFFER_NONE) ?
-                    partition->scale_buffer[parent->back->scaler_index][i] :
-                    0);
-      }
-    }
-    pll_update_partials (partition, &op, 1);
+    pll_update_partials (partitions[p], &op, 1);
   }
 }
 
