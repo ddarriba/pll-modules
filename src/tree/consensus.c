@@ -222,6 +222,42 @@ PLL_EXPORT pll_utree_t * pllmod_utree_from_splits(const pll_split_t * splits,
 
 #define FCHUNK_LEN 2000
 
+static pll_split_t * read_splits(FILE * file,
+                                 int * n_chunks,
+                                 unsigned int * tip_count,
+                                 string_hashtable_t * string_hashtable)
+{
+  int line_size = *n_chunks * FCHUNK_LEN;
+  char * tree_str = (char *) malloc((size_t)line_size);
+  char * tree_str_ptr = tree_str;
+  char * read;
+  pll_split_t * splits;
+
+  while ((read = fgets(tree_str_ptr, line_size, file)) &&
+         tree_str_ptr[strlen(tree_str_ptr) - 1] != '\n')
+  {
+    /* increase line size */
+    ++*n_chunks;
+    tree_str = (char *) realloc(tree_str, (size_t)*n_chunks * FCHUNK_LEN);
+    tree_str_ptr = tree_str + strlen(tree_str);
+    line_size = FCHUNK_LEN;
+  }
+
+  if (read == NULL)
+  {
+    splits = NULL;
+  }
+  else
+  {
+      splits = pll_utree_split_newick_string(tree_str,
+                                             *tip_count,
+                                             string_hashtable);
+  }
+  free(tree_str);
+
+  return splits;
+}
+
 static pll_utree_t * read_tree(FILE * file,
                                int * n_chunks,
                                unsigned int * tip_count,
@@ -250,6 +286,7 @@ static pll_utree_t * read_tree(FILE * file,
   else
   {
     tree = pll_utree_parse_newick_string(tree_str, tip_count);
+
     if (tree && string_hashtable)
     {
       if (!pllmod_utree_traverse_apply(tree,
@@ -264,6 +301,10 @@ static pll_utree_t * read_tree(FILE * file,
         pll_utree_destroy(tree, NULL);
         tree = NULL;
       }
+
+      pll_split_system_t * ss = pll_utree_split_newick_string(tree_str,
+                                                              *tip_count,
+                                                              string_hashtable);
     }
   }
   free(tree_str);
@@ -309,12 +350,11 @@ PLL_EXPORT pll_utree_t * pllmod_utree_consensus(const char * trees_filename,
                                                 double threshold,
                                                 int extended)
 {
-time_t start_t = time(NULL);
   FILE * trees_file;
   pll_utree_t * consensus_tree = NULL, /* final consensus tree */
               * reference_tree = NULL, /* reference tree for consistency */
-              * next_tree      = NULL, /* last read tree */
               ** tipnodes;             /* tips from reference tree */
+  int next_tree;
   bitv_hashtable_t * splits_hash = NULL;
   string_hashtable_t * string_hashtable = NULL;
   int  n_chunks = 1; /* chunks for reading newick trees */
@@ -376,20 +416,20 @@ time_t start_t = time(NULL);
   split_offset = tip_count % split_size;
   split_len  = tip_count / split_size + (split_offset>0);
 
-printf("hashing start %ld\n", time(NULL) - start_t);
   /* create hashtable */
   splits_hash = hash_init(tip_count * 10);
 
   pll_errno = 0;
-  next_tree = reference_tree;
+  next_tree = 1;
   current_tree_index = 1;
-  while (next_tree)
+
+  split_system = pllmod_utree_split_create(reference_tree,
+                                           tip_count,
+                                           &n_splits);
+
+  while (split_system)
   {
     ++current_tree_index;
-    split_system = pllmod_utree_split_create(next_tree,
-                                             tip_count,
-                                             &n_splits);
-    if (next_tree != reference_tree) pll_utree_destroy(next_tree, NULL);
 
     /* insert splits */
     for (i=0; i<n_splits; ++i)
@@ -408,7 +448,7 @@ printf("hashing start %ld\n", time(NULL) - start_t);
     pllmod_utree_split_destroy(split_system);
 
     /* parse next tree */
-    next_tree = read_tree(trees_file, &n_chunks, &tip_count, string_hashtable);
+    split_system = read_splits(trees_file, &n_chunks, &tip_count, string_hashtable);
   }
   fclose(trees_file);
 
@@ -427,7 +467,6 @@ printf("hashing start %ld\n", time(NULL) - start_t);
     return NULL;
   }
 
-printf("split filter start %ld\n", time(NULL) - start_t);
   /* build final split system */
   unsigned int max_splits = tip_count - 3;
   split_system = (pll_split_t *) malloc (sizeof(pll_split_t) * max_splits);
@@ -449,14 +488,12 @@ printf("split filter start %ld\n", time(NULL) - start_t);
   }
   hash_destroy(splits_hash);
 
-printf("build tree start (%d) %ld\n", cons_split_count, time(NULL) - start_t);
   /* buld tree from splits */
   consensus_tree = pllmod_utree_from_splits(split_system,
                                       cons_split_count,
                                       tip_count,
                                       string_hashtable->labels);
 
-printf("cleanup start %ld\n", time(NULL) - start_t);
   /* cleanup */
   string_hash_destroy(string_hashtable);
   pll_utree_destroy(reference_tree, NULL);

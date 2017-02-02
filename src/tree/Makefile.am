@@ -14,6 +14,9 @@ endif
 
 AM_CFLAGS=-Wall -Wsign-compare -D_GNU_SOURCE -std=c99 -O3
 
+AM_YFLAGS = -d -p `${SED} -n 's/.*_\(.*\)/pllmod_\1_/p' <<<"$*"`
+AM_LFLAGS = -P `${SED} -n 's/.*_\(.*\)/pllmod_\1_/p' <<<"$*"` -o lex.yy.c
+
 LIBPLLHEADERS=\
 pll.h
 
@@ -25,6 +28,8 @@ libpll_tree_la_SOURCES=\
 		 treeinfo.c \
 		 consensus.c \
 		 tree_hashtable.c \
+		 split_utree.y \
+		 lex_split.l \
 		 ../pllmod_common.c
 
 libpll_tree_la_CFLAGS = $(AM_CFLAGS) $(AVXFLAGS) $(SSEFLAGS)

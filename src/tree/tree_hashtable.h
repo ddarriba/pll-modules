@@ -24,43 +24,6 @@
 
 #include "pll_tree.h"
 
-typedef unsigned int hash_key_t;
-
-typedef struct bitv_hash_entry
-{
-  hash_key_t key;
-  pll_split_t bit_vector;
-  unsigned int *tree_vector;
-  unsigned int tip_count;
-  int support;
-  unsigned int bip_number;
-
-  struct bitv_hash_entry *next;
-} bitv_hash_entry_t;
-
-typedef struct
-{
-  unsigned int table_size;
-  bitv_hash_entry_t **table;
-  unsigned int entry_count;
-} bitv_hashtable_t;
-
-typedef struct string_hash_entry
-{
-  hash_key_t key;
-  int node_number;
-  char * word;
-  struct string_hash_entry *next;
-} string_hash_entry_t;
-
-typedef struct
-{
-  char **labels;
-  unsigned int table_size;
-  string_hash_entry_t **table;
-  unsigned int entry_count;
-} string_hashtable_t;
-
 /* bitvector */
 
 bitv_hashtable_t *hash_init(unsigned int n);
