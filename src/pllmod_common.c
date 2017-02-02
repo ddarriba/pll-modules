@@ -57,5 +57,6 @@ void pllmod_set_error(int errno, const char* errmsg_fmt, ...)
  */
 void pllmod_reset_error()
 {
-  pllmod_set_error(0, "");
+  pll_errno = 0;
+  strcpy(pll_errmsg, "");
 }

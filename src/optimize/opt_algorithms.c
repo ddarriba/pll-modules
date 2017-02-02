@@ -509,7 +509,7 @@ PLL_EXPORT double pllmod_opt_minimize_lbfgsb_multi(unsigned int xnum,
           opts[p].h = x[p][i] - opts[p].temp;
         }
 
-        double lnderiv = target_funk(params, x, lh_new, skip);
+        score = target_funk(params, x, lh_new, skip);
 
         for (p = 0; p < xnum; p++)
         {
@@ -988,6 +988,8 @@ static int brent_opt_alt (int xnum,
   return PLL_SUCCESS;
 }
 
+// TODO: remove at some point (not used anymore)
+#if 0
 static double brent_opt (double ax, double bx, double cx, double tol,
                          double *foptx, double *f2optx, double fax,
                          double fbx, double fcx,
@@ -1105,6 +1107,7 @@ static double brent_opt (double ax, double bx, double cx, double tol,
 
   return x;
 }
+#endif
 
 #undef ITMAX
 #undef CGOLD

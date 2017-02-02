@@ -33,6 +33,7 @@
 
 #include "pllmod_algorithm.h"
 #include "algo_callback.h"
+#include "../pllmod_common.h"
 
 static void fill_rates   (double *rates,
                           double *x,
@@ -473,8 +474,10 @@ static void fill_rates   (double *rates,
     lb[i] = min_rate;
     ub[i] = max_rate;
 
-    if (rates[i] < min_rate || rates[i] > max_rate)
-      x[i] = (max_rate + min_rate)/2;
+    if (rates[i] < min_rate)
+      x[i] = min_rate;
+    else if (rates[i] > max_rate)
+      x[i] = max_rate;
     else
       x[i] = rates[i];
   }
@@ -576,19 +579,20 @@ PLL_EXPORT double pllmod_algo_opt_onedim_treeinfo(pllmod_treeinfo_t * treeinfo,
     int ret = pllmod_opt_minimize_brent_multi(param_count,
                                               &min_value, param_vals, &max_value,
                                               tolerance, param_vals,
-                                              NULL, NULL,
+                                              NULL, NULL,  /* fx, f2x */
                                               (void *) &opt_params,
                                               &target_func_onedim_treeinfo,
                                               1 /* global_range */
                                               );
+
+    if (ret != PLL_SUCCESS)
+      return -INFINITY;
 
     j = 0;
     for (i = 0; i < treeinfo->partition_count; ++i)
     {
       if (treeinfo->params_to_optimize[i] & param_to_optimize)
       {
-        pll_partition_t * partition = treeinfo->partitions[i];
-
         switch (param_to_optimize)
         {
           case PLLMOD_OPT_PARAM_ALPHA:
@@ -804,7 +808,7 @@ double pllmod_algo_opt_frequencies_treeinfo (pllmod_treeinfo_t * treeinfo,
 
   /* nothing to optimize */
   if (!part_count)
-    return pllmod_treeinfo_compute_loglh(treeinfo, 0);
+    return -1 * pllmod_treeinfo_compute_loglh(treeinfo, 0);
 
   x  = (double **) malloc(sizeof(double*) * part_count);
   lb = (double **) malloc(sizeof(double*) * part_count);
@@ -932,7 +936,7 @@ double pllmod_algo_opt_rates_weights_treeinfo (pllmod_treeinfo_t * treeinfo,
 
   /* nothing to optimize */
   if (!part_count)
-    return pllmod_treeinfo_compute_loglh(treeinfo, 0);
+    return -1 * pllmod_treeinfo_compute_loglh(treeinfo, 0);
 
   x  = (double **) malloc(sizeof(double*) * part_count);
   lb = (double **) malloc(sizeof(double*) * part_count);
@@ -1076,5 +1080,5 @@ double pllmod_algo_opt_rates_weights_treeinfo (pllmod_treeinfo_t * treeinfo,
 
   free(opt_params.fixed_var_index);
 
-  return cur_logl;
+  return -1 * cur_logl;
 }
