@@ -654,7 +654,7 @@ PLL_EXPORT double pllmod_treeinfo_compute_loglh(pllmod_treeinfo_t * treeinfo,
                                  p);
   }
 
-  /* accumalate loglh by summing up over all the partitions */
+  /* accumulate loglh by summing up over all the partitions */
   for (p = 0; p < treeinfo->partition_count; ++p)
     total_loglh += treeinfo->partition_loglh[p];
 

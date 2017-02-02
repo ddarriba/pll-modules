@@ -18,7 +18,7 @@
 #    Schloss-Wolfsbrunnenweg 35, D-69118 Heidelberg, Germany
 
 CC = gcc
-CFLAGS = -g -O3 -Wall
+CFLAGS = -g -O3 -Wall -std=c99
 CLIBS = -lpll -lm -lpll_optimize -lpll_tree -lpll_binary
 
 ifdef LIBPLL_INC

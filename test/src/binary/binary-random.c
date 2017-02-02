@@ -367,7 +367,7 @@ int main (int argc, char * argv[])
   /* reload */
   printf("** reload data\n");
   pll_binary_header_t input_header;
-  unsigned int bin_attributes;
+  unsigned int bin_attributes = 0;
   pll_block_map_t * block_map;
   unsigned int n_blocks;
 
