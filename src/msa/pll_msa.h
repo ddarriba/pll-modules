@@ -26,16 +26,17 @@
 #include "pll.h"
 #endif
 
-#define PLLMOD_MSA_STATS_NONE       (0)
-#define PLLMOD_MSA_STATS_DUP_TAXA   (1<<0)
-#define PLLMOD_MSA_STATS_DUP_SEQS   (1<<1)
-#define PLLMOD_MSA_STATS_GAP_PROP   (1<<2)
-#define PLLMOD_MSA_STATS_GAP_SEQS   (1<<3)
-#define PLLMOD_MSA_STATS_GAP_COLS   (1<<4)
-#define PLLMOD_MSA_STATS_INV_PROP   (1<<5)
-#define PLLMOD_MSA_STATS_INV_COLS   (1<<6)
-#define PLLMOD_MSA_STATS_FREQS      (1<<7)
-#define PLLMOD_MSA_STATS_ALL        (~0)
+#define PLLMOD_MSA_STATS_NONE        (0)
+#define PLLMOD_MSA_STATS_DUP_TAXA    (1<<0)
+#define PLLMOD_MSA_STATS_DUP_SEQS    (1<<1)
+#define PLLMOD_MSA_STATS_GAP_PROP    (1<<2)
+#define PLLMOD_MSA_STATS_GAP_SEQS    (1<<3)
+#define PLLMOD_MSA_STATS_GAP_COLS    (1<<4)
+#define PLLMOD_MSA_STATS_INV_PROP    (1<<5)
+#define PLLMOD_MSA_STATS_INV_COLS    (1<<6)
+#define PLLMOD_MSA_STATS_FREQS       (1<<7)
+#define PLLMOD_MSA_STATS_SUBST_RATES (1<<8)
+#define PLLMOD_MSA_STATS_ALL         (~0)
 
 typedef struct msa_stats
 {
@@ -58,6 +59,7 @@ typedef struct msa_stats
   unsigned long * inv_cols;
 
   double * freqs;
+  double * subst_rates;
 } pllmod_msa_stats_t;
 
 PLL_EXPORT double * pllmod_msa_empirical_frequencies(pll_partition_t * partition);

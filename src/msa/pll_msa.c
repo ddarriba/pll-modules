@@ -31,6 +31,7 @@
 #include <search.h>
 
 #include "pll_msa.h"
+#include "../util/pllmod_util.h"
 
 #include "../pllmod_common.h"
 
@@ -131,6 +132,43 @@ PLL_EXPORT double * pllmod_msa_empirical_frequencies(pll_partition_t * partition
   return frequencies;
 }
 
+void compute_pair_rates(unsigned int states, unsigned int tips,
+                        unsigned int sites, unsigned char ** tipchars,
+                        const unsigned int * w, const unsigned int * charmap,
+                        unsigned * state_freq, unsigned * pair_rates)
+{
+  unsigned int i, j, k, n;
+  unsigned int undef_state = (unsigned int) (pow (2, states)) - 1;
+
+  for (n = 0; n < sites; ++n)
+  {
+    memset (state_freq, 0, sizeof(unsigned) * (states));
+    for (i = 0; i < tips; ++i)
+    {
+      const unsigned int c = (unsigned int) tipchars[i][n];
+      unsigned int state =  charmap ? charmap[c] : c;
+      if (state == undef_state)
+        continue;
+      for (k = 0; k < states; ++k)
+      {
+        if (state & 1)
+          state_freq[k]++;
+        state >>= 1;
+      }
+    }
+
+    for (i = 0; i < states; i++)
+    {
+      if (state_freq[i] == 0)
+        continue;
+      for (j = i + 1; j < states; j++)
+      {
+        pair_rates[i * states + j] += state_freq[i] * state_freq[j] * w[n];
+      }
+    }
+  }
+}
+
 PLL_EXPORT double * pllmod_msa_empirical_subst_rates(pll_partition_t * partition)
 {
   unsigned int i, j, k, n;
@@ -141,7 +179,7 @@ PLL_EXPORT double * pllmod_msa_empirical_subst_rates(pll_partition_t * partition
   unsigned int rate_cats           = partition->rate_cats;
   const unsigned int * tipmap      = partition->tipmap;
   const unsigned int * w           = partition->pattern_weights;
-  unsigned char * const * tipchars = partition->tipchars;
+  unsigned char ** tipchars        = partition->tipchars;
 
   unsigned int n_subst_rates  = (states * (states - 1) / 2);
   double * subst_rates = (double *) calloc ((size_t) n_subst_rates, sizeof(double));
@@ -163,67 +201,10 @@ PLL_EXPORT double * pllmod_msa_empirical_subst_rates(pll_partition_t * partition
     return NULL;
   }
 
-  unsigned int undef_state = (unsigned int) (pow (2, states)) - 1;
   if (partition->attributes & PLL_ATTRIB_PATTERN_TIP)
   {
-    if (states == 4)
-    {
-      for (n = 0; n < sites; ++n)
-      {
-        memset (state_freq, 0, sizeof(unsigned) * (states));
-        for (i = 0; i < tips; ++i)
-        {
-          unsigned int state = (unsigned int) tipchars[i][n];
-          if (state == undef_state)
-            continue;
-          for (k = 0; k < states; ++k)
-          {
-            if (state & 1)
-              state_freq[k]++;
-            state >>= 1;
-          }
-        }
-
-        for (i = 0; i < states; i++)
-        {
-          if (state_freq[i] == 0)
-            continue;
-          for (j = i + 1; j < states; j++)
-          {
-            pair_rates[i * states + j] += state_freq[i] * state_freq[j] * w[n];
-          }
-        }
-      }
-    }
-    else
-    {
-      for (n = 0; n < sites; ++n)
-      {
-        memset (state_freq, 0, sizeof(unsigned) * (states));
-        for (i = 0; i < tips; ++i)
-        {
-          unsigned int state = tipmap[(int) tipchars[i][n]];
-          if (state == undef_state)
-            continue;
-          for (k = 0; k < states; ++k)
-          {
-            if (state & 1)
-              state_freq[k]++;
-            state >>= 1;
-          }
-        }
-
-        for (i = 0; i < states; i++)
-        {
-          if (state_freq[i] == 0)
-            continue;
-          for (j = i + 1; j < states; j++)
-          {
-            pair_rates[i * states + j] += state_freq[i] * state_freq[j] * w[n];
-          }
-        }
-      }
-    }
+    compute_pair_rates(states, tips, sites, tipchars, w, tipmap,
+                       state_freq, pair_rates);
   }
   else
   {
@@ -529,10 +510,11 @@ PLL_EXPORT pllmod_msa_stats_t * pllmod_msa_compute_stats(const pll_msa_t * msa,
   unsigned long total_gap_count = 0;
   unsigned long * col_gap_weight = NULL;
   unsigned long * seq_gap_weight = NULL;
+  unsigned * pair_rates = NULL;
+  unsigned * col_state_freq = NULL;
 
   unsigned int * inv_state = NULL;
   unsigned long inv_weight = 0;
-
 
   stats->states = states;
   stats->gap_cols_count = 0;
@@ -559,13 +541,57 @@ PLL_EXPORT pllmod_msa_stats_t * pllmod_msa_compute_stats(const pll_msa_t * msa,
       goto error_exit;
   }
 
+  /* compute empirical substitution rates */
+  if (stats_mask & PLLMOD_MSA_STATS_SUBST_RATES)
+  {
+    size_t n_subst_rates = pllmod_util_subst_rate_count(states);
+    stats->subst_rates = (double *) calloc(n_subst_rates, sizeof(double));
+    pair_rates = (unsigned *) calloc(states * states, sizeof(unsigned));
+    col_state_freq = (unsigned *) malloc(states * sizeof(unsigned));
+
+    if (!pair_rates || !stats->subst_rates ||  !col_state_freq)
+    {
+      goto error_exit;
+    }
+
+    compute_pair_rates(states, msa_count, msa_length,
+                       (unsigned char **) msa->sequence, weights,
+                       charmap, col_state_freq, pair_rates);
+
+    k = 0;
+    double last_rate = pair_rates[(states - 2) * states + states - 1];
+    if (last_rate < 1e-7)
+      last_rate = 1;
+    for (i = 0; i < states - 1; i++)
+    {
+      for (j = i + 1; j < states; j++)
+      {
+        stats->subst_rates[k++] = pair_rates[i * states + j] / last_rate;
+        if (stats->subst_rates[k - 1] < 0.01)
+          stats->subst_rates[k - 1] = 0.01;
+        if (stats->subst_rates[k - 1] > 50.0)
+          stats->subst_rates[k - 1] = 50.0;
+      }
+    }
+    stats->subst_rates[k - 1] = 1.0;
+
+    assert(k == n_subst_rates);
+
+    free(col_state_freq);
+    free(pair_rates);
+  }
+
   /* if we were asked to find duplicates only, no need to loop over sites */
-  if (!(stats_mask & ~(PLLMOD_MSA_STATS_DUP_SEQS | PLLMOD_MSA_STATS_DUP_TAXA)))
+  if (!(stats_mask & ~(PLLMOD_MSA_STATS_DUP_SEQS | PLLMOD_MSA_STATS_DUP_TAXA |
+                       PLLMOD_MSA_STATS_SUBST_RATES)))
     return stats;
 
   if (stats_mask & PLLMOD_MSA_STATS_FREQS)
   {
     stats->freqs = (double *) calloc(states, sizeof(double));
+
+    if (!stats->freqs)
+      goto error_exit;
   }
 
   if (stats_mask & PLLMOD_MSA_STATS_GAP_COLS)
@@ -645,7 +671,7 @@ PLL_EXPORT pllmod_msa_stats_t * pllmod_msa_compute_stats(const pll_msa_t * msa,
       if (stats_mask & PLLMOD_MSA_STATS_FREQS)
       {
         /* ignore gap sites when computing the base freqs */
-        if (site_states != states)
+        if (!is_gap)
         {
           double state_prob = ((double) w) / site_states;
           for (k = 0; k < states; ++k)
@@ -732,6 +758,10 @@ error_exit:
     free(col_gap_weight);
   if (seq_gap_weight)
     free(seq_gap_weight);
+  if (col_state_freq)
+    free(col_state_freq);
+  if (pair_rates)
+    free(pair_rates);
   pllmod_msa_destroy_stats(stats);
   pllmod_set_error(PLL_ERROR_MEM_ALLOC,
                    "Cannot allocate memory for MSA statistics");
@@ -757,6 +787,9 @@ PLL_EXPORT void pllmod_msa_destroy_stats(pllmod_msa_stats_t * stats)
 
   if (stats->freqs)
     free(stats->freqs);
+
+  if (stats->subst_rates)
+    free(stats->subst_rates);
 
   free(stats);
 }
