@@ -387,12 +387,16 @@ static int init_bfgs_opt(struct bfgs_multi_opt * opt, unsigned int n, double * x
 
 static void destroy_bfgs_opt(struct bfgs_multi_opt * opt)
 {
-  if (opt->g)
-    free(opt->g);
-  if (opt->iwa)
-    free(opt->iwa);
-  if (opt->wa)
-    free(opt->wa);
+  if (opt)
+  {
+    if (opt->g)
+      free(opt->g);
+    if (opt->iwa)
+      free(opt->iwa);
+    if (opt->wa)
+      free(opt->wa);
+    free(opt);
+  }
 }
 
 static int setulb_multi(struct bfgs_multi_opt * opt)
@@ -409,6 +413,7 @@ PLL_EXPORT double pllmod_opt_minimize_lbfgsb_multi(unsigned int xnum,
                                                    double ** xmax,
                                                    int ** bound,
                                                    unsigned int * n,
+                                                   unsigned int nmax,
                                                    double factr,
                                                    double pgtol,
                                                    void * params,
@@ -418,17 +423,16 @@ PLL_EXPORT double pllmod_opt_minimize_lbfgsb_multi(unsigned int xnum,
                                                                          int *))
 {
   unsigned int i, p;
-  unsigned int nmax = 0;
 
   double score = (double) -INFINITY;
 
   double * lh_old = (double *) calloc ((size_t) xnum, sizeof(double));
   double * lh_new = (double *) calloc ((size_t) xnum, sizeof(double));
-  int * converged = (int *) calloc ((size_t) xnum, sizeof(int));
-  int * skip = (int *) calloc ((size_t) xnum, sizeof(int));
+  int * converged = (int *) calloc ((size_t) xnum+1, sizeof(int));
+  int * skip = (int *) calloc ((size_t) xnum+1, sizeof(int));
 
-  struct bfgs_multi_opt * opts = (struct bfgs_multi_opt *)
-                           calloc((size_t) xnum, sizeof(struct bfgs_multi_opt));
+  struct bfgs_multi_opt ** opts = (struct bfgs_multi_opt **)
+                           calloc((size_t) xnum, sizeof(struct bfgs_multi_opt *));
 
   if (!lh_old || !lh_new || !converged || !skip || !opts)
   {
@@ -439,12 +443,24 @@ PLL_EXPORT double pllmod_opt_minimize_lbfgsb_multi(unsigned int xnum,
 
   for (p = 0; p < xnum; p++)
   {
-    if (!init_bfgs_opt(&opts[p], n[p], x[p], xmin[p], xmax[p], bound[p], factr,
+    if(!x[p])
+    {
+      /* this is a remote partition - forget about it */
+      converged[p] = skip[p] = 1;
+      continue;
+    }
+
+    opts[p] = (struct bfgs_multi_opt *) calloc(1, sizeof(struct bfgs_multi_opt));
+    if (!opts[p])
+    {
+      pllmod_set_error(PLL_ERROR_MEM_ALLOC,
+                       "Cannot allocate memory for l-bfgs-b variables");
+      goto cleanup;
+    }
+
+    if (!init_bfgs_opt(opts[p], n[p], x[p], xmin[p], xmax[p], bound[p], factr,
                        pgtol))
       goto cleanup;
-
-    if (n[p] > nmax)
-      nmax = n[p];
   }
 
   /* reset errno */
@@ -463,14 +479,21 @@ PLL_EXPORT double pllmod_opt_minimize_lbfgsb_multi(unsigned int xnum,
         continue;
       }
 
-      /*     This is the call to the L-BFGS-B code. */
-      setulb_multi(&opts[p]);
+      assert(opts[p]);
 
-      skip[p] = !IS_FG(opts[p].task);
-      converged[p] = skip[p] && (opts[p].task != NEW_X);
-      continue_opt |= !converged[p];
+      /*     This is the call to the L-BFGS-B code. */
+      setulb_multi(opts[p]);
+
+      skip[p] = !IS_FG(opts[p]->task);
+      converged[p] = skip[p] && (opts[p]->task != NEW_X);
       all_skip &= skip[p];
     }
+
+    /* check if ALL partitions have converged, including remote ones */
+    target_funk (params, NULL, NULL, converged);
+    continue_opt = !converged[xnum];
+    target_funk (params, NULL, NULL, skip);
+    all_skip = converged[xnum];
 
     if (!all_skip && continue_opt)
     {
@@ -485,7 +508,10 @@ PLL_EXPORT double pllmod_opt_minimize_lbfgsb_multi(unsigned int xnum,
         break;
 
       for (p = 0; p < xnum; p++)
-        opts[p].score = lh_old[p];
+      {
+        if (!skip[p])
+          opts[p]->score = lh_old[p];
+      }
 
       for (i = 0; i < nmax; i++)
       {
@@ -500,13 +526,13 @@ PLL_EXPORT double pllmod_opt_minimize_lbfgsb_multi(unsigned int xnum,
           if (skip[p])
             continue;
 
-          opts[p].temp = x[p][i];
-          opts[p].h = PLL_LBFGSB_ERROR * fabs (opts[p].temp);
-          if (opts[p].h < 1e-12)
-            opts[p].h = PLL_LBFGSB_ERROR;
+          opts[p]->temp = x[p][i];
+          opts[p]->h = PLL_LBFGSB_ERROR * fabs (opts[p]->temp);
+          if (opts[p]->h < 1e-12)
+            opts[p]->h = PLL_LBFGSB_ERROR;
 
-          x[p][i] = opts[p].temp + opts[p].h;
-          opts[p].h = x[p][i] - opts[p].temp;
+          x[p][i] = opts[p]->temp + opts[p]->h;
+          opts[p]->h = x[p][i] - opts[p]->temp;
         }
 
         score = target_funk(params, x, lh_new, skip);
@@ -516,13 +542,15 @@ PLL_EXPORT double pllmod_opt_minimize_lbfgsb_multi(unsigned int xnum,
           if (skip[p])
             continue;
 
+          assert(opts[p]);
+
           /* compute partial derivative */
-          opts[p].g[i] = (lh_new[p] - lh_old[p]) / opts[p].h;
+          opts[p]->g[i] = (lh_new[p] - lh_old[p]) / opts[p]->h;
 
           /* reset variable */
-          x[p][i] = opts[p].temp;
+          x[p][i] = opts[p]->temp;
 
-//          printf("P%d  lh_old: %f, lh_new: %f\n", p, lh_old[p], lh_new[p]);
+          DBG("P%d  lh_old: %f, lh_new: %f\n", p, lh_old[p], lh_new[p]);
         }
       }
     }
@@ -543,7 +571,7 @@ cleanup:
   if (opts)
   {
     for (p = 0; p < xnum; p++)
-      destroy_bfgs_opt(&opts[p]);
+      destroy_bfgs_opt(opts[p]);
     free(opts);
   }
 
@@ -943,7 +971,7 @@ static int brent_opt_alt (int xnum,
 
   double * u = (double *) calloc(xnum, sizeof(double));
   double * fu = (double *) calloc(xnum, sizeof(double));
-  int * converged = (int *) calloc(xnum, sizeof(int));
+  int * converged = (int *) calloc(xnum+1, sizeof(int));
 
   int iter_num = 0;
   while (iterate)
@@ -953,16 +981,16 @@ static int brent_opt_alt (int xnum,
 
     target_funk (params, u, fu, converged);
 
-    DBG("iter: %d, u: %lf, fu: %lf\n", iter_num, u[2], fu[2]);
+//    DBG("iter: %d, u: %lf, fu: %lf\n", iter_num, u[2], fu[2]);
 
-    iterate = 0;
+    /* last element in converged[] array is "all converged" flag */
+    iterate = !converged[xnum];
     for (i = 0; i < xnum; ++i)
     {
       if (!converged[i])
       {
         brent_params[i].fu = fu[i];
         converged[i] = !brent_opt_post_loop(&brent_params[i]);
-        iterate |= !converged[i];
       }
     }
 

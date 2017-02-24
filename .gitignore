@@ -44,6 +44,7 @@ depcomp
 ltmain.sh
 install-sh
 stamp-h1
+ylwrap
 
 m4/libtool.m4
 m4/ltoptions.m4
@@ -67,3 +68,10 @@ m4/pkg.m4
 examples/spr-round/spr-round
 examples/rf-distance/rf-distance
 examples/consensus/consensus
+
+# bison/flex generated
+src/tree/lex_split.c
+src/tree/split_utree.c
+src/tree/split_utree.h
+
+

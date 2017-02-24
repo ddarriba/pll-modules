@@ -66,6 +66,10 @@
 
 #define PLLMOD_TREEINFO_PARTITION_ALL -1
 
+#define PLLMOD_TREE_REDUCE_SUM     0
+#define PLLMOD_TREE_REDUCE_MAX     1
+#define PLLMOD_TREE_REDUCE_MIN     2
+
 typedef unsigned int pll_split_base_t;
 typedef pll_split_base_t * pll_split_t;
 
@@ -212,7 +216,7 @@ typedef struct treeinfo
 
   // parallelization stuff
   void * parallel_context;
-  void (*parallel_reduce_cb)(void *, double *, size_t);
+  void (*parallel_reduce_cb)(void *, double *, size_t, int);
 } pllmod_treeinfo_t;
 
 /* Topological rearrangements */
@@ -438,7 +442,8 @@ int pllmod_treeinfo_set_parallel_context(pllmod_treeinfo_t * treeinfo,
                                          void * parallel_context,
                                          void (*parallel_reduce_cb)(void *,
                                                                     double *,
-                                                                    size_t));
+                                                                    size_t,
+                                                                    int op));
 
 PLL_EXPORT int pllmod_treeinfo_init_partition(pllmod_treeinfo_t * treeinfo,
                                            unsigned int partition_index,

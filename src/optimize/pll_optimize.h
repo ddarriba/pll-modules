@@ -156,7 +156,8 @@ typedef struct
   void * parallel_context;
   void (*parallel_reduce_cb)(void *,
                              double *,
-                             size_t);
+                             size_t,
+                             int);
 } pll_newton_tree_params_multi_t;
 
 /******************************************************************************/
@@ -263,7 +264,8 @@ PLL_EXPORT double pllmod_opt_optimize_branch_lengths_local_multi (
                                               void * parallel_context,
                                               void (*parallel_reduce_cb)(void *,
                                                                          double *,
-                                                                         size_t));
+                                                                         size_t,
+                                                                         int));
 
 PLL_EXPORT int pllmod_opt_minimize_brent_multi(int xnum,
                                                double * xmin,
@@ -287,6 +289,7 @@ PLL_EXPORT double pllmod_opt_minimize_lbfgsb_multi(unsigned int xnum,
                                                    double ** xmax,
                                                    int ** bound,
                                                    unsigned int * n,
+                                                   unsigned int nmax,
                                                    double factr,
                                                    double pgtol,
                                                    void * params,

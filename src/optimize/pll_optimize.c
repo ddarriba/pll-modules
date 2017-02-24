@@ -756,6 +756,10 @@ static void update_partials_and_scalers(pll_partition_t ** partitions,
 
   for (p = 0; p < partition_count; ++p)
   {
+    /* skip remote partitions */
+    if (!partitions[p])
+      continue;
+
     pll_update_partials (partitions[p], &op, 1);
   }
 }
@@ -1169,13 +1173,18 @@ PLL_EXPORT double pllmod_opt_compute_edge_loglikelihood_multi(
                                               void * parallel_context,
                                               void (*parallel_reduce_cb)(void *,
                                                                          double *,
-                                                                         size_t))
+                                                                         size_t,
+                                                                         int))
 {
   double total_loglh = 0.;
 
   size_t p;
   for (p = 0; p < partition_count; ++p)
   {
+    /* skip remote partitions */
+    if (!partitions[p])
+      continue;
+
     total_loglh += pll_compute_edge_loglikelihood(partitions[p],
                                                   parent_clv_index,
                                                   parent_scaler_index,
@@ -1187,7 +1196,7 @@ PLL_EXPORT double pllmod_opt_compute_edge_loglikelihood_multi(
   }
 
   if (parallel_reduce_cb)
-    parallel_reduce_cb(parallel_context, &total_loglh, 1);
+    parallel_reduce_cb(parallel_context, &total_loglh, 1, 0 /*PLLMOD_TREE_REDUCE_SUM*/);
 
   return total_loglh;
 }
@@ -1204,6 +1213,10 @@ static void utree_derivative_func_multi (void * parameters, double proposal,
   /* simply iterate over partitions and add up the derivatives */
   for (p = 0; p < params->partition_count; ++p)
   {
+    /* skip remote partitions */
+    if (!params->partitions[p])
+      continue;
+
     double p_df, p_ddf;
     double s = params->brlen_scalers ? params->brlen_scalers[p] : 1.;
     double p_brlen = s * proposal;
@@ -1223,7 +1236,7 @@ static void utree_derivative_func_multi (void * parameters, double proposal,
   if (params->parallel_reduce_cb)
   {
     double d[2] = {*df, *ddf};
-    params->parallel_reduce_cb(params->parallel_context, d, 2);
+    params->parallel_reduce_cb(params->parallel_context, d, 2, 0 /*PLLMOD_TREE_REDUCE_SUM*/);
     *df = d[0];
     *ddf = d[1];
   }
@@ -1256,6 +1269,10 @@ static int recomp_iterative_multi (pll_newton_tree_params_multi_t * params,
   /* prepare sumtable for current branch */
   for (p = 0; p < params->partition_count; ++p)
   {
+    /* skip remote partitions */
+    if (!params->partitions[p])
+      continue;
+
     pll_update_sumtable (params->partitions[p],
                          tr_p->clv_index,
                          tr_p->back->clv_index,
@@ -1285,6 +1302,10 @@ static int recomp_iterative_multi (pll_newton_tree_params_multi_t * params,
     /* update pmatrix for the new branch length */
     for (p = 0; p < params->partition_count; ++p)
     {
+      /* skip remote partitions */
+      if (!params->partitions[p])
+        continue;
+
       const double p_brlen = params->brlen_scalers ?
           params->brlen_scalers[p] * xres : xres;
 
@@ -1332,6 +1353,10 @@ static int recomp_iterative_multi (pll_newton_tree_params_multi_t * params,
       /* reset branch length */
       for (p = 0; p < params->partition_count; ++p)
       {
+        /* skip remote partitions */
+        if (!params->partitions[p])
+          continue;
+
         const double p_brlen = params->brlen_scalers ?
             params->brlen_scalers[p] * tr_p->length : tr_p->length;
 
@@ -1446,7 +1471,8 @@ PLL_EXPORT double pllmod_opt_optimize_branch_lengths_local_multi (
                                               void * parallel_context,
                                               void (*parallel_reduce_cb)(void *,
                                                                          double *,
-                                                                         size_t))
+                                                                         size_t,
+                                                                         int))
 {
   unsigned int iters;
   double loglikelihood = 0.0, new_loglikelihood;
@@ -1509,6 +1535,11 @@ PLL_EXPORT double pllmod_opt_optimize_branch_lengths_local_multi (
     for (p = 0; p < partition_count; ++p)
     {
       const pll_partition_t * partition = partitions[p];
+
+      /* skip remote partitions */
+      if (!partition)
+        continue;
+
       sites_alloc = partition->sites;
       if (partition->attributes & PLL_ATTRIB_AB_FLAG)
         sites_alloc += partition->states;

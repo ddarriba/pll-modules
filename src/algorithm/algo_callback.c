@@ -293,8 +293,12 @@ double target_func_onedim_treeinfo(void *p, double *x, double *fx, int * converg
 {
   struct treeinfo_opt_params * params = (struct treeinfo_opt_params *) p;
 
-  pllmod_treeinfo_t * treeinfo = params->treeinfo;
-  int param_to_optimize        = params->param_to_optimize;
+  pllmod_treeinfo_t * treeinfo    = params->treeinfo;
+  int param_to_optimize           = params->param_to_optimize;
+  unsigned int num_parts          = params->num_opt_partitions;
+
+  /* any partitions which have not converged yet? */
+  double unconverged_flag = 0.;
 
   size_t i, j=0, k;
   for (i = 0; i < treeinfo->partition_count; ++i)
@@ -303,12 +307,14 @@ double target_func_onedim_treeinfo(void *p, double *x, double *fx, int * converg
 
     if (treeinfo->params_to_optimize[i] & param_to_optimize)
     {
-      if (converged && converged[j])
+      if (!partition || (converged && converged[j]))
       {
         /* partitions has converged, skip it */
         j++;
         continue;
       }
+
+      unconverged_flag = 1.;
 
       switch (param_to_optimize)
       {
@@ -335,6 +341,8 @@ double target_func_onedim_treeinfo(void *p, double *x, double *fx, int * converg
     }
   }
 
+  assert(j == num_parts);
+
   /* compute negative score */
   double score = -1 * pllmod_treeinfo_compute_loglh(treeinfo, 0);
 
@@ -347,6 +355,17 @@ double target_func_onedim_treeinfo(void *p, double *x, double *fx, int * converg
         fx[j++] = -1 * treeinfo->partition_loglh[i];
   }
 
+  if (converged)
+  {
+    /* check if there is at least one unconverged partition in *any* thread */
+    if (treeinfo->parallel_reduce_cb)
+    {
+      treeinfo->parallel_reduce_cb(treeinfo->parallel_context, &unconverged_flag, 1,
+                                   PLLMOD_TREE_REDUCE_SUM);
+    }
+    converged[num_parts] = unconverged_flag > 0. ? 0 : 1;
+  }
+
   return score;
 }
 
@@ -356,8 +375,14 @@ double target_func_multidim_treeinfo(void * p, double ** x, double * fx,
   struct treeinfo_opt_params * params = (struct treeinfo_opt_params *) p;
 
   pllmod_treeinfo_t * treeinfo      = params->treeinfo;
+  unsigned int num_parts            = params->num_opt_partitions;
   unsigned int * fixed_var_index    = params->fixed_var_index;
-  int param_to_optimize        = params->param_to_optimize;
+  int param_to_optimize             = params->param_to_optimize;
+
+  double score = -INFINITY;
+
+  /* any partitions which have not converged yet? */
+  double unconverged_flag = 0.;
 
   size_t i, j;
   size_t part = 0;
@@ -367,9 +392,18 @@ double target_func_multidim_treeinfo(void * p, double ** x, double * fx,
 
     if (treeinfo->params_to_optimize[i] & param_to_optimize)
     {
-      if (converged && converged[part])
+      if (!partition || (converged && converged[part]))
       {
         /* partitions has converged, skip it */
+        part++;
+        continue;
+      }
+
+      unconverged_flag = 1.;
+
+      /* function was called solely to check convergence -> no LH computation */
+      if (!x)
+      {
         part++;
         continue;
       }
@@ -410,15 +444,29 @@ double target_func_multidim_treeinfo(void * p, double ** x, double * fx,
   }
 
   /* compute negative score */
-  double score = -1 * pllmod_treeinfo_compute_loglh(treeinfo, 0);
+  if(x)
+    score = -1 * pllmod_treeinfo_compute_loglh(treeinfo, 0);
 
   /* copy per-partition likelihood to the output array */
   if (fx)
   {
     j = 0;
     for (i = 0; i < treeinfo->partition_count; ++i)
+    {
       if (treeinfo->params_to_optimize[i] & param_to_optimize)
         fx[j++] = -1 * treeinfo->partition_loglh[i];
+    }
+  }
+
+  if (converged)
+  {
+    /* check if there is at least one unconverged partition in *any* thread */
+    if (treeinfo->parallel_reduce_cb)
+    {
+      treeinfo->parallel_reduce_cb(treeinfo->parallel_context,
+                                   &unconverged_flag, 1, PLLMOD_TREE_REDUCE_SUM);
+    }
+    converged[num_parts] = unconverged_flag > 0. ? 0 : 1;
   }
 
   return score;
@@ -430,8 +478,14 @@ double target_subst_params_func_multi(void * p, double ** x, double * fx,
   struct treeinfo_opt_params * params = (struct treeinfo_opt_params *) p;
 
   pllmod_treeinfo_t * treeinfo      = params->treeinfo;
+  unsigned int num_parts            = params->num_opt_partitions;
   unsigned int params_index         = params->params_index;
   unsigned int * subst_free_params  = params->num_free_params;
+
+  double score = -INFINITY;
+
+  /* any partitions which have not converged yet? */
+  double unconverged_flag = 0.;
 
   size_t i, j;
   size_t part = 0;
@@ -441,9 +495,18 @@ double target_subst_params_func_multi(void * p, double ** x, double * fx,
 
     if (treeinfo->params_to_optimize[i] & PLLMOD_OPT_PARAM_SUBST_RATES)
     {
-      if (converged && converged[part])
+      if (!partition || (converged && converged[part]))
       {
         /* partitions has converged, skip it */
+        part++;
+        continue;
+      }
+
+      unconverged_flag = 1.;
+
+      /* function was called solely to check convergence -> no LH computation */
+      if (!x)
+      {
         part++;
         continue;
       }
@@ -484,21 +547,27 @@ double target_subst_params_func_multi(void * p, double ** x, double * fx,
   }
 
   /* compute negative score */
-  double score = -1 * pllmod_treeinfo_compute_loglh(treeinfo, 0);
-
-//  double *srates  = treeinfo->partitions[0]->subst_params[params_index];
-//  printf("srates: %f %f %f %f %f %f,  LH: %f\n",
-//         srates[0], srates[1], srates[2], srates[3], srates[4], srates[5],
-//         score);
+  if(x)
+    score = -1 * pllmod_treeinfo_compute_loglh(treeinfo, 0);
 
   /* copy per-partition likelihood to the output array */
   if (fx)
   {
     j = 0;
     for (i = 0; i < treeinfo->partition_count; ++i)
-      if (treeinfo->partitions[i] &&
-          (treeinfo->params_to_optimize[i] & PLLMOD_OPT_PARAM_SUBST_RATES))
+      if (treeinfo->params_to_optimize[i] & PLLMOD_OPT_PARAM_SUBST_RATES)
         fx[j++] = -1 * treeinfo->partition_loglh[i];
+  }
+
+  if (converged)
+  {
+    /* check if there is at least one unconverged partition in *any* thread */
+    if (treeinfo->parallel_reduce_cb)
+    {
+      treeinfo->parallel_reduce_cb(treeinfo->parallel_context,
+                                   &unconverged_flag, 1, PLLMOD_TREE_REDUCE_SUM);
+    }
+    converged[num_parts] = unconverged_flag > 0. ? 0 : 1;
   }
 
   return score;
@@ -511,8 +580,14 @@ double target_freqs_func_multi(void * p, double ** x, double * fx,
   struct treeinfo_opt_params * params = (struct treeinfo_opt_params *) p;
 
   pllmod_treeinfo_t * treeinfo      = params->treeinfo;
+  unsigned int num_parts            = params->num_opt_partitions;
   unsigned int params_index         = params->params_index;
   unsigned int * highest_freq_state = params->fixed_var_index;
+
+  double score = -INFINITY;
+
+  /* any partitions which have not converged yet? */
+  double unconverged_flag = 0.;
 
   size_t i, j;
   size_t part = 0;
@@ -522,9 +597,18 @@ double target_freqs_func_multi(void * p, double ** x, double * fx,
 
     if (treeinfo->params_to_optimize[i] & PLLMOD_OPT_PARAM_FREQUENCIES)
     {
-      if (converged && converged[part])
+      if (!partition || (converged && converged[part]))
       {
         /* partitions has converged, skip it */
+        part++;
+        continue;
+      }
+
+      unconverged_flag = 1.;
+
+      /* function was called solely to check convergence -> no LH computation */
+      if (!x)
+      {
         part++;
         continue;
       }
@@ -562,16 +646,27 @@ double target_freqs_func_multi(void * p, double ** x, double * fx,
   }
 
   /* compute negative score */
-  double score = -1 * pllmod_treeinfo_compute_loglh(treeinfo, 0);
+  if (x)
+    score = -1 * pllmod_treeinfo_compute_loglh(treeinfo, 0);
 
   /* copy per-partition likelihood to the output array */
   if (fx)
   {
     j = 0;
     for (i = 0; i < treeinfo->partition_count; ++i)
-      if (treeinfo->partitions[i] &&
-          (treeinfo->params_to_optimize[i] & PLLMOD_OPT_PARAM_FREQUENCIES))
+      if (treeinfo->params_to_optimize[i] & PLLMOD_OPT_PARAM_FREQUENCIES)
         fx[j++] = -1 * treeinfo->partition_loglh[i];
+  }
+
+  if (converged)
+  {
+    /* check if there is at least one unconverged partition in *any* thread */
+    if (treeinfo->parallel_reduce_cb)
+    {
+      treeinfo->parallel_reduce_cb(treeinfo->parallel_context,
+                                   &unconverged_flag, 1, PLLMOD_TREE_REDUCE_SUM);
+    }
+    converged[num_parts] = unconverged_flag > 0. ? 0 : 1;
   }
 
   return score;

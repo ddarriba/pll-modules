@@ -63,6 +63,7 @@ struct brlen_scaler_params {
 struct treeinfo_opt_params {
   pllmod_treeinfo_t * treeinfo;
   int param_to_optimize;            /* which parameter is being optimized */
+  unsigned int num_opt_partitions;  /* number of partitions to optimize */
   unsigned int params_index;        /* which matrix to optimize */
   unsigned int * num_free_params;   /* number of free params for each partition*/
   unsigned int * fixed_var_index;   /* which variable is not being optimized */
