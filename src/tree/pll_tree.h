@@ -356,7 +356,8 @@ PLL_EXPORT unsigned int pllmod_utree_split_rf_distance(pll_split_t * s1,
 
 PLL_EXPORT pll_split_t * pllmod_utree_split_create(pll_utree_t * tree,
                                                    unsigned int tip_count,
-                                                   unsigned int * n_splits);
+                                                   unsigned int * n_splits,
+                                                   int ** node_to_split_map);
 
 PLL_EXPORT void pllmod_utree_split_normalize_and_sort(pll_split_t * s,
                                                       unsigned int tip_count,
@@ -371,6 +372,16 @@ PLL_EXPORT void pllmod_utree_split_destroy(pll_split_t * split_list);
 PLL_EXPORT pll_split_t * pll_utree_split_newick_string(char * s,
                                                        unsigned int tip_count,
                                                        string_hashtable_t * names_hash);
+
+PLL_EXPORT bitv_hashtable_t *
+pllmod_utree_split_hashtable_insert(bitv_hashtable_t * splits_hash,
+                                    pll_split_t * splits,
+                                    unsigned int tip_count,
+                                    unsigned int split_count,
+                                    int update_only);
+PLL_EXPORT
+void pllmod_utree_split_hashtable_destroy(bitv_hashtable_t * hash);
+
 
 /* functions in consensus.c */
 

@@ -193,8 +193,8 @@ PLL_EXPORT unsigned int pllmod_utree_rf_distance(pll_utree_t * t1,
   pll_errno = 0;
 
   /* split both trees */
-  pll_split_t * s1 = pllmod_utree_split_create(t1, tip_count, &split_count);
-  pll_split_t * s2 = pllmod_utree_split_create(t2, tip_count, &split_count);
+  pll_split_t * s1 = pllmod_utree_split_create(t1, tip_count, &split_count, NULL);
+  pll_split_t * s2 = pllmod_utree_split_create(t2, tip_count, &split_count, NULL);
 
   pllmod_utree_split_normalize_and_sort(s1, tip_count, split_count, 1);
   pllmod_utree_split_normalize_and_sort(s2, tip_count, split_count, 1);
@@ -337,7 +337,8 @@ PLL_EXPORT void pllmod_utree_split_show(pll_split_t split, unsigned int tip_coun
  */
 PLL_EXPORT pll_split_t * pllmod_utree_split_create(pll_utree_t * tree,
                                                    unsigned int tip_count,
-                                                   unsigned int * _split_count)
+                                                   unsigned int * _split_count,
+                                                   int ** node_to_split_map)
 {
   unsigned int i;
   unsigned int split_count, split_len, split_size;
@@ -401,7 +402,11 @@ PLL_EXPORT pll_split_t * pllmod_utree_split_create(pll_utree_t * tree,
                               &split_data);
 
   assert(split_data.split_count == split_count);
-  free(split_data.id_to_split);
+
+  if (node_to_split_map)
+    *node_to_split_map = split_data.id_to_split;
+  else
+    free(split_data.id_to_split);
 
   /* normalize the splits such that first position is set */
   for (i=0; i<split_count;++i)
@@ -411,6 +416,75 @@ PLL_EXPORT pll_split_t * pllmod_utree_split_create(pll_utree_t * tree,
     *_split_count = split_count;
 
   return split_list;
+}
+
+/**
+ * Creates or updates hashtable with splits (and their support)
+ *
+ * @param splits_hash    hashtable to update, NULL: create new hashtable
+ * @param tip_count      number of tips
+ * @param split_count    number of splits in 'splits'
+ * @param update_only    0: insert new values as needed,
+ *                       1: only increment support for existing splits
+ *
+ * @returns hashtable with splits
+ */
+PLL_EXPORT bitv_hashtable_t *
+pllmod_utree_split_hashtable_insert(bitv_hashtable_t * splits_hash,
+                                    pll_split_t * splits,
+                                    unsigned int tip_count,
+                                    unsigned int split_count,
+                                    int update_only)
+{
+  unsigned int i;
+  unsigned int split_len = split_length(tip_count);
+
+  if (!splits_hash)
+  {
+    /* create new hashtable */
+    splits_hash = hash_init(tip_count * 10);
+    /* hashtable is empty, so update_only doesn't make sense here */
+    update_only = 0;
+  }
+
+  if (!splits_hash)
+  {
+    return PLL_FAILURE;
+  }
+
+  /* insert splits */
+  for (i=0; i<split_count; ++i)
+  {
+    hash_key_t key = hash_get_key(splits[i], (int)split_len);
+    unsigned int hash_position = key % splits_hash->table_size;
+
+    if (update_only)
+    {
+      hash_update(splits[i],
+                  splits_hash,
+                  split_len,
+                  key,
+                  hash_position);
+    }
+    else
+    {
+      hash_insert(splits[i],
+                  splits_hash,
+                  split_len,
+                  i,
+                  key,
+                  hash_position);
+    }
+  }
+
+  return splits_hash;
+}
+
+PLL_EXPORT
+void pllmod_utree_split_hashtable_destroy(bitv_hashtable_t * hash)
+{
+  if (hash)
+    hash_destroy(hash);
 }
 
 PLL_EXPORT void pllmod_utree_split_destroy(pll_split_t * split_list)

@@ -425,7 +425,8 @@ PLL_EXPORT pll_utree_t * pllmod_utree_consensus(const char * trees_filename,
 
   split_system = pllmod_utree_split_create(reference_tree,
                                            tip_count,
-                                           &n_splits);
+                                           &n_splits,
+                                           NULL);
 
   while (split_system)
   {

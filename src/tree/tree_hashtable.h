@@ -34,6 +34,12 @@ bitv_hash_entry_t *entry_init(void);
 
 hash_key_t hash_get_key(pll_split_t s, int len);
 
+int hash_update(pll_split_t bit_vector,
+                 bitv_hashtable_t *h,
+                 unsigned int vector_length,
+                 hash_key_t key,
+                 unsigned int position);
+
 void hash_insert(pll_split_t bit_vector,
                  bitv_hashtable_t *h,
                  unsigned int vector_length,

@@ -143,6 +143,43 @@ hash_key_t hash_get_key(pll_split_t s, int len)
   return h;
 }
 
+/* this function only increments support for existing splits,
+ * but never adds new splits to the hashtable */
+int hash_update(pll_split_t bit_vector,
+                bitv_hashtable_t *h,
+                unsigned int vector_length,
+                hash_key_t key,
+                unsigned int position)
+{
+  if(h->table[position] != NULL)
+  {
+    bitv_hash_entry_t *e = h->table[position];
+    do
+    {
+      unsigned int i = 0;
+
+      /* check for identity of bipartitions */
+
+      if (e->key == key)
+        for(i = 0; i < vector_length; ++i)
+          if(bit_vector[i] != e->bit_vector[i])
+            break;
+
+      if(i == vector_length)
+      {
+        e->support = e->support + 1;
+        return PLL_SUCCESS;
+      }
+
+      /* otherwise keep searching */
+      e = e->next;
+    }
+    while(e != (bitv_hash_entry_t*)NULL);
+  }
+
+  return PLL_FAILURE;
+}
+
 void hash_insert(pll_split_t bit_vector,
                  bitv_hashtable_t *h,
                  unsigned int vector_length,
@@ -154,29 +191,34 @@ void hash_insert(pll_split_t bit_vector,
 
   if(h->table[position] != NULL)
     {
-      e = h->table[position];
-      do
-      {
-        unsigned int i = 0;
+//      e = h->table[position];
+//      do
+//      {
+//        unsigned int i = 0;
+//
+//        /* check for identity of bipartitions */
+//
+//        if (e->key == key)
+//          for(i = 0; i < vector_length; ++i)
+//            if(bit_vector[i] != e->bit_vector[i])
+//              break;
+//
+//        if(i == vector_length)
+//        {
+//          e->support = e->support + 1;
+//          return;
+//        }
+//
+//        /* otherwise keep searching */
+//        e = e->next;
+//      }
+//      while(e != (bitv_hash_entry_t*)NULL);
 
-        /* check for identity of bipartitions */
+      /* search for this split in hashtable, and increment its support if found */
+      if (hash_update(bit_vector, h, vector_length, key, position))
+        return;
 
-        if (e->key == key)
-          for(i = 0; i < vector_length; ++i)
-            if(bit_vector[i] != e->bit_vector[i])
-              break;
-
-        if(i == vector_length)
-        {
-          e->support = e->support + 1;
-          return;
-        }
-
-        /* otherwise keep searching */
-        e = e->next;
-      }
-      while(e != (bitv_hash_entry_t*)NULL);
-
+      /* add new split to the hashtable */
       e = entry_init();
       e->key = key;
       e->bip_number = bip_number;

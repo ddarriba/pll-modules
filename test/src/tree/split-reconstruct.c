@@ -70,7 +70,8 @@ int main (int argc, char * argv[])
   unsigned int n_splits;
   pll_split_t * splits = pllmod_utree_split_create(tree,
                                                    tip_count,
-                                                   &n_splits);
+                                                   &n_splits,
+                                                   NULL);
 
   pllmod_utree_split_normalize_and_sort(splits,
                                         tip_count,
@@ -94,7 +95,8 @@ int main (int argc, char * argv[])
 
     pll_split_t * splits2 = pllmod_utree_split_create(constree,
                                                       tip_count,
-                                                      &n_splits);
+                                                      &n_splits,
+                                                      NULL);
 
     pllmod_utree_split_normalize_and_sort(splits2,
                                           tip_count,
