@@ -28,6 +28,7 @@
   */
 
 #include "pll_tree.h"
+#include "tree_hashtable.h"
 
 #include "../pllmod_common.h"
 
