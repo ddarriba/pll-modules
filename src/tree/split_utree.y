@@ -28,6 +28,16 @@ extern int pllmod_utree_lineno;
 extern int pllmod_utree_colstart;
 extern int pllmod_utree_colend;
 
+struct parse_params_t
+{
+  struct split_system_t * split_stack;
+  void ** splits;
+  unsigned int * split_count;
+  unsigned int split_size;
+  unsigned int split_len;
+  void * tipnames_hash;
+};
+
 static void merge_split(pll_split_t to,
                         const pll_split_t from,
                         unsigned int split_len)
@@ -37,12 +47,7 @@ static void merge_split(pll_split_t to,
     to[i] |= from[i];
 }
 
-static void pllmod_utree_error(pll_split_system_t * split_stack,
-                               void ** splits_ptr,
-                               unsigned int * split_count,
-                               unsigned int split_size,
-                               unsigned int split_len,
-                               void * string_hashtable_ptr,
+static void pllmod_utree_error(struct parse_params_t * paramas,
                                const char * s)
 {
   pll_errno = PLL_ERROR_NEWICK_SYNTAX;
@@ -50,8 +55,8 @@ static void pllmod_utree_error(pll_split_system_t * split_stack,
     snprintf(pll_errmsg, 200, "%s. (line %d column %d)\n",
              s, pllmod_utree_lineno, pllmod_utree_colstart);
   else
-    snprintf(pll_errmsg, 200, "%s. (line %d column %d-%d)\n",
-             s, pllmod_utree_lineno, pllmod_utree_colstart, pllmod_utree_colend);
+    snprintf(pll_errmsg, 200, "%s. (line %d column %d-%d)\n", s,
+             pllmod_utree_lineno, pllmod_utree_colstart, pllmod_utree_colend);
 }
 
 %}
@@ -63,12 +68,7 @@ static void pllmod_utree_error(pll_split_system_t * split_stack,
 }
 
 %error-verbose
-%parse-param {struct split_system_t * split_stack}
-             {void ** splits}
-             {unsigned int * split_count}
-             {unsigned int split_size}
-             {unsigned int split_len}
-             {void * tipnames_hash}
+%parse-param {void * params_ptr}
 %destructor { } subtree
 
 %token OPAR
@@ -90,31 +90,41 @@ inputstr: OPAR subtree COMMA subtree COMMA subtree CPAR optional_label optional_
 
 subtree: OPAR subtree COMMA subtree CPAR optional_label optional_length
 {
-  assert(split_stack->split_count >= 2);
+  struct parse_params_t * params = (struct parse_params_t *) params_ptr;
+
+  assert(params->split_stack->split_count >= 2);
   pll_split_t split1;
-  split1 = split_stack->splits[--split_stack->split_count];
+  split1 = params->split_stack->splits[--params->split_stack->split_count];
 
   // merge splits and keep at the top
-  merge_split(split_stack->splits[split_stack->split_count-1], split1, split_len);
+  merge_split(params->split_stack->splits[params->split_stack->split_count-1],
+              split1,
+              params->split_len);
 
   // append the new split to the final splits list
-  memcpy(splits[(*split_count)++], split_stack->splits[split_stack->split_count-1], split_len * sizeof(pll_split_base_t));
+  memcpy(params->splits[(*params->split_count)++],
+         params->split_stack->splits[params->split_stack->split_count-1],
+         params->split_len * sizeof(pll_split_base_t));
 }
        | label optional_length
 {
+  struct parse_params_t * params = (struct parse_params_t *) params_ptr;
 
   // find tip index
-  int tip_id = string_hash_lookup($1, (string_hashtable_t *) tipnames_hash);
+  int tip_id = string_hash_lookup($1,
+                                  (string_hashtable_t *) params->tipnames_hash);
   if (tip_id == -1)
     return PLL_FAILURE;
 
-  split_stack->splits[split_stack->split_count][0] = 0;
+  params->split_stack->splits[params->split_stack->split_count][0] = 0;
 
-  unsigned int split_id   = tip_id / split_size;
-  tip_id   %= split_size;
-  memset(split_stack->splits[split_stack->split_count], 0, split_len * sizeof(pll_split_base_t));
-  split_stack->splits[split_stack->split_count][split_id] = (1 << tip_id);
-  split_stack->split_count++;
+  unsigned int split_id   = tip_id / params->split_size;
+  tip_id   %= params->split_size;
+  memset(params->split_stack->splits[params->split_stack->split_count], 0,
+         params->split_len * sizeof(pll_split_base_t));
+  params->split_stack->splits[params->split_stack->split_count][split_id] =
+         (1 << tip_id);
+  params->split_stack->split_count++;
 
   free($1);
 };
@@ -129,8 +139,8 @@ number: NUMBER   { $$=$1;};
 
 #ifdef __linux__
 PLL_EXPORT pll_split_t * pll_utree_split_newick_string(char * s,
-                                                       unsigned int tip_count,
-                                                       string_hashtable_t * names_hash)
+                                               unsigned int tip_count,
+                                               string_hashtable_t * names_hash)
 {
   unsigned int i;
   pll_split_system_t * split_stack;
@@ -140,7 +150,8 @@ PLL_EXPORT pll_split_t * pll_utree_split_newick_string(char * s,
 
   unsigned int split_count = 0;
   unsigned int split_size = (sizeof(pll_split_base_t) * 8);
-  unsigned int split_len  = (tip_count / split_size) + (tip_count % (sizeof(pll_split_base_t) * 8) > 0);
+  unsigned int split_len  = (tip_count / split_size) +
+                            (tip_count % (sizeof(pll_split_base_t) * 8) > 0);
 
   pll_split_t splitschunk = (pll_split_t) calloc(max_splits * split_len,
                                                  sizeof(pll_split_base_t));
@@ -150,7 +161,8 @@ PLL_EXPORT pll_split_t * pll_utree_split_newick_string(char * s,
   splits = (pll_split_t *) calloc(tip_count-3, sizeof(pll_split_t));
 
   split_stack = (pll_split_system_t *) calloc(1, sizeof(pll_split_system_t));
-  split_stack->splits = (pll_split_t *) calloc(max_stack_size, sizeof(pll_split_t));
+  split_stack->splits = (pll_split_t *) calloc(max_stack_size,
+                                               sizeof(pll_split_t));
   split_stack->support = 0;
   split_stack->split_count = 0;
 
@@ -172,19 +184,26 @@ PLL_EXPORT pll_split_t * pll_utree_split_newick_string(char * s,
     snprintf(pll_errmsg, 200, "Unable to map string (%s)", s);
     return PLL_FAILURE;
   }
-  else if (pllmod_utree_parse(split_stack,
-                              (void **) splits,
-                              &split_count,
-                              split_size, split_len,
-                              (void *) names_hash))
+  else
   {
-    free(split_stack->splits);
-    free(split_stack);
-    free(stackchunk);
-    splits = NULL;
-    fclose(pllmod_utree_in);
-    pllmod_utree_lex_destroy();
-    return PLL_FAILURE;
+    struct parse_params_t parse_params;
+    parse_params.split_stack = split_stack;
+    parse_params.splits = (void **) splits;
+    parse_params.split_count = &split_count;
+    parse_params.split_size = split_size;
+    parse_params.split_len = split_len;
+    parse_params.tipnames_hash = (void *) names_hash;
+
+    if (pllmod_utree_parse(&parse_params))
+    {
+      free(split_stack->splits);
+      free(split_stack);
+      free(stackchunk);
+      splits = NULL;
+      fclose(pllmod_utree_in);
+      pllmod_utree_lex_destroy();
+      return PLL_FAILURE;
+    }
   }
 
   if (pllmod_utree_in) fclose(pllmod_utree_in);
