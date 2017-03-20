@@ -301,10 +301,6 @@ static pll_utree_t * read_tree(FILE * file,
         pll_utree_destroy(tree, NULL);
         tree = NULL;
       }
-
-      pll_split_system_t * ss = pll_utree_split_newick_string(tree_str,
-                                                              *tip_count,
-                                                              string_hashtable);
     }
   }
   free(tree_str);
