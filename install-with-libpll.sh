@@ -4,10 +4,10 @@ if [ "$#" -eq 0 ]; then
   PREFIX=
   PREFIX_ARG=
 else
-  PREFIX=$(readlink -f $1)
+  mkdir -p $1
+  PREFIX="$(cd $1 && pwd -P)" 
   PREFIX_ARG=--prefix=$PREFIX 
   PLLMOD_PREFIX_ARG="$PREFIX_ARG CPPFLAGS="-I$PREFIX/include/libpll" LDFLAGS="-L$PREFIX/lib""
-  mkdir -p $PREFIX
 fi
 
 # configure & install libpll
