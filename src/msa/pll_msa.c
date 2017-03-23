@@ -332,7 +332,13 @@ static int find_duplicate_strings_htable(char ** const strings,
   {
     data[i] = i;
     ENTRY entry;
+
+#ifdef __APPLE__
+    entry.key = strdup(strings[i]);
+#else
     entry.key = (char *) strings[i];
+#endif
+
     entry.data = (void *)(data+i);
     ENTRY *found = hsearch(entry, ENTER);
     if (found->data != entry.data)
