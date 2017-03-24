@@ -93,7 +93,7 @@ PLL_EXPORT double pllmod_opt_minimize_newton(double x1,
 
   deriv_func((void *)params, rts, &f, &df);
 
-  DBG("[NR deriv] BL=%f   f=%f  df=%f  nextBL=%f\n", rts, f, df, rts-f/df);
+  DBG("[NR deriv] BL=%.9f   f=%f  df=%f  nextBL=%.9f\n", rts, f, df, rts-f/df);
   if (!isfinite(f) || !isfinite(df))
   {
     pllmod_set_error(PLLMOD_OPT_ERROR_NEWTON_DERIV,
@@ -136,12 +136,17 @@ PLL_EXPORT double pllmod_opt_minimize_newton(double x1,
       if (temp == rts)
         return rts;
     }
-    if (fabs (dx) < tolerance || (i == max_iters))
+    if (fabs (dx) < tolerance)
       return rts_old;
+
+    if (i == max_iters)
+      break;
 
     if (rts < x1) rts = x1;
 
     deriv_func((void *)params, rts, &f, &df);
+
+    DBG("[%d][NR deriv] BL=%.9f   f=%f  df=%f  nextBL=%.9f\n", i, rts, f, df, rts-f/df);
 
     if (!isfinite(f) || !isfinite(df))
     {
@@ -163,7 +168,7 @@ PLL_EXPORT double pllmod_opt_minimize_newton(double x1,
 
   pllmod_set_error(PLLMOD_OPT_ERROR_NEWTON_LIMIT,
                    "Exceeded maximum number of iterations");
-  return (double) -INFINITY;
+  return rts_old;
 }
 
 /******************************************************************************/

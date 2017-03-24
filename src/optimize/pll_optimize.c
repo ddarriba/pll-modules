@@ -1255,8 +1255,15 @@ static int recomp_iterative_multi (pll_newton_tree_params_multi_t * params,
          xmax,    /* max branch length */
          xtol,    /* tolerance */
          xres;    /* optimal found branch length */
+
+  unsigned int max_newton_iters;  /* maximun number of newton iterations to perform */
+
 #if(CHECK_PERBRANCH_IMPR)
   double eval_loglikelihood;
+  max_newton_iters = 10;
+#else
+  /* if LH check is disabled, let NR method more time to converge */
+  max_newton_iters = 30;
 #endif
 
   tr_p = params->tree;
@@ -1289,8 +1296,28 @@ static int recomp_iterative_multi (pll_newton_tree_params_multi_t * params,
   xguess = tr_p->length;
 
   xres = pllmod_opt_minimize_newton (xmin, xguess, xmax, xtol,
-                              10, params,
-                              utree_derivative_func_multi);
+                                     max_newton_iters, params,
+                                     utree_derivative_func_multi);
+
+  if (pll_errno == PLLMOD_OPT_ERROR_NEWTON_LIMIT)
+  {
+    /* NR optimization failed to converge:
+     * - if LH improvement check is enabled, it is safe to keep
+     *   the branch length from the last iteration
+     * - otherwise, we must reset branch length to the original value
+     *   to avoid getting worse LH score in the end
+     * */
+
+    DBG("NR failed to converge after %u iterations: branch %3d - %3d "
+        "(old: %.12f, new: %.12f)\n",
+        max_newton_iters, tr_p->clv_index, tr_p->back->clv_index,
+        tr_p->length, xres);
+
+#if (!CHECK_PERBRANCH_IMPR)
+    xres = tr_p->length;
+#endif
+    pllmod_reset_error();
+  }
 
   if (pll_errno)
     return PLL_FAILURE;
@@ -1375,7 +1402,7 @@ static int recomp_iterative_multi (pll_newton_tree_params_multi_t * params,
     tr_p->back->length = tr_p->length;
   }
 
-  DBG(" Optimized branch %3d - %3d (%.6f)\n",
+  DBG(" Optimized branch %3d - %3d (%.12f)\n",
       tr_p->clv_index, tr_p->back->clv_index, tr_p->length);
 
   /* update children */
