@@ -481,6 +481,26 @@ pllmod_utree_split_hashtable_insert(bitv_hashtable_t * splits_hash,
   return splits_hash;
 }
 
+PLL_EXPORT bitv_hash_entry_t *
+pllmod_utree_split_hashtable_lookup(bitv_hashtable_t * splits_hash,
+                                    pll_split_t split,
+                                    unsigned int tip_count)
+{
+  unsigned int split_len = split_length(tip_count);
+  hash_key_t position = hash_get_key(split, split_len) % splits_hash->table_size;
+  bitv_hash_entry_t *p = splits_hash->table[position];
+
+  for(; p!= NULL; p = p->next)
+  {
+    if(!compare_splits (p->bit_vector,
+                        split,
+                        split_len))
+      return p;
+  }
+
+  return 0;
+}
+
 PLL_EXPORT
 void pllmod_utree_split_hashtable_destroy(bitv_hashtable_t * hash)
 {

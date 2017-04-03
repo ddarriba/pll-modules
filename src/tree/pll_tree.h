@@ -379,6 +379,12 @@ pllmod_utree_split_hashtable_insert(bitv_hashtable_t * splits_hash,
                                     unsigned int tip_count,
                                     unsigned int split_count,
                                     int update_only);
+
+PLL_EXPORT bitv_hash_entry_t *
+pllmod_utree_split_hashtable_lookup(bitv_hashtable_t * splits_hash,
+                                    pll_split_t split,
+                                    unsigned int tip_count);
+
 PLL_EXPORT
 void pllmod_utree_split_hashtable_destroy(bitv_hashtable_t * hash);
 
