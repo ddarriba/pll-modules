@@ -85,7 +85,7 @@ int main (int argc, char * argv[])
 
    unsigned int score;
 
-   pll_utree_t * tree = pllmod_utree_create_parsimony(n_taxa,
+   pll_utree_t * pars_tree = pllmod_utree_create_parsimony(n_taxa,
                                                       n_sites,
                                                       header,
                                                       seq,
@@ -95,6 +95,11 @@ int main (int argc, char * argv[])
                                                       attributes,
                                                       RAND_SEED,   /* seed */
                                                       &score);
+
+   pll_unode_t * tree = pars_tree->nodes[2*n_taxa - 3];
+
+   if(!tree)
+    fatal("Error creating parsimony [%d]: %s\n", pll_errno, pll_errmsg);
 
    printf("Parsimony score: %u\n", score);
 
@@ -106,7 +111,7 @@ int main (int argc, char * argv[])
     double * branch_lengths;
     pll_partition_t * partition;
     pll_operation_t * operations;
-    pll_utree_t ** travbuffer;
+    pll_unode_t ** travbuffer;
 
     tip_nodes_count = n_taxa;
     inner_nodes_count = n_taxa - 2;
@@ -149,7 +154,7 @@ int main (int argc, char * argv[])
     pll_compute_gamma_cats (1, N_CAT_GAMMA, rate_cats);
     pll_set_category_rates (partition, rate_cats);
 
-    travbuffer = (pll_utree_t **) malloc (nodes_count * sizeof(pll_utree_t *));
+    travbuffer = (pll_unode_t **) malloc (nodes_count * sizeof(pll_unode_t *));
 
     branch_lengths = (double *) malloc (branch_count * sizeof(double));
     matrix_indices = (unsigned int *) malloc (
@@ -159,7 +164,10 @@ int main (int argc, char * argv[])
 
     /* perform a postorder traversal of the unrooted tree */
     unsigned int traversal_size;
-    if (!pll_utree_traverse (tree, cb_full_traversal, travbuffer,
+    if (!pll_utree_traverse (tree,
+                             PLL_TREE_TRAVERSE_POSTORDER,
+                             cb_full_traversal,
+                             travbuffer,
                              &traversal_size))
       fatal ("Function pll_utree_traverse() requires inner nodes as parameters");
 
@@ -211,6 +219,6 @@ int main (int argc, char * argv[])
    free (operations);
 
    pll_partition_destroy (partition);
-   pll_utree_destroy(tree, NULL);
+   pll_utree_destroy(pars_tree, NULL);
    return PLL_SUCCESS;
 }

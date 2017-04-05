@@ -37,32 +37,9 @@ typedef struct
   int clv_valid;
 } node_info_t;
 
-static void set_missing_branch_length_recursive (pll_utree_t * tree,
-                                                 double length)
-{
-  if (tree)
-  {
-    /* set branch length to default if not set */
-    if (!tree->length)
-      tree->length = length;
-
-    if (tree->next)
-    {
-      if (!tree->next->length)
-        tree->next->length = length;
-
-      if (!tree->next->next->length)
-        tree->next->next->length = length;
-
-      set_missing_branch_length_recursive (tree->next->back, length);
-      set_missing_branch_length_recursive (tree->next->next->back, length);
-    }
-  }
-}
-
 static double evaluate_likelihood(pll_partition_t *partition,
-                                   pll_utree_t * tree,
-                                   pll_utree_t ** travbuffer,
+                                   pll_unode_t * tree,
+                                   pll_unode_t ** travbuffer,
                                    unsigned int * matrix_indices,
                                    double * branch_lengths,
                                    pll_operation_t * operations,
@@ -76,7 +53,10 @@ static double evaluate_likelihood(pll_partition_t *partition,
 
   if (update_pmatrices)
   {
-    if (!pll_utree_traverse (tree, cb_full_traversal, travbuffer,
+    if (!pll_utree_traverse (tree,
+                             PLL_TREE_TRAVERSE_POSTORDER,
+                             cb_full_traversal,
+                             travbuffer,
                              &traversal_size))
       return -1;
   }
@@ -110,7 +90,8 @@ static double evaluate_likelihood(pll_partition_t *partition,
   return lk;
 }
 
-static void apply_move(pll_utree_t * edge,
+static void apply_move(pll_utree_t * tree,
+                       pll_unode_t * edge,
                        int type)
 {
   pll_utree_nni(edge, type, 0);
@@ -121,16 +102,9 @@ static void apply_move(pll_utree_t * edge,
   printf ("Integrity check %s... ", edge->label);
   fflush(stdout);
   pll_errno = 0;
-  if (!pll_utree_check_integrity (edge))
+  if (!pll_utree_check_integrity (tree))
     fatal ("Tree is not consistent %ld %s", pll_errno, pll_errmsg);
   printf ("OK!\n");
-}
-
-/* branch lengths not present in the newick file get a value of 0.000001 */
-static void set_missing_branch_length (pll_utree_t * tree, double length)
-{
-  set_missing_branch_length_recursive (tree, length);
-  set_missing_branch_length_recursive (tree->back, length);
 }
 
 int main (int argc, char *argv[])
@@ -143,18 +117,18 @@ int main (int argc, char *argv[])
   double * branch_lengths;
   pll_partition_t * partition;
   pll_operation_t * operations;
-  pll_utree_t ** travbuffer;
+  pll_unode_t ** travbuffer;
 
   unsigned int attributes = get_attributes(argc, argv);
 
   /* parse the unrooted binary tree in newick format, and store the number
    of tip nodes in tip_nodes_count */
   printf("Parsing tree: %s\n", TREEFILE);
-  pll_utree_t * tree = pll_utree_parse_newick (TREEFILE, &tip_nodes_count);
-  if (!tree)
-    fatal ("Error parsing %s", TREEFILE);
-
-  set_missing_branch_length (tree, 0.000001);
+  pll_utree_t * parsed_tree = pll_utree_parse_newick (TREEFILE);
+  pll_unode_t * tree = 0;
+  if (!parsed_tree)
+    fatal ("Error parsing %s [%d] %s", TREEFILE, pll_errno, pll_errmsg);
+  tip_nodes_count = parsed_tree->tip_count;
 
   /* compute and show node count information */
   inner_nodes_count = tip_nodes_count - 2;
@@ -167,12 +141,8 @@ int main (int argc, char *argv[])
   printf ("  Number of branches in tree: %d\n", branch_count);
 
   /*  obtain an array of pointers to tip and inner nodes */
-  pll_utree_t ** tipnodes = (pll_utree_t **) calloc (tip_nodes_count,
-                                                     sizeof(pll_utree_t *));
-  pll_utree_t ** innernodes = (pll_utree_t **) calloc (inner_nodes_count,
-                                                       sizeof(pll_utree_t *));
-  pll_utree_query_tipnodes (tree, tipnodes);
-  pll_utree_query_innernodes (tree, innernodes);
+  pll_unode_t ** tipnodes = parsed_tree->nodes;
+  pll_unode_t ** innernodes = parsed_tree->nodes + tip_nodes_count;
 
   /* place the virtual root at a random inner node */
   tree = innernodes[(unsigned int) rand() % inner_nodes_count];
@@ -276,7 +246,6 @@ int main (int argc, char *argv[])
 
   /* we no longer need these two arrays (keys and values of hash table... */
   free (data);
-  free (tipnodes);
 
   /* ...neither the sequences and the headers as they are already
    present in the form of probabilities in the tip CLVs */
@@ -318,7 +287,7 @@ int main (int argc, char *argv[])
 
   /* allocate a buffer for storing pointers to nodes of the tree in postorder
    traversal */
-  travbuffer = (pll_utree_t **) malloc (nodes_count * sizeof(pll_utree_t *));
+  travbuffer = (pll_unode_t **) malloc (nodes_count * sizeof(pll_unode_t *));
 
   branch_lengths = (double *) malloc (branch_count * sizeof(double));
   matrix_indices = (unsigned int *) malloc (
@@ -340,11 +309,10 @@ int main (int argc, char *argv[])
     printf ("Log-L[ST] at %s-%s: %f\n", tree->label, tree->back->label, logl);
 
     /* Test NNI */
-    pll_utree_t * nni_edge;
+    pll_unode_t * nni_edge;
 
     printf("\n\n");
     printf("Obtaining random inner edge\n");
-    pll_utree_query_innernodes (tree, innernodes);
     nni_edge = innernodes[(unsigned int) rand () % inner_nodes_count];
 
     show_tree(nni_edge, SHOW_ASCII_TREE);
@@ -358,7 +326,7 @@ int main (int argc, char *argv[])
 
     printf ("Tree move at %s-%s\n", nni_edge->label, nni_edge->back->label);
 
-    apply_move(nni_edge, PLL_UTREE_MOVE_NNI_LEFT);
+    apply_move(parsed_tree, nni_edge, PLL_UTREE_MOVE_NNI_LEFT);
 
     logl = evaluate_likelihood(partition, nni_edge, travbuffer,
                         matrix_indices, branch_lengths,
@@ -366,7 +334,7 @@ int main (int argc, char *argv[])
     printf ("Log-L[M1] at %s-%s: %f\n", nni_edge->label, nni_edge->back->label, logl);
 
     /* second move */
-    apply_move(nni_edge, PLL_UTREE_MOVE_NNI_RIGHT);
+    apply_move(parsed_tree, nni_edge, PLL_UTREE_MOVE_NNI_RIGHT);
 
     logl = evaluate_likelihood(partition, nni_edge, travbuffer,
                         matrix_indices, branch_lengths,
@@ -374,7 +342,7 @@ int main (int argc, char *argv[])
     printf ("Log-L[M2] at %s-%s: %f\n", nni_edge->label, nni_edge->back->label, logl);
 
     /* rollback */
-    apply_move(nni_edge, PLL_UTREE_MOVE_NNI_LEFT);
+    apply_move(parsed_tree, nni_edge, PLL_UTREE_MOVE_NNI_LEFT);
 
     logl_end = logl = evaluate_likelihood(partition, nni_edge, travbuffer,
                         matrix_indices, branch_lengths,
@@ -390,12 +358,11 @@ int main (int argc, char *argv[])
 
   /* clean */
   pll_partition_destroy (partition);
-  free (innernodes);
   free (travbuffer);
   free (branch_lengths);
   free (matrix_indices);
   free (operations);
-  pll_utree_destroy (tree, NULL);
+  pll_utree_destroy (parsed_tree, NULL);
 
   printf("Test OK!\n");
 

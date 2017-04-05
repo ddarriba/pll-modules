@@ -39,8 +39,8 @@ typedef struct
 } node_info_t;
 
 static double evaluate_likelihood (pll_partition_t *partition,
-                                   pll_rtree_t * tree,
-                                   pll_rtree_t ** travbuffer,
+                                   pll_rnode_t * tree,
+                                   pll_rnode_t ** travbuffer,
                                    unsigned int * matrix_indices,
                                    double * branch_lengths,
                                    pll_operation_t * operations)
@@ -55,7 +55,8 @@ static double evaluate_likelihood (pll_partition_t *partition,
   for (i=0; i<RATE_CATS; ++i)
     params_indices[i] = 0;
 
-  if (!pll_rtree_traverse (tree, cb_rfull_traversal, travbuffer,
+  if (!pll_rtree_traverse (tree, PLL_TREE_TRAVERSE_POSTORDER,
+                           cb_rfull_traversal, travbuffer,
                            &traversal_size))
     return -1;
 
@@ -75,8 +76,8 @@ static double evaluate_likelihood (pll_partition_t *partition,
   return lk;
 }
 
-static void apply_move (pll_rtree_t * edge, pll_rtree_t * tree,
-                        pll_rtree_t ** root,
+static void apply_move (pll_rnode_t * edge, pll_rnode_t * tree,
+                        pll_rnode_t ** root,
                         pll_tree_rollback_t * rollback_stack,
                         int * rollback_stack_top)
 {
@@ -90,7 +91,7 @@ static void apply_move (pll_rtree_t * edge, pll_rtree_t * tree,
   show_rtree (*root, SHOW_ASCII_TREE);
 }
 
-static void undo_move (pll_rtree_t **root,
+static void undo_move (pll_rnode_t **root,
                        pll_tree_rollback_t * rollback_stack,
                        int * rollback_stack_top)
 {
@@ -115,7 +116,7 @@ int main (int argc, char * argv[])
   double * branch_lengths;
   pll_partition_t * partition;
   pll_operation_t * operations;
-  pll_rtree_t ** travbuffer;
+  pll_rnode_t ** travbuffer;
 
   char * seq = NULL;
   char * hdr = NULL;
@@ -133,9 +134,11 @@ int main (int argc, char * argv[])
   /* parse the unrooted binary tree in newick format, and store the number
    of tip nodes in tip_nodes_count */
   printf ("Parsing tree: %s\n", TREEFILE);
-  pll_rtree_t * tree = pll_rtree_parse_newick (TREEFILE, &tip_nodes_count);
-  if (!tree)
+  pll_rtree_t * parsed_tree = pll_rtree_parse_newick (TREEFILE);
+  if (!parsed_tree)
     fatal ("Error parsing %s", TREEFILE);
+  tip_nodes_count = parsed_tree->tip_count;
+  pll_rnode_t * tree = parsed_tree->nodes[2*tip_nodes_count - 3];
 
   /* compute and show node count information */
   inner_nodes_count = tip_nodes_count - 1;
@@ -148,12 +151,8 @@ int main (int argc, char * argv[])
   printf ("  Number of branches in tree: %d\n", branch_count);
 
   /*  obtain an array of pointers to tip and inner nodes */
-  pll_rtree_t ** tipnodes = (pll_rtree_t **) calloc (tip_nodes_count,
-                                                     sizeof(pll_rtree_t *));
-  pll_rtree_t ** innernodes = (pll_rtree_t **) calloc (inner_nodes_count,
-                                                       sizeof(pll_rtree_t *));
-  pll_rtree_query_tipnodes (tree, tipnodes);
-  pll_rtree_query_innernodes (tree, innernodes);
+  pll_rnode_t ** tipnodes = parsed_tree->nodes;
+  pll_rnode_t ** innernodes = parsed_tree->nodes + tip_nodes_count;
 
   show_rtree (tree, SHOW_ASCII_TREE);
 
@@ -248,7 +247,6 @@ int main (int argc, char * argv[])
 
   /* we no longer need these two arrays (keys and values of hash table... */
   free (data);
-  free (tipnodes);
 
   /* ...neither the sequences and the headers as they are already
    present in the form of probabilities in the tip CLVs */
@@ -293,7 +291,7 @@ int main (int argc, char * argv[])
 
   /* allocate a buffer for storing pointers to nodes of the tree in postorder
    traversal */
-  travbuffer = (pll_rtree_t **) malloc (nodes_count * sizeof(pll_rtree_t *));
+  travbuffer = (pll_rnode_t **) malloc (nodes_count * sizeof(pll_rnode_t *));
 
   branch_lengths = (double *) malloc (branch_count * sizeof(double));
   matrix_indices = (unsigned int *) malloc (
@@ -303,8 +301,8 @@ int main (int argc, char * argv[])
 
   unsigned int distance = 8;
   unsigned int n_nodes_at_dist;
-  pll_rtree_t ** nodes_at_dist = (pll_rtree_t **) malloc (
-      sizeof(pll_rtree_t *) * pow (2, distance + 1));
+  pll_rnode_t ** nodes_at_dist = (pll_rnode_t **) malloc (
+      sizeof(pll_rnode_t *) * pow (2, distance + 1));
 
   for (i = 0; i < 5; i++)
   {
@@ -317,7 +315,7 @@ int main (int argc, char * argv[])
     printf ("Log-L[ST] %f\n", logl);
 
     /* Test SPR */
-    pll_rtree_t *prune_edge, *regraft_edge;
+    pll_rnode_t *prune_edge, *regraft_edge;
 
     printf ("\n\n");
     printf ("Obtaining random inner edge\n");
@@ -397,12 +395,11 @@ int main (int argc, char * argv[])
   pll_partition_destroy (partition);
   free (rollback_stack);
   free (nodes_at_dist);
-  free (innernodes);
   free (travbuffer);
   free (branch_lengths);
   free (matrix_indices);
   free (operations);
-  pll_rtree_destroy (tree, NULL);
+  pll_rtree_destroy (parsed_tree, NULL);
 
   printf ("Test OK!\n");
 

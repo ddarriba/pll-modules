@@ -134,7 +134,7 @@ typedef struct
  typedef struct
 {
   pll_partition_t * partition;
-  pll_utree_t * tree;
+  pll_unode_t * tree;
   const unsigned int * params_indices;
   double * sumtable;
   double branch_length_min;
@@ -144,7 +144,7 @@ typedef struct
 
 typedef struct
 {
-  pll_utree_t * tree;
+  pll_unode_t * tree;
   size_t partition_count;
   pll_partition_t ** partitions;
   unsigned int ** params_indices;
@@ -228,7 +228,7 @@ PLL_EXPORT double pllmod_opt_optimize_multidim(pll_optimize_options_t * p,
 
 PLL_EXPORT double pllmod_opt_optimize_branch_lengths_iterative (
                                             pll_partition_t * partition,
-                                            pll_utree_t * tree,
+                                            pll_unode_t * tree,
                                             const unsigned int * params_indices,
                                             double branch_length_min,
                                             double branch_length_max,
@@ -238,7 +238,7 @@ PLL_EXPORT double pllmod_opt_optimize_branch_lengths_iterative (
 
 PLL_EXPORT double pllmod_opt_optimize_branch_lengths_local (
                                             pll_partition_t * partition,
-                                            pll_utree_t * tree,
+                                            pll_unode_t * tree,
                                             const unsigned int * params_indices,
                                             double branch_length_min,
                                             double branch_length_max,
@@ -251,7 +251,7 @@ PLL_EXPORT double pllmod_opt_optimize_branch_lengths_local (
 PLL_EXPORT double pllmod_opt_optimize_branch_lengths_local_multi (
                                               pll_partition_t ** partitions,
                                               size_t partition_count,
-                                              pll_utree_t * tree,
+                                              pll_unode_t * tree,
                                               unsigned int ** params_indices,
                                               double ** sumtable_buffers,
                                               double * brlen_scalers,

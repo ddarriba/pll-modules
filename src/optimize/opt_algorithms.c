@@ -80,7 +80,7 @@ PLL_EXPORT double pllmod_opt_minimize_newton(double x1,
 {
   unsigned int i;
   double df, dx, dxold, f;
-  double temp, xh, xl, rts, rts_old;
+  double temp, xh, xl, rts, rts_old = 0.0;
 
   /* reset errno */
   pll_errno = 0;

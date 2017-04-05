@@ -48,7 +48,7 @@ static void fill_weights (double *weights,
 
 
 PLL_EXPORT double pllmod_algo_opt_frequencies (pll_partition_t * partition,
-                                               pll_utree_t * tree,
+                                               pll_unode_t * tree,
                                                unsigned int params_index,
                                                unsigned int * params_indices,
                                                double bfgs_factor,
@@ -113,7 +113,7 @@ PLL_EXPORT double pllmod_algo_opt_frequencies (pll_partition_t * partition,
 }
 
 PLL_EXPORT double pllmod_algo_opt_subst_rates (pll_partition_t * partition,
-                                               pll_utree_t * tree,
+                                               pll_unode_t * tree,
                                                unsigned int params_index,
                                                unsigned int * params_indices,
                                                int * symmetries,
@@ -210,7 +210,7 @@ PLL_EXPORT double pllmod_algo_opt_subst_rates (pll_partition_t * partition,
 }
 
 PLL_EXPORT double pllmod_algo_opt_alpha (pll_partition_t * partition,
-                                         pll_utree_t * tree,
+                                         pll_unode_t * tree,
                                          unsigned int * params_indices,
                                          double min_alpha,
                                          double max_alpha,
@@ -240,7 +240,7 @@ PLL_EXPORT double pllmod_algo_opt_alpha (pll_partition_t * partition,
 }
 
 PLL_EXPORT double pllmod_algo_opt_pinv (pll_partition_t * partition,
-                                        pll_utree_t * tree,
+                                        pll_unode_t * tree,
                                         unsigned int * params_indices,
                                         double min_pinv,
                                         double max_pinv,
@@ -271,7 +271,7 @@ PLL_EXPORT double pllmod_algo_opt_pinv (pll_partition_t * partition,
 }
 
 PLL_EXPORT double pllmod_algo_opt_alpha_pinv (pll_partition_t * partition,
-                                              pll_utree_t * tree,
+                                              pll_unode_t * tree,
                                               unsigned int * params_indices,
                                               double min_alpha,
                                               double max_alpha,
@@ -318,7 +318,7 @@ PLL_EXPORT double pllmod_algo_opt_alpha_pinv (pll_partition_t * partition,
 }
 
 PLL_EXPORT double pllmod_algo_opt_brlen_scaler (pll_partition_t * partition,
-                                                pll_utree_t * tree,
+                                                pll_unode_t * root,
                                                 unsigned int * params_indices,
                                                 double * scaler,
                                                 double min_scaler,
@@ -331,8 +331,8 @@ PLL_EXPORT double pllmod_algo_opt_brlen_scaler (pll_partition_t * partition,
   struct brlen_scaler_params opt_params;
 
   /* create a temporary tree with the scaled branches */
-  pll_utree_t * scaled_tree = pll_utree_clone(tree);
-  pllmod_utree_scale_branches(scaled_tree, *scaler);
+  pll_unode_t * scaled_tree = pll_utree_graph_clone(root);
+  pllmod_utree_scale_branches_all(scaled_tree, *scaler);
 
   opt_params.partition      = partition;
   opt_params.tree           = scaled_tree;
@@ -350,7 +350,7 @@ PLL_EXPORT double pllmod_algo_opt_brlen_scaler (pll_partition_t * partition,
 
   cur_logl = target_brlen_scaler_func(&opt_params, xres);
 
-  pll_utree_destroy(scaled_tree, NULL);
+  pll_utree_graph_destroy(scaled_tree, NULL);
 
   *scaler = xres;
 
@@ -358,7 +358,7 @@ PLL_EXPORT double pllmod_algo_opt_brlen_scaler (pll_partition_t * partition,
 }
 
 PLL_EXPORT double pllmod_algo_opt_rates_weights (pll_partition_t * partition,
-                                                 pll_utree_t * tree,
+                                                 pll_unode_t * tree,
                                                  unsigned int * params_indices,
                                                  double min_rate,
                                                  double max_rate,
@@ -436,7 +436,7 @@ PLL_EXPORT double pllmod_algo_opt_rates_weights (pll_partition_t * partition,
   if (scale_branches)
   {
     /* scale branch lengths such that likelihood is conserved */
-    pllmod_utree_scale_branches(tree, sum_weightrates);
+    pllmod_utree_scale_branches_all(tree, sum_weightrates);
 
     /* update pmatrices and partials according to the new branches */
     cur_logl = -1 *
@@ -1163,7 +1163,7 @@ double pllmod_algo_opt_rates_weights_treeinfo (pllmod_treeinfo_t * treeinfo,
       //TODO adapt for unlinked branches
 
       /* scale branch lengths such that likelihood is conserved */
-      pllmod_utree_scale_branches(treeinfo->root, sum_weightrates);
+      pllmod_utree_scale_branches_all(treeinfo->root, sum_weightrates);
     }
     else
     {

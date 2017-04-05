@@ -27,7 +27,7 @@
   * This file implements high-level optimization algorithms. Most of the
   * functions listed here provide wrappers to call low-level algorithms in
   * `opt_algorithms.c` given a complex structure containing PLL features such
-  * as partitions (`pll_partition_t`) or trees (`pll_utree_t`).
+  * as partitions (`pll_partition_t`) or trees (`pll_unode_t`).
   *
   * @author Diego Darriba
   * @author Alexey Kozlov
@@ -737,9 +737,9 @@ PLL_EXPORT double pllmod_opt_optimize_multidim (pll_optimize_options_t * params,
 
 static void update_partials_and_scalers(pll_partition_t ** partitions,
                                         size_t partition_count,
-                                        pll_utree_t * parent,
-                                        pll_utree_t * right_child,
-                                        pll_utree_t * left_child)
+                                        pll_unode_t * parent,
+                                        pll_unode_t * right_child,
+                                        pll_unode_t * left_child)
 {
   pll_operation_t op;
   size_t p;
@@ -770,7 +770,7 @@ static int recomp_iterative (pll_newton_tree_params_t * params,
                               double * loglikelihood_score,
                               int keep_update)
 {
-  pll_utree_t *tr_p, *tr_q, *tr_z;
+  pll_unode_t *tr_p, *tr_q, *tr_z;
 #if(CHECK_PERBRANCH_IMPR)
   double eval_loglikelihood;
 #endif
@@ -779,6 +779,16 @@ static int recomp_iterative (pll_newton_tree_params_t * params,
          xmax,    /* max branch length */
          xtol,    /* tolerance */
          xres;    /* optimal found branch length */
+
+  unsigned int max_newton_iters;  /* maximun number of newton iterations to perform */
+
+#if(CHECK_PERBRANCH_IMPR)
+  double eval_loglikelihood;
+  max_newton_iters = 10;
+#else
+  /* if LH check is disabled, let NR method more time to converge */
+  max_newton_iters = 30;
+#endif
 
   tr_p = params->tree;
   tr_q = params->tree->next;
@@ -805,7 +815,7 @@ static int recomp_iterative (pll_newton_tree_params_t * params,
     xguess = PLLMOD_OPT_DEFAULT_BRANCH_LEN;
 
   xres = pllmod_opt_minimize_newton (xmin, xguess, xmax, xtol,
-                              10, params,
+                              max_newton_iters, params,
                               utree_derivative_func);
 
   if (pll_errno)
@@ -955,7 +965,7 @@ static int recomp_iterative (pll_newton_tree_params_t * params,
  */
 PLL_EXPORT double pllmod_opt_optimize_branch_lengths_local (
                                               pll_partition_t * partition,
-                                              pll_utree_t * tree,
+                                              pll_unode_t * tree,
                                               const unsigned int * params_indices,
                                               double branch_length_min,
                                               double branch_length_max,
@@ -1095,7 +1105,7 @@ PLL_EXPORT double pllmod_opt_optimize_branch_lengths_local (
  */
 PLL_EXPORT double pllmod_opt_optimize_branch_lengths_iterative (
                                               pll_partition_t * partition,
-                                              pll_utree_t * tree,
+                                              pll_unode_t * tree,
                                               const unsigned int * params_indices,
                                               double branch_length_min,
                                               double branch_length_max,
@@ -1248,7 +1258,7 @@ static int recomp_iterative_multi (pll_newton_tree_params_multi_t * params,
                                    double * loglikelihood_score,
                                    int keep_update)
 {
-  pll_utree_t *tr_p, *tr_q, *tr_z;
+  pll_unode_t *tr_p, *tr_q, *tr_z;
   size_t p;
   double xmin,    /* min branch length */
          xguess,  /* initial guess */
@@ -1485,7 +1495,7 @@ static int recomp_iterative_multi (pll_newton_tree_params_multi_t * params,
 PLL_EXPORT double pllmod_opt_optimize_branch_lengths_local_multi (
                                               pll_partition_t ** partitions,
                                               size_t partition_count,
-                                              pll_utree_t * tree,
+                                              pll_unode_t * tree,
                                               unsigned int ** params_indices,
                                               double ** precomp_buffers,
                                               double * brlen_scalers,

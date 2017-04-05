@@ -120,7 +120,7 @@ int main(int argc, char * argv[])
 
   printf("Initial Log-L: %.10f\n", logl);
 
-  pll_utree_t * tree = (pll_utree_t *) malloc (6 * sizeof(pll_utree_t));
+  pll_unode_t * tree = (pll_unode_t *) malloc (6 * sizeof(pll_unode_t));
   for (i=0; i<6; ++i) tree[i].scaler_index = PLL_SCALE_BUFFER_NONE;
   tree[0].next = tree[1].next = tree[2].next = NULL;
   tree[3].next = tree + 4; tree[4].next = tree + 5; tree[5].next = tree + 3;

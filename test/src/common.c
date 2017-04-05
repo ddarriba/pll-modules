@@ -42,17 +42,17 @@ void skip_test ()
 }
 
 
-int cb_full_traversal (pll_utree_t * node)
+int cb_full_traversal (pll_unode_t * node)
 {
   return 1;
 }
 
-int cb_rfull_traversal (pll_rtree_t * node)
+int cb_rfull_traversal (pll_rnode_t * node)
 {
   return 1;
 }
 
-void show_tree (pll_utree_t * tree, int SHOW_ASCII_TREE)
+void show_tree (pll_unode_t * tree, int SHOW_ASCII_TREE)
 {
   if(SHOW_ASCII_TREE)
   {
@@ -74,7 +74,7 @@ void show_tree (pll_utree_t * tree, int SHOW_ASCII_TREE)
   }
 }
 
-void show_rtree (pll_rtree_t * tree, int SHOW_ASCII_TREE)
+void show_rtree (pll_rnode_t * tree, int SHOW_ASCII_TREE)
 {
   if(SHOW_ASCII_TREE)
   {

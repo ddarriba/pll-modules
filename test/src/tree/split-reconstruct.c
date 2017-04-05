@@ -32,8 +32,8 @@
  */
 /* static functions */
 static void shuffle(pll_split_t *array, size_t n);
-static void print_newick_recurse(pll_utree_t * node);
-static void print_newick(pll_utree_t * tree);
+static void print_newick_recurse(pll_unode_t * node);
+static void print_newick(pll_unode_t * tree);
 
 static const unsigned int n_iters = 10;
 int main (int argc, char * argv[])
@@ -42,7 +42,7 @@ int main (int argc, char * argv[])
   char **labels;
 
   /* tree properties */
-  pll_utree_t * tree = NULL;
+  pll_unode_t * tree = NULL;
   unsigned int tip_count;
   unsigned int attributes = get_attributes(argc, argv);
 
@@ -52,20 +52,19 @@ int main (int argc, char * argv[])
   }
 
   /* parse the input trees */
-  tree = pll_utree_parse_newick (TREEFILE, &tip_count);
+  pll_utree_t * parsed_tree = pll_utree_parse_newick (TREEFILE);
+  tip_count = parsed_tree->tip_count;
+  tree = parsed_tree->nodes[2*tip_count - 3];
   if (!tree)
   {
     fatal("Error %d: %s", pll_errno, pll_errmsg);
   }
 
-  pll_utree_t ** tipnodes = (pll_utree_t **) malloc(sizeof(pll_utree_t *) * tip_count);
-  pll_utree_query_tipnodes(tree, tipnodes);
+  pll_unode_t ** tipnodes = parsed_tree->nodes;
 
   labels = (char **) malloc(tip_count * sizeof(char *));
   for (i=0; i<tip_count; ++i)
     labels[tipnodes[i]->node_index] = tipnodes[i]->label;
-
-  free(tipnodes);
 
   unsigned int n_splits;
   pll_split_t * splits = pllmod_utree_split_create(tree,
@@ -82,12 +81,12 @@ int main (int argc, char * argv[])
   {
     shuffle(splits, n_splits);
 
-    pll_utree_t * constree = pllmod_utree_from_splits(splits,
+    pll_unode_t * constree = pllmod_utree_from_splits(splits,
                                                       n_splits,
                                                       tip_count,
                                                       labels);
-
-    if (!pllmod_utree_consistency_set(constree, tree, tip_count))
+    pll_utree_t * consensus = pll_utree_wraptree(constree, tip_count);
+    if (!pllmod_utree_consistency_set(consensus, parsed_tree))
        fatal("Cannot set trees consistent!");
 
     pll_utree_show_ascii(constree, PLL_UTREE_SHOW_CLV_INDEX | PLL_UTREE_SHOW_LABEL);
@@ -116,13 +115,13 @@ int main (int argc, char * argv[])
       fatal("Error: Initial and reconstructed trees differ!");
 
     /* in-loop cleanup */
-    pll_utree_destroy (constree, NULL);
+    pll_utree_destroy (consensus, NULL);
     pllmod_utree_split_destroy(splits2);
   }
 
   /* clean */
   free(labels);
-  pll_utree_destroy (tree, NULL);
+  pll_utree_destroy (parsed_tree, NULL);
   pllmod_utree_split_destroy(splits);
 
   return (0);
@@ -145,9 +144,9 @@ static void shuffle(pll_split_t *array, size_t n)
   }
 }
 
-static void print_newick_recurse(pll_utree_t * node)
+static void print_newick_recurse(pll_unode_t * node)
 {
-  pll_utree_t * child;
+  pll_unode_t * child;
   if (pllmod_utree_is_tip(node))
   {
     printf("%s", node->label);
@@ -168,11 +167,11 @@ static void print_newick_recurse(pll_utree_t * node)
   printf(")");
 }
 
-static void print_newick(pll_utree_t * tree)
+static void print_newick(pll_unode_t * tree)
 {
   printf("(");
   print_newick_recurse(tree->back);
-  pll_utree_t * child = tree->next;
+  pll_unode_t * child = tree->next;
   while(child != tree)
   {
     printf(",");

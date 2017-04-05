@@ -55,8 +55,8 @@ typedef struct rollback_list
 } pllmod_rollback_list_t;
 
 typedef struct node_entry {
-  pll_utree_t * p_node;
-  pll_utree_t * r_node;
+  pll_unode_t * p_node;
+  pll_unode_t * r_node;
   double b1, b2, b3;
   double lh;
   unsigned int rollback_num;
@@ -69,8 +69,8 @@ typedef struct bestnode_list
   size_t size;
 } pllmod_bestnode_list_t;
 
-static void algo_query_allnodes_recursive(pll_utree_t * node,
-                                          pll_utree_t ** buffer,
+static void algo_query_allnodes_recursive(pll_unode_t * node,
+                                          pll_unode_t ** buffer,
                                           int * index)
 {
   if (node->next)
@@ -84,7 +84,7 @@ static void algo_query_allnodes_recursive(pll_utree_t * node,
   }
 }
 
-static int algo_query_allnodes(pll_utree_t * root, pll_utree_t ** buffer)
+static int algo_query_allnodes(pll_unode_t * root, pll_unode_t ** buffer)
 {
   assert(root && buffer);
 
@@ -253,7 +253,7 @@ static int algo_bestnode_list_next_index(pllmod_bestnode_list_t * best_node_list
   return curr_index;
 }
 
-static double algo_optimize_bl_triplet(pll_utree_t * node,
+static double algo_optimize_bl_triplet(pll_unode_t * node,
                                        pllmod_treeinfo_t * treeinfo,
                                        double bl_min,
                                        double bl_max,
@@ -314,9 +314,9 @@ static int best_reinsert_edge(pllmod_treeinfo_t * treeinfo,
   assert(treeinfo && entry && params);
 
   unsigned int i, j;
-  pll_utree_t * orig_prune_edge;
-  pll_utree_t ** regraft_nodes;
-  pll_utree_t * r_edge;
+  pll_unode_t * orig_prune_edge;
+  pll_unode_t ** regraft_nodes;
+  pll_unode_t * r_edge;
   int regraft_edges;
   double regraft_length;
   int r_dist;
@@ -329,7 +329,7 @@ static int best_reinsert_edge(pllmod_treeinfo_t * treeinfo,
   double b1, b2, b3;
   double loglh;
 
-  pll_utree_t * p_edge = entry->p_node;
+  pll_unode_t * p_edge = entry->p_node;
   const size_t total_edge_count = 2 * treeinfo->tip_count - 3;
 
   entry->r_node = NULL;
@@ -361,8 +361,8 @@ static int best_reinsert_edge(pllmod_treeinfo_t * treeinfo,
   pllmod_treeinfo_invalidate_pmatrix(treeinfo, orig_prune_edge);
 
   /* get list of candidate regrafting nodes in the given distance range */
-  regraft_nodes = (pll_utree_t **) calloc (total_edge_count,
-                                           sizeof(pll_utree_t *));
+  regraft_nodes = (pll_unode_t **) calloc (total_edge_count,
+                                           sizeof(pll_unode_t *));
   if (!regraft_nodes)
   {
     pllmod_set_error(PLL_ERROR_MEM_ALLOC,
@@ -477,7 +477,7 @@ static int best_reinsert_edge(pllmod_treeinfo_t * treeinfo,
     pllmod_treeinfo_invalidate_pmatrix(treeinfo, p_edge->next->next);
 
     /* rollback the REGRAFT */
-    pll_utree_t * pruned_tree = pllmod_utree_prune(p_edge);
+    pll_unode_t * pruned_tree = pllmod_utree_prune(p_edge);
     pllmod_utree_set_length(pruned_tree, regraft_length);
     pllmod_treeinfo_invalidate_pmatrix(treeinfo, pruned_tree);
 
@@ -525,7 +525,7 @@ static int best_reinsert_edge(pllmod_treeinfo_t * treeinfo,
   return PLL_SUCCESS;
 }
 
-static double reinsert_nodes(pllmod_treeinfo_t * treeinfo, pll_utree_t ** nodes,
+static double reinsert_nodes(pllmod_treeinfo_t * treeinfo, pll_unode_t ** nodes,
                              int node_count,
                              pllmod_rollback_list_t * rollback_list,
                              pllmod_bestnode_list_t * best_node_list,
@@ -543,7 +543,7 @@ static double reinsert_nodes(pllmod_treeinfo_t * treeinfo, pll_utree_t ** nodes,
 
   for (i = 0; i < node_count; ++i)
   {
-    pll_utree_t * p_edge = nodes[i];
+    pll_unode_t * p_edge = nodes[i];
 
     assert(!pllmod_utree_is_tip(p_edge));
 
@@ -564,7 +564,7 @@ static double reinsert_nodes(pllmod_treeinfo_t * treeinfo, pll_utree_t ** nodes,
       return 0;
     }
 
-    pll_utree_t * best_r_edge = spr_entry.r_node;
+    pll_unode_t * best_r_edge = spr_entry.r_node;
 
     /* original placement is the best for the current node -> move on to the next one */
     if (!best_r_edge || best_r_edge == p_edge || best_r_edge == p_edge->back ||
@@ -647,7 +647,7 @@ PLL_EXPORT double pllmod_algo_spr_round(pllmod_treeinfo_t * treeinfo,
   int retval;
 
   int allnodes_count;
-  pll_utree_t ** allnodes;
+  pll_unode_t ** allnodes;
 
   size_t rollback_slots;
   size_t toplist_slots;
@@ -659,11 +659,11 @@ PLL_EXPORT double pllmod_algo_spr_round(pllmod_treeinfo_t * treeinfo,
   int toplist_index;
 
   node_entry_t * spr_entry;
-  pll_utree_t * p_edge, * r_edge;
+  pll_unode_t * p_edge, * r_edge;
 
-  pll_utree_t * best_tree;
+  pll_unode_t * best_tree;
 #ifndef  PLLMOD_SEARCH_GREEDY_BLO
-  pll_utree_t * tmp_tree = NULL;
+  pll_unode_t * tmp_tree = NULL;
 #endif
 
   /* process search params */
@@ -709,8 +709,8 @@ PLL_EXPORT double pllmod_algo_spr_round(pllmod_treeinfo_t * treeinfo,
 
   /* query all nodes */
   allnodes_count = (treeinfo->tip_count - 2) * 3;
-  allnodes = (pll_utree_t **) calloc ((size_t) allnodes_count,
-                                      sizeof(pll_utree_t *));
+  allnodes = (pll_unode_t **) calloc ((size_t) allnodes_count,
+                                      sizeof(pll_unode_t *));
   if (!allnodes)
   {
     pllmod_set_error(PLL_ERROR_MEM_ALLOC,
@@ -771,7 +771,7 @@ PLL_EXPORT double pllmod_algo_spr_round(pllmod_treeinfo_t * treeinfo,
                                        params.smoothings/4);
   DBG("Best tree LH after BLO: %f\n", best_lh);
 
-  best_tree = pll_utree_clone(treeinfo->root);
+  best_tree = pll_utree_graph_clone(treeinfo->root);
 
   /* Restore best topologies and re-evaluate them after full BLO.
   NOTE: some SPRs were applied (if they improved LH) and others weren't.
@@ -854,7 +854,7 @@ PLL_EXPORT double pllmod_algo_spr_round(pllmod_treeinfo_t * treeinfo,
       /* clone the tree before BLO to save original branch length */
       // TODO: make it more efficient
       tmp_tree = treeinfo->root;
-      treeinfo->root = pll_utree_clone(treeinfo->root);
+      treeinfo->root = pll_utree_graph_clone(treeinfo->root);
 #endif
 
       /* restore optimized branch lengths */
@@ -881,9 +881,9 @@ PLL_EXPORT double pllmod_algo_spr_round(pllmod_treeinfo_t * treeinfo,
       DBG("Best tree LH: %f\n", loglh);
 
       if (best_tree)
-        pll_utree_destroy(best_tree, NULL);
+        pll_utree_graph_destroy(best_tree, NULL);
 
-      best_tree = pll_utree_clone(treeinfo->root);
+      best_tree = pll_utree_graph_clone(treeinfo->root);
       best_lh = loglh;
     }
 
@@ -891,7 +891,7 @@ PLL_EXPORT double pllmod_algo_spr_round(pllmod_treeinfo_t * treeinfo,
     {
 #ifndef  PLLMOD_SEARCH_GREEDY_BLO
       /* restore original brlens */
-      pll_utree_destroy(treeinfo->root, NULL);
+      pll_utree_graph_destroy(treeinfo->root, NULL);
       treeinfo->root = tmp_tree;
 #endif
 
@@ -904,7 +904,7 @@ PLL_EXPORT double pllmod_algo_spr_round(pllmod_treeinfo_t * treeinfo,
 
   if (best_tree)
   {
-    pll_utree_destroy(treeinfo->root, NULL);
+    pll_utree_graph_destroy(treeinfo->root, NULL);
     treeinfo->root = best_tree;
   }
 

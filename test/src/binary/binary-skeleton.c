@@ -35,12 +35,12 @@
 #define BLOCK_ID_PARTITION -1
 #define BLOCK_ID_TREE      -2
 
-static int cb_traversal(pll_utree_t * node)
+static int cb_traversal(pll_unode_t * node)
 {
   return 1;
 }
 
-static pll_partition_t * parse_msa(unsigned int attributes, pll_utree_t * tree, unsigned int tip_nodes_count)
+static pll_partition_t * parse_msa(unsigned int attributes, pll_utree_t * tree)
 {
   unsigned int i;
   unsigned int tip_clv_index;
@@ -53,15 +53,11 @@ static pll_partition_t * parse_msa(unsigned int attributes, pll_utree_t * tree, 
   pll_fasta_t * fp;
   pll_partition_t * partition;
 
-  pll_utree_t ** tipnodes;
+  pll_unode_t ** tipnodes = tree->nodes;
+  unsigned int tip_nodes_count = tree->tip_count;
 
   headers = (char **)calloc(tip_nodes_count, sizeof(char *));
   seqdata = (char **)calloc(tip_nodes_count, sizeof(char *));
-
-  /*  obtain an array of pointers to tip nodes */
-  tipnodes = (pll_utree_t  **)calloc(tip_nodes_count,
-                                                    sizeof(pll_utree_t *));
-  pll_utree_query_tipnodes(tree, tipnodes);
 
   /* create a libc hash table of size tip_nodes_count */
   hcreate(tip_nodes_count);
@@ -149,8 +145,6 @@ static pll_partition_t * parse_msa(unsigned int attributes, pll_utree_t * tree, 
   free(seqdata);
   free(headers);
 
-  free(tipnodes);
-
   return partition;
 }
 
@@ -171,7 +165,7 @@ int write(void * data, size_t size, size_t count, FILE * file)
 }
 
 static long int get_offset(const size_t n_blocks, pll_block_map_t * block_map, int id)
-{ 
+{
   for (size_t i = 0; i<n_blocks; ++i)
   {
     if (block_map[i].block_id == id)
@@ -190,10 +184,10 @@ int main (int argc, char * argv[])
   unsigned int tip_nodes_count, inner_nodes_count, nodes_count, branch_count;
   pll_partition_t * old_partition;
   pll_partition_t * partition;
-  pll_utree_t * tree;
+  pll_unode_t * tree;
   double logl, save_logl;
 
-  pll_utree_t ** travbuffer;
+  pll_unode_t ** travbuffer;
   double * branch_lengths;
   unsigned int * matrix_indices;
   pll_operation_t * operations;
@@ -207,7 +201,10 @@ int main (int argc, char * argv[])
                lk_child_clv_index, lk_child_scaler_index,
                lk_pmatrix_index;
 
-  tree = pll_utree_parse_newick(TREE_FILENAME, &tip_nodes_count);
+  pll_utree_t * parsed_tree = pll_utree_parse_newick(TREE_FILENAME);
+  tip_nodes_count = parsed_tree->tip_count;
+  tree = parsed_tree->nodes[2*tip_nodes_count - 3];
+
   if (!tree)
   {
     printf ("Error %d parsing tree: %s\n", pll_errno, pll_errmsg);
@@ -223,7 +220,7 @@ int main (int argc, char * argv[])
   printf("Total number of nodes in tree: %d\n", nodes_count);
   printf("Number of branches in tree: %d\n", branch_count);
 
-  old_partition = parse_msa (attributes, tree, tip_nodes_count);
+  old_partition = parse_msa (attributes, parsed_tree);
   if (!old_partition)
   {
     printf ("Error creating old_partition\n");
@@ -235,7 +232,7 @@ int main (int argc, char * argv[])
   pll_set_subst_params(old_partition, 0, subst_params);
   pll_set_category_rates(old_partition, rate_cats);
 
-  travbuffer = (pll_utree_t **)malloc(nodes_count * sizeof(pll_utree_t *));
+  travbuffer = (pll_unode_t **)malloc(nodes_count * sizeof(pll_unode_t *));
   branch_lengths = (double *)malloc(branch_count * sizeof(double));
   matrix_indices = (unsigned int *)malloc(branch_count * sizeof(int));
   operations = (pll_operation_t *)malloc(inner_nodes_count *
@@ -243,9 +240,10 @@ int main (int argc, char * argv[])
 
   unsigned int traversal_size;
 
-  pll_utree_t * node = tree;
+  pll_unode_t * node = tree;
 
   if (!pll_utree_traverse(node,
+                          PLL_TREE_TRAVERSE_POSTORDER,
                           cb_traversal,
                           travbuffer,
                           &traversal_size))
@@ -345,7 +343,7 @@ int main (int argc, char * argv[])
   {
     for (tip_index = 0; tip_index < old_partition->tips; tip_index++)
     {
-      if(!pllmod_binary_custom_dump(bin_file, 
+      if(!pllmod_binary_custom_dump(bin_file,
                                     block_id++,
                                     old_partition->tipchars[tip_index],
                                     old_partition->sites * sizeof(unsigned char),
@@ -358,14 +356,14 @@ int main (int argc, char * argv[])
   }
 
   // dump the clvs
-  for ( size_t clv_index = tip_index; 
-        clv_index < old_partition->tips + old_partition->clv_buffers; 
+  for ( size_t clv_index = tip_index;
+        clv_index < old_partition->tips + old_partition->clv_buffers;
         clv_index++)
   {
-    if(!pllmod_binary_clv_dump( bin_file, 
-                                block_id++, 
-                                old_partition, 
-                                clv_index, 
+    if(!pllmod_binary_clv_dump( bin_file,
+                                block_id++,
+                                old_partition,
+                                clv_index,
                                 dump_attr))
     {
       printf("Couldn't dump clv number: %lu\n", clv_index);
@@ -377,9 +375,9 @@ int main (int argc, char * argv[])
   for (size_t scaler_index = 0; scaler_index < old_partition->scale_buffers; scaler_index++)
   {
     if(!pllmod_binary_custom_dump(bin_file,
-                                  block_id++, 
+                                  block_id++,
                                   old_partition->scale_buffer[scaler_index],
-                                  old_partition->sites * sizeof(unsigned int), 
+                                  old_partition->sites * sizeof(unsigned int),
                                   dump_attr))
     {
       printf("Couldn't dump scaler number: %lu\n", scaler_index);
@@ -395,14 +393,14 @@ int main (int argc, char * argv[])
   pllmod_binary_close(bin_file);
 
   // pll_utree_show_ascii(tree, (1<<5)-1);
-  
+
   /* remember important values of the dumped part */
   const unsigned int old_clv_buffers = old_partition->clv_buffers;
   const unsigned int old_tips = old_partition->tips;
   const unsigned int old_scale_buffers = old_partition->scale_buffers;
 
   /* clean */
-  pll_utree_destroy(tree, NULL);
+  pll_utree_destroy(parsed_tree, NULL);
 
   printf("\n\n");
 
@@ -453,7 +451,7 @@ int main (int argc, char * argv[])
 
   /* check that pointers are actually null */
   tip_index = 0;
-  for (size_t tip_index = 0; 
+  for (size_t tip_index = 0;
     tip_index < partition->tips; ++tip_index)
   {
     if (partition->clv[tip_index] != NULL)
@@ -490,12 +488,12 @@ int main (int argc, char * argv[])
     {
       size_t size;
       unsigned int type, attribs;
-      unsigned char* ptr = pllmod_binary_custom_load( 
-                                              bin_file, 
-                                              0, 
-                                              &size, 
-                                              &type, 
-                                              &attribs, 
+      unsigned char* ptr = pllmod_binary_custom_load(
+                                              bin_file,
+                                              0,
+                                              &size,
+                                              &type,
+                                              &attribs,
                                               get_offset(n_blocks, block_map, tip_index));
       if (!ptr)
       {
@@ -506,7 +504,7 @@ int main (int argc, char * argv[])
       partition->tipchars[tip_index] = (unsigned char*)ptr;
 
       if (memcmp( old_partition->tipchars[tip_index],
-                  partition->tipchars[tip_index], 
+                  partition->tipchars[tip_index],
                   partition->sites * sizeof(unsigned char)))
       {
         printf("Error! tipchar #%lu does not agree\n", tip_index);
@@ -549,7 +547,7 @@ int main (int argc, char * argv[])
 
     for (size_t i = 0; i < clv_size; ++i)
     {
-      if (fabs(old_partition->clv[clv_index][i] - partition->clv[clv_index][i]) > tol) 
+      if (fabs(old_partition->clv[clv_index][i] - partition->clv[clv_index][i]) > tol)
       {
         printf("CLV index %lu does not agree. %.20f vs %.20f\n",
           clv_index, old_partition->clv[clv_index][i], partition->clv[clv_index][i]);
@@ -563,12 +561,12 @@ int main (int argc, char * argv[])
   {
     size_t size;
     unsigned int type, attribs;
-    unsigned int* ptr = (unsigned int*) pllmod_binary_custom_load( 
-                                            bin_file, 
-                                            0, 
-                                            &size, 
-                                            &type, 
-                                            &attribs, 
+    unsigned int* ptr = (unsigned int*) pllmod_binary_custom_load(
+                                            bin_file,
+                                            0,
+                                            &size,
+                                            &type,
+                                            &attribs,
                                             get_offset(n_blocks, block_map, clvs_and_tips + scaler_index));
     if (!ptr)
     {
@@ -579,7 +577,7 @@ int main (int argc, char * argv[])
     partition->scale_buffer[scaler_index] = ptr;
 
     if (memcmp( old_partition->scale_buffer[scaler_index],
-                partition->scale_buffer[scaler_index], 
+                partition->scale_buffer[scaler_index],
                 partition->sites * sizeof(unsigned int)))
     {
       printf("Error! scaler #%lu does not agree\n", scaler_index);
@@ -614,6 +612,7 @@ int main (int argc, char * argv[])
   pllmod_binary_close(bin_file);
 
   if (!pll_utree_traverse(tree,
+                          PLL_TREE_TRAVERSE_POSTORDER,
                           cb_traversal,
                           travbuffer,
                           &traversal_size))
@@ -656,7 +655,7 @@ int main (int argc, char * argv[])
   /* clean */
   pll_partition_destroy(partition);
   pll_partition_destroy(old_partition);
-  pll_utree_destroy(tree, NULL);
+  pll_utree_graph_destroy(tree, NULL);
 
   free(block_map);
   free(travbuffer);

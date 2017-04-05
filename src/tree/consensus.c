@@ -12,7 +12,7 @@ typedef struct consensus_data
   unsigned int bit_count;
 } consensus_data_t;
 
-static int cb_set_indices(pll_utree_t * node, void *data)
+static int cb_set_indices(pll_unode_t * node, void *data)
 {
   string_hashtable_t * string_hashtable = (string_hashtable_t *) data;
 
@@ -33,30 +33,30 @@ static int is_subsplit(pll_split_t child,
                        unsigned int split_len);
 static unsigned int setbit_count(pll_split_t split,
                                  unsigned int split_len);
-static pll_utree_t * find_splitnode_recurse(pll_split_t split,
-                                            pll_utree_t * root,
+static pll_unode_t * find_splitnode_recurse(pll_split_t split,
+                                            pll_unode_t * root,
                                             unsigned int split_len);
 static int get_split_id(pll_split_t split,
                         unsigned int split_len);
-static pll_utree_t * create_consensus_node(pll_utree_t * parent,
+static pll_unode_t * create_consensus_node(pll_unode_t * parent,
                                            pll_split_t split,
                                            unsigned int split_len,
                                            unsigned int tip_count);
-static pll_utree_t * find_splitnode_recurse(pll_split_t split,
-                                            pll_utree_t * root,
+static pll_unode_t * find_splitnode_recurse(pll_split_t split,
+                                            pll_unode_t * root,
                                             unsigned int split_len);
 static pll_split_t clone_split(const pll_split_t from,
                                unsigned int split_len);
-static void recursive_assign_indices(pll_utree_t * node,
+static void recursive_assign_indices(pll_unode_t * node,
                                      unsigned int * inner_clv_index,
                                      int * inner_scaler_index,
                                      unsigned int * inner_node_index);
-static void reset_template_indices(pll_utree_t * node,
+static void reset_template_indices(pll_unode_t * node,
                                    unsigned int tip_count);
-static void build_tips_recurse(pll_utree_t * tree, char **tip_labels);
+static void build_tips_recurse(pll_unode_t * tree, char **tip_labels);
 
 
-static int cb_destroy_data(pll_utree_t * node, void * d)
+static int cb_destroy_data(pll_unode_t * node, void * d)
 {
   UNUSED(d);
   consensus_data_t * data = (consensus_data_t *) node->data;
@@ -100,7 +100,7 @@ PLL_EXPORT int pllmod_utree_compatible_splits(pll_split_t s1,
     return 0;
 }
 
-PLL_EXPORT pll_utree_t * pllmod_utree_from_splits(const pll_split_t * splits,
+PLL_EXPORT pll_unode_t * pllmod_utree_from_splits(const pll_split_t * splits,
                                                   unsigned int split_count,
                                                   unsigned int tip_count,
                                                   char **tip_labels)
@@ -109,7 +109,7 @@ PLL_EXPORT pll_utree_t * pllmod_utree_from_splits(const pll_split_t * splits,
   unsigned int split_offset = tip_count % split_size;
   unsigned int split_len  = tip_count / split_size + (split_offset>0);
   unsigned int i;
-  pll_utree_t * tree, * next_parent, * return_tree;
+  pll_unode_t * tree, * next_parent, * return_tree;
   pll_split_t rootsplit1, rootsplit2, next_split;
   pll_split_t * all_splits;
 
@@ -132,7 +132,11 @@ PLL_EXPORT pll_utree_t * pllmod_utree_from_splits(const pll_split_t * splits,
       next_split = (pll_split_t) calloc(split_len,
                                         sizeof(pll_split_base_t));
       next_split[split_id] = (1 << (i % split_size));
-      pll_utree_t * next_n = create_consensus_node(tree, next_split, split_len, tip_count);
+      pll_unode_t * next_n = create_consensus_node(tree,
+                                                   next_split,
+                                                   split_len,
+                                                   tip_count);
+      assert(next_n);
     }
 
     return_tree = tree;
@@ -267,7 +271,8 @@ static pll_utree_t * read_tree(FILE * file,
   char * tree_str = (char *) malloc((size_t)line_size);
   char * tree_str_ptr = tree_str;
   char * read;
-  pll_utree_t * tree;
+  pll_utree_t * utree;
+  pll_unode_t * root;
 
   while ((read = fgets(tree_str_ptr, line_size, file)) &&
          tree_str_ptr[strlen(tree_str_ptr) - 1] != '\n')
@@ -281,15 +286,17 @@ static pll_utree_t * read_tree(FILE * file,
 
   if (read == NULL)
   {
-    tree = NULL;
+    utree = NULL;
   }
   else
   {
-    tree = pll_utree_parse_newick_string(tree_str, tip_count);
+    utree = pll_utree_parse_newick_string(tree_str);
+    *tip_count = utree->tip_count;
+    root = utree->nodes[utree->tip_count + utree->inner_count - 1];
 
-    if (tree && string_hashtable)
+    if (root && string_hashtable)
     {
-      if (!pllmod_utree_traverse_apply(tree,
+      if (!pllmod_utree_traverse_apply(root,
                                        NULL,
                                        NULL,
                                        &cb_set_indices,
@@ -298,14 +305,14 @@ static pll_utree_t * read_tree(FILE * file,
         pllmod_set_error(
           PLLMOD_TREE_ERROR_INVALID_TREE,
           "Cannot match labels");
-        pll_utree_destroy(tree, NULL);
-        tree = NULL;
+        pll_utree_destroy(utree, NULL);
+        utree = NULL;
       }
     }
   }
   free(tree_str);
 
-  return tree;
+  return utree;
 }
 
 #undef FCHUNK_LEN
@@ -342,15 +349,14 @@ static FILE *get_number_of_trees(unsigned int *tree_count,
  *
  * @return                consensus unrooted tree structure
  */
-PLL_EXPORT pll_utree_t * pllmod_utree_consensus(const char * trees_filename,
+PLL_EXPORT pll_unode_t * pllmod_utree_consensus(const char * trees_filename,
                                                 double threshold,
                                                 int extended)
 {
   FILE * trees_file;
-  pll_utree_t * consensus_tree = NULL, /* final consensus tree */
-              * reference_tree = NULL, /* reference tree for consistency */
-              ** tipnodes;             /* tips from reference tree */
-  int next_tree;
+  pll_utree_t * reference_tree = NULL; /* reference tree for consistency */
+  pll_unode_t * consensus_tree = NULL; /* final consensus tree */
+  pll_unode_t ** tipnodes;             /* tips from reference tree */
   bitv_hashtable_t * splits_hash = NULL;
   string_hashtable_t * string_hashtable = NULL;
   int  n_chunks = 1; /* chunks for reading newick trees */
@@ -396,8 +402,7 @@ PLL_EXPORT pll_utree_t * pllmod_utree_consensus(const char * trees_filename,
   }
 
   /* store taxa names */
-  tipnodes = (pll_utree_t **) malloc(sizeof(pll_utree_t *) * tip_count);
-  pll_utree_query_tipnodes(reference_tree, tipnodes);
+  tipnodes = reference_tree->nodes;
 
   string_hashtable = string_hash_init(10 * tip_count, tip_count);
 
@@ -407,7 +412,6 @@ PLL_EXPORT pll_utree_t * pllmod_utree_consensus(const char * trees_filename,
                        string_hashtable,
                        (int) tipnodes[i]->node_index);
   }
-  free(tipnodes);
 
   split_offset = tip_count % split_size;
   split_len  = tip_count / split_size + (split_offset>0);
@@ -416,10 +420,11 @@ PLL_EXPORT pll_utree_t * pllmod_utree_consensus(const char * trees_filename,
   splits_hash = hash_init(tip_count * 10);
 
   pll_errno = 0;
-  next_tree = 1;
   current_tree_index = 1;
 
-  split_system = pllmod_utree_split_create(reference_tree,
+  split_system = pllmod_utree_split_create(reference_tree->nodes[
+                                              reference_tree->tip_count +
+                                              reference_tree->inner_count - 1],
                                            tip_count,
                                            &n_splits,
                                            NULL);
@@ -555,10 +560,10 @@ static int get_split_id(pll_split_t split,
   return id;
 }
 
-static void build_tips_recurse(pll_utree_t * tree, char ** tip_labels)
+static void build_tips_recurse(pll_unode_t * tree, char ** tip_labels)
 {
   consensus_data_t * data = (consensus_data_t *) tree->data;
-  pll_utree_t * next_root;
+  pll_unode_t * next_root;
   int i;
 
   next_root = tree;
@@ -590,11 +595,11 @@ static void build_tips_recurse(pll_utree_t * tree, char ** tip_labels)
   }
 }
 
-static pll_utree_t * find_splitnode_recurse(pll_split_t split,
-                                            pll_utree_t * root,
+static pll_unode_t * find_splitnode_recurse(pll_split_t split,
+                                            pll_unode_t * root,
                                             unsigned int split_len)
 {
-  pll_utree_t * next_root, * ret_node;
+  pll_unode_t * next_root, * ret_node;
   consensus_data_t * data = (consensus_data_t *) root->data;
   int i;
 
@@ -620,12 +625,12 @@ static pll_utree_t * find_splitnode_recurse(pll_split_t split,
   }
 }
 
-static void connect_consensus_node(pll_utree_t * parent,
-                                   pll_utree_t * child,
+static void connect_consensus_node(pll_unode_t * parent,
+                                   pll_unode_t * child,
                                    int auto_rearrange)
 {
   consensus_data_t * data_p, * data_c, * data_aux;
-  pll_utree_t * new_node, * aux_node, * aux_node2;
+  pll_unode_t * new_node, * aux_node, * aux_node2;
   data_p = (consensus_data_t *) parent->data;
   data_c = (consensus_data_t *) child->data;
 
@@ -646,7 +651,7 @@ static void connect_consensus_node(pll_utree_t * parent,
   }
   else
   {
-    new_node = (pll_utree_t *) malloc (sizeof(pll_utree_t));
+    new_node = (pll_unode_t *) malloc (sizeof(pll_unode_t));
   }
 
   if (auto_rearrange)
@@ -678,12 +683,12 @@ static void connect_consensus_node(pll_utree_t * parent,
 
 }
 
-static pll_utree_t * create_consensus_node(pll_utree_t * parent,
+static pll_unode_t * create_consensus_node(pll_unode_t * parent,
                                            pll_split_t split,
                                            unsigned int split_len,
                                            unsigned int tip_count)
 {
-  pll_utree_t * new_node = (pll_utree_t *) malloc (sizeof(pll_utree_t));
+  pll_unode_t * new_node = (pll_unode_t *) malloc (sizeof(pll_unode_t));
   consensus_data_t * data = (consensus_data_t *)
                                     malloc (sizeof(consensus_data_t));
   data->split     = split;
@@ -742,7 +747,7 @@ static pll_split_t clone_split(const pll_split_t from,
   return to;
 }
 
-static void recursive_assign_indices(pll_utree_t * node,
+static void recursive_assign_indices(pll_unode_t * node,
                                     unsigned int * inner_clv_index,
                                     int * inner_scaler_index,
                                     unsigned int * inner_node_index)
@@ -789,7 +794,7 @@ static void recursive_assign_indices(pll_utree_t * node,
   *inner_node_index = *inner_node_index + 3;
 }
 
-static void reset_template_indices(pll_utree_t * node,
+static void reset_template_indices(pll_unode_t * node,
                                    unsigned int tip_count)
 {
   unsigned int inner_clv_index = tip_count;

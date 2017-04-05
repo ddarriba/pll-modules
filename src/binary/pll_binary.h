@@ -133,11 +133,11 @@ PLL_EXPORT int pllmod_binary_clv_load(FILE * bin_file,
 
 PLL_EXPORT int pllmod_binary_utree_dump(FILE * bin_file,
                                         int block_id,
-                                        pll_utree_t * tree,
+                                        pll_unode_t * tree,
                                         unsigned int tip_count,
                                         unsigned int attributes);
 
-PLL_EXPORT pll_utree_t * pllmod_binary_utree_load(FILE * bin_file,
+PLL_EXPORT pll_unode_t * pllmod_binary_utree_load(FILE * bin_file,
                                                   int block_id,
                                                   unsigned int * attributes,
                                                   long int offset);

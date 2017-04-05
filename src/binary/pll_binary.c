@@ -33,7 +33,7 @@
 #include "../pllmod_common.h"
 
 static unsigned int get_current_alignment( unsigned int attributes );
-static int cb_full_traversal(pll_utree_t * node);
+static int cb_full_traversal(pll_unode_t * node);
 
 /**
  *  Open file for writing
@@ -292,7 +292,7 @@ PLL_EXPORT pll_partition_t * pllmod_binary_partition_load(FILE * bin_file,
   unsigned int sites_alloc;
   unsigned int i;
 
-  const int load_skeleton = 
+  const int load_skeleton =
     *attributes & PLLMOD_BIN_ATTRIB_PARTITION_LOAD_SKELETON;
 
   if (offset != 0)
@@ -369,8 +369,8 @@ PLL_EXPORT pll_partition_t * pllmod_binary_partition_load(FILE * bin_file,
       free(local_partition->clv);
       local_partition->clv_buffers = aux_partition.clv_buffers;
       local_partition->tips = aux_partition.tips;
-      local_partition->clv = (double**) calloc(local_partition->clv_buffers + 
-                                               local_partition->tips, 
+      local_partition->clv = (double**) calloc(local_partition->clv_buffers +
+                                               local_partition->tips,
                                                sizeof(double*));
 
       if (local_partition->scale_buffer)
@@ -379,7 +379,7 @@ PLL_EXPORT pll_partition_t * pllmod_binary_partition_load(FILE * bin_file,
       free(local_partition->scale_buffer);
       local_partition->scale_buffers = aux_partition.scale_buffers;
       local_partition->scale_buffer = (unsigned int **) calloc(
-                                                local_partition->scale_buffers, 
+                                                local_partition->scale_buffers,
                                                 sizeof(unsigned int *));
 
       // manually set the tips so that the rest of the code callocs correctly
@@ -636,11 +636,11 @@ PLL_EXPORT int pllmod_binary_clv_load(FILE * bin_file,
  */
 PLL_EXPORT int pllmod_binary_utree_dump(FILE * bin_file,
                                         int block_id,
-                                        pll_utree_t * tree,
+                                        pll_unode_t * tree,
                                         unsigned int tip_count,
                                         unsigned int attributes)
 {
-  pll_utree_t ** travbuffer;
+  pll_unode_t ** travbuffer;
   pll_block_header_t block_header;
   unsigned int i, n_nodes, n_inner, n_utrees, trav_size;
   int retval;
@@ -652,7 +652,7 @@ PLL_EXPORT int pllmod_binary_utree_dump(FILE * bin_file,
   n_nodes = tip_count + n_inner;
   n_utrees = tip_count + 3 * n_inner;
 
-  travbuffer = (pll_utree_t **)malloc(n_nodes* sizeof(pll_utree_t *));
+  travbuffer = (pll_unode_t **)malloc(n_nodes* sizeof(pll_unode_t *));
 
   if (!tree->next)
   {
@@ -660,7 +660,11 @@ PLL_EXPORT int pllmod_binary_utree_dump(FILE * bin_file,
                      "Tree should not be a tip node");
     return PLL_FAILURE;
   }
-  if (!pll_utree_traverse(tree, cb_full_traversal, travbuffer, &trav_size))
+  if (!pll_utree_traverse(tree,
+                          PLL_TREE_TRAVERSE_POSTORDER,
+                          cb_full_traversal,
+                          travbuffer,
+                          &trav_size))
   {
     pllmod_set_error(PLLMOD_BIN_ERROR_BINARY_IO,
                      "Error traversing utree");
@@ -672,7 +676,7 @@ PLL_EXPORT int pllmod_binary_utree_dump(FILE * bin_file,
   block_header.block_id   = block_id;
   block_header.type       = PLLMOD_BIN_BLOCK_TREE;
   block_header.attributes = attributes;
-  block_header.block_len  = n_utrees * sizeof(pll_utree_t);
+  block_header.block_len  = n_utrees * sizeof(pll_unode_t);
   block_header.alignment  = 0;
 
   /* update main header */
@@ -736,7 +740,7 @@ PLL_EXPORT int pllmod_binary_utree_dump(FILE * bin_file,
  *
  *  @return pointer to the updated (or new) partition
  */
-PLL_EXPORT pll_utree_t * pllmod_binary_utree_load(FILE * bin_file,
+PLL_EXPORT pll_unode_t * pllmod_binary_utree_load(FILE * bin_file,
                                                   int block_id,
                                                   unsigned int * attributes,
                                                   long int offset)
@@ -744,8 +748,8 @@ PLL_EXPORT pll_utree_t * pllmod_binary_utree_load(FILE * bin_file,
   unsigned int i, n_tips, n_tip_check, n_nodes;
   long n_utrees;
   pll_block_header_t block_header;
-  pll_utree_t ** tree_stack;
-  pll_utree_t * tree;
+  pll_unode_t ** tree_stack;
+  pll_unode_t * tree;
   unsigned int tree_stack_top;
   int retval;
 
@@ -784,7 +788,7 @@ PLL_EXPORT pll_utree_t * pllmod_binary_utree_load(FILE * bin_file,
     return NULL;
   }
 
-  n_utrees = block_header.block_len/sizeof(pll_utree_t);
+  n_utrees = block_header.block_len/sizeof(pll_unode_t);
   n_tips   = (unsigned int) ((n_utrees + 6) / 4);
   n_nodes  = 2*n_tips - 2;
   assert( n_utrees % 4 == 2 );
@@ -792,14 +796,14 @@ PLL_EXPORT pll_utree_t * pllmod_binary_utree_load(FILE * bin_file,
   *attributes = block_header.attributes;
 
   /* allocate stack for at most 'n_tips' nodes */
-  tree_stack = (pll_utree_t **) malloc(n_tips * sizeof (pll_utree_t *));
+  tree_stack = (pll_unode_t **) malloc(n_tips * sizeof (pll_unode_t *));
   tree_stack_top = 0;
 
   /* read nodes */
   n_tip_check = n_tips;
   for (i=0; i<n_nodes; ++i)
   {
-    pll_utree_t * t = (pll_utree_t *) malloc(sizeof(pll_utree_t));
+    pll_unode_t * t = (pll_unode_t *) malloc(sizeof(pll_unode_t));
     if (!binary_node_apply (bin_file, t, 0, bin_fread))
     {
       assert(pll_errno);
@@ -808,9 +812,9 @@ PLL_EXPORT pll_utree_t * pllmod_binary_utree_load(FILE * bin_file,
     if (t->next)
     {
       /* build inner node and connect */
-      pll_utree_t *t_l, *t_r, *t_cl, *t_cr;
-      t_l = (pll_utree_t *) malloc(sizeof(pll_utree_t));
-      t_r = (pll_utree_t *) malloc(sizeof(pll_utree_t));
+      pll_unode_t *t_l, *t_r, *t_cl, *t_cr;
+      t_l = (pll_unode_t *) malloc(sizeof(pll_unode_t));
+      t_r = (pll_unode_t *) malloc(sizeof(pll_unode_t));
       retval = 1;
       retval &= binary_node_apply (bin_file, t_l, 0, bin_fread);
       retval &= binary_node_apply (bin_file, t_r, 0, bin_fread);
@@ -1014,7 +1018,7 @@ PLL_EXPORT void * pllmod_binary_custom_load(FILE * bin_file,
 
 /* static functions */
 
-static int cb_full_traversal(pll_utree_t * node)
+static int cb_full_traversal(pll_unode_t * node)
 {
   UNUSED(node);
   return 1;

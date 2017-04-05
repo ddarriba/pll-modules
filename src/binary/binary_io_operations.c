@@ -326,14 +326,14 @@ int binary_clv_apply (FILE * bin_file,
 }
 
 int binary_node_apply (FILE * bin_file,
-                       pll_utree_t * node,
+                       pll_unode_t * node,
                        int write,
                        int (*bin_func)(void *, size_t, size_t, FILE *))
 {
   char * label = 0;
   unsigned long label_len = 0;
 
-  bin_func(node, sizeof(pll_utree_t), 1, bin_file);
+  bin_func(node, sizeof(pll_unode_t), 1, bin_file);
   if (write && node->label)
     label_len = strlen(node->label);
   bin_func(&label_len, sizeof(unsigned long), 1, bin_file);

@@ -59,7 +59,7 @@ int binary_clv_apply (FILE * bin_file,
                   int (*bin_func)(void *, size_t, size_t, FILE *));
 
 int binary_node_apply (FILE * bin_file,
-                       pll_utree_t * node,
+                       pll_unode_t * node,
                        int write,
                        int (*bin_func)(void *, size_t, size_t, FILE *));
 

@@ -35,7 +35,7 @@ double target_freqs_func(void *p, double *x)
   struct freqs_params * params = (struct freqs_params *) p;
 
   pll_partition_t * partition     = params->partition;
-  pll_utree_t * tree              = params->tree;
+  pll_unode_t * root              = params->tree;
   unsigned int * params_indices   = params->params_indices;
   unsigned int params_index       = params->params_index;
   unsigned int highest_freq_state = params->highest_freq_state;
@@ -68,7 +68,7 @@ double target_freqs_func(void *p, double *x)
 
   /* compute negative score */
   score = -1 * pllmod_utree_compute_lk(partition,
-                                       tree,
+                                       root,
                                        params_indices,
                                        1,   /* update pmatrices */
                                        1);  /* update partials */
@@ -81,7 +81,7 @@ double target_subst_params_func(void *p, double *x)
 
   unsigned int i,j,k;
   pll_partition_t * partition     = params->partition;
-  pll_utree_t * tree              = params->tree;
+  pll_unode_t * root              = params->tree;
   unsigned int * params_indices   = params->params_indices;
   unsigned int params_index       = params->params_index;
   unsigned int subst_free_params  = params->subst_free_params;
@@ -119,7 +119,7 @@ double target_subst_params_func(void *p, double *x)
   /* compute negative score */
   double score = -1 *
                  pllmod_utree_compute_lk(partition,
-                                         tree,
+                                         root,
                                          params_indices,
                                          1,   /* update pmatrices */
                                          1);  /* update partials */
@@ -130,7 +130,7 @@ double target_alpha_func(void *p, double x)
 {
   struct default_params * params = (struct default_params *) p;
   pll_partition_t * partition   = params->partition;
-  pll_utree_t * tree            = params->tree;
+  pll_unode_t * root            = params->tree;
   unsigned int * params_indices = params->params_indices;
 
   /* update rate categories */
@@ -144,7 +144,7 @@ double target_alpha_func(void *p, double x)
   /* compute negative score */
   double score = -1 *
                  pllmod_utree_compute_lk(partition,
-                                         tree,
+                                         root,
                                          params_indices,
                                          1,   /* update pmatrices */
                                          1);  /* update partials */
@@ -155,7 +155,7 @@ double target_pinv_func(void *p, double x)
 {
   struct default_params * params = (struct default_params *) p;
   pll_partition_t * partition   = params->partition;
-  pll_utree_t * tree            = params->tree;
+  pll_unode_t * root            = params->tree;
   unsigned int * params_indices = params->params_indices;
   unsigned int i;
 
@@ -168,7 +168,7 @@ double target_pinv_func(void *p, double x)
   /* compute negative score */
   double score = -1 *
                  pllmod_utree_compute_lk(partition,
-                                         tree,
+                                         root,
                                          params_indices,
                                          1,   /* update pmatrices */
                                          1);  /* update partials */
@@ -179,7 +179,7 @@ double target_alpha_pinv_func(void *p, double *x)
 {
   struct default_params * params = (struct default_params *) p;
   pll_partition_t * partition   = params->partition;
-  pll_utree_t * tree            = params->tree;
+  pll_unode_t * root            = params->tree;
   unsigned int * params_indices = params->params_indices;
   unsigned int i;
 
@@ -200,7 +200,7 @@ double target_alpha_pinv_func(void *p, double *x)
   /* compute negative score */
   double score = -1 *
                  pllmod_utree_compute_lk(partition,
-                                         tree,
+                                         root,
                                          params_indices,
                                          1,   /* update pmatrices */
                                          1);  /* update partials */
@@ -211,7 +211,7 @@ double target_rates_func(void *p, double *x)
 {
   struct rate_weights_params * params = (struct rate_weights_params *) p;
   pll_partition_t * partition   = params->partition;
-  pll_utree_t * tree            = params->tree;
+  pll_unode_t * root            = params->tree;
   unsigned int * params_indices = params->params_indices;
 
   /* update rate categories */
@@ -220,7 +220,7 @@ double target_rates_func(void *p, double *x)
   /* compute negative score */
   double score = -1 *
                  pllmod_utree_compute_lk(partition,
-                                         tree,
+                                         root,
                                          params_indices,
                                          1,   /* update pmatrices */
                                          1);  /* update partials */
@@ -232,7 +232,7 @@ double target_weights_func(void *p, double *x)
   struct rate_weights_params * params = (struct rate_weights_params *) p;
 
   pll_partition_t * partition       = params->partition;
-  pll_utree_t * tree                = params->tree;
+  pll_unode_t * root                = params->tree;
   unsigned int * params_indices     = params->params_indices;
   unsigned int highest_weight_state = params->highest_weight_state;
   unsigned int n_weights            = partition->rate_cats;
@@ -258,7 +258,7 @@ double target_weights_func(void *p, double *x)
 
   /* compute negative score */
   score = -1 * pllmod_utree_compute_lk(partition,
-                                       tree,
+                                       root,
                                        params_indices,
                                        0,   /* update pmatrices */
                                        0);  /* update partials */
@@ -270,11 +270,11 @@ double target_brlen_scaler_func(void *p, double x)
 {
   struct brlen_scaler_params * params = (struct brlen_scaler_params *) p;
   pll_partition_t * partition   = params->partition;
-  pll_utree_t * tree            = params->tree;
+  pll_unode_t * root            = params->tree;
   unsigned int * params_indices = params->params_indices;
 
   /* scale branches according to the new factor */
-  pllmod_utree_scale_branches(tree, x / params->old_scaler);
+  pllmod_utree_scale_branches_all(root, x / params->old_scaler);
 
   /* store the old scaler value */
   params->old_scaler = x;
@@ -282,7 +282,7 @@ double target_brlen_scaler_func(void *p, double x)
   /* compute negative score */
   double score = -1 *
                  pllmod_utree_compute_lk(partition,
-                                         tree,
+                                         root,
                                          params_indices,
                                          1,   /* update pmatrices */
                                          1);  /* update partials */

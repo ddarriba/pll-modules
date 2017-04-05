@@ -31,9 +31,9 @@
  */
 
 /* finds the self and sister pointers */
-PLL_EXPORT int pllmod_rtree_get_sibling_pointers(pll_rtree_t * node,
-                                                 pll_rtree_t ***self,
-                                                 pll_rtree_t ***sister)
+PLL_EXPORT int pllmod_rtree_get_sibling_pointers(pll_rnode_t * node,
+                                                 pll_rnode_t ***self,
+                                                 pll_rnode_t ***sister)
 {
   if (!node->parent)
   {
@@ -69,10 +69,10 @@ PLL_EXPORT int pllmod_rtree_get_sibling_pointers(pll_rtree_t * node,
  * @param node the node to prune
  * @return the new connected node, if the operation was applied correctly, NULL otherwise
  */
-PLL_EXPORT pll_rtree_t * pllmod_rtree_prune(pll_rtree_t * node)
+PLL_EXPORT pll_rnode_t * pllmod_rtree_prune(pll_rnode_t * node)
 {
-  pll_rtree_t **self_ptr, **sister_ptr, **parent_ptr;
-  pll_rtree_t *connected_node = NULL;
+  pll_rnode_t **self_ptr, **sister_ptr, **parent_ptr;
+  pll_rnode_t *connected_node = NULL;
   assert(node);
 
   if (!node->parent)
@@ -140,11 +140,11 @@ PLL_EXPORT pll_rtree_t * pllmod_rtree_prune(pll_rtree_t * node)
  * @return PLL_SUCCESS if the operation was applied correctly,
  *         PLL_FAILURE otherwise (check pll_errmsg for details)
  */
-PLL_EXPORT int pllmod_rtree_regraft(pll_rtree_t * node,
-                                    pll_rtree_t * tree)
+PLL_EXPORT int pllmod_rtree_regraft(pll_rnode_t * node,
+                                    pll_rnode_t * tree)
 {
-  pll_rtree_t *parent_node;
-  pll_rtree_t **edge_from_parent = 0,
+  pll_rnode_t *parent_node;
+  pll_rnode_t **edge_from_parent = 0,
               **edge_to_child    = 0;
 
   /* node must contain a dettached parent */
@@ -203,12 +203,12 @@ PLL_EXPORT int pllmod_rtree_regraft(pll_rtree_t * node,
  * @return PLL_SUCCESS if the move was applied correctly,
  *         PLL_FAILURE otherwise (check pll_errmsg for details)
  */
-PLL_EXPORT int pllmod_rtree_spr(pll_rtree_t * p_node,
-                                pll_rtree_t * r_tree,
-                                pll_rtree_t ** root,
+PLL_EXPORT int pllmod_rtree_spr(pll_rnode_t * p_node,
+                                pll_rnode_t * r_tree,
+                                pll_rnode_t ** root,
                                 pll_tree_rollback_t * rollback_info)
 {
-  pll_rtree_t **self_ptr, **sister_ptr;
+  pll_rnode_t **self_ptr, **sister_ptr;
 
   if (!pllmod_rtree_get_sibling_pointers(p_node,
                                &self_ptr,
@@ -259,14 +259,14 @@ PLL_EXPORT int pllmod_rtree_spr(pll_rtree_t * p_node,
 }
 
 /* re-roots the tree at the branch connecting `new_root` with its parent */
-PLL_EXPORT int pllmod_rtree_reroot(pll_rtree_t * root,
-                                   pll_rtree_t * new_root)
+PLL_EXPORT int pllmod_rtree_reroot(pll_rnode_t * root,
+                                   pll_rnode_t * new_root)
 {
   return PLL_FAILURE;
 }
 
-static void rtree_nodes_at_node_dist_down(pll_rtree_t * root,
-                                          pll_rtree_t ** outbuffer,
+static void rtree_nodes_at_node_dist_down(pll_rnode_t * root,
+                                          pll_rnode_t ** outbuffer,
                                           unsigned int * node_count,
                                           int min_distance,
                                           int max_distance)
@@ -293,14 +293,14 @@ static void rtree_nodes_at_node_dist_down(pll_rtree_t * root,
                                 max_distance-1);
 }
 
-PLL_EXPORT int pllmod_rtree_nodes_at_node_dist(pll_rtree_t * root,
-                                               pll_rtree_t ** outbuffer,
+PLL_EXPORT int pllmod_rtree_nodes_at_node_dist(pll_rnode_t * root,
+                                               pll_rnode_t ** outbuffer,
                                                unsigned int * node_count,
                                                int min_distance,
                                                int max_distance)
 {
-  pll_rtree_t * current_root = root;
-  pll_rtree_t ** sister_ptr;
+  pll_rnode_t * current_root = root;
+  pll_rnode_t ** sister_ptr;
 
   if (max_distance < min_distance)
     {

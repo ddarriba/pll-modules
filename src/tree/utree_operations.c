@@ -31,8 +31,8 @@
 
 #include "../pllmod_common.h"
 
-static void utree_nodes_at_dist(pll_utree_t * node,
-                                pll_utree_t ** outbuffer,
+static void utree_nodes_at_dist(pll_unode_t * node,
+                                pll_unode_t ** outbuffer,
                                 unsigned int * index,
                                 unsigned int min_distance,
                                 unsigned int max_distance,
@@ -66,19 +66,19 @@ static void utree_nodes_at_dist(pll_utree_t * node,
  * @param[out] child_subtree  edge corresponding to the 'edge->back' subtree
  * @return PLL_SUCCESS if OK
  */
-PLL_EXPORT int pllmod_utree_bisect(pll_utree_t * edge,
-                                   pll_utree_t ** parent_subtree,
-                                   pll_utree_t ** child_subtree)
+PLL_EXPORT int pllmod_utree_bisect(pll_unode_t * edge,
+                                   pll_unode_t ** parent_subtree,
+                                   pll_unode_t ** child_subtree)
 {
   assert(parent_subtree);
   assert(child_subtree);
 
-  pll_utree_t * aux_tree;
+  pll_unode_t * aux_tree;
 
   if (!edge->next)
     return PLL_FAILURE;
 
-  pll_utree_t * c_edge = edge->back;
+  pll_unode_t * c_edge = edge->back;
 
   /* connect parent subtree */
   (*parent_subtree) = edge->next->back;
@@ -122,10 +122,10 @@ PLL_EXPORT int pllmod_utree_bisect(pll_utree_t * edge,
  * @return the new created edge
  */
 PLL_EXPORT pll_tree_edge_t pllmod_utree_reconnect(pll_tree_edge_t * edge,
-                                                  pll_utree_t * pruned_edge)
+                                                  pll_unode_t * pruned_edge)
 {
   /* create and connect 2 new nodes */
-  pll_utree_t *parent_node, *child_node;
+  pll_unode_t *parent_node, *child_node;
   assert(pruned_edge->back);
 
   parent_node = pruned_edge;
@@ -181,9 +181,9 @@ PLL_EXPORT pll_tree_edge_t pllmod_utree_reconnect(pll_tree_edge_t * edge,
  * @param edge the edge to prune
  * @return the new connected edge, if the operation was applied correctly
  */
-PLL_EXPORT pll_utree_t * pllmod_utree_prune(pll_utree_t * edge)
+PLL_EXPORT pll_unode_t * pllmod_utree_prune(pll_unode_t * edge)
 {
-  pll_utree_t *edge1, *edge2;
+  pll_unode_t *edge1, *edge2;
 
   assert(edge);
   if (!edge->next)
@@ -226,10 +226,10 @@ PLL_EXPORT pll_utree_t * pllmod_utree_prune(pll_utree_t * edge)
  * @return PLL_SUCCESS if the operation was applied correctly,
  *         PLL_FAILURE otherwise (check pll_errmsg for details)
  */
-PLL_EXPORT int pllmod_utree_regraft(pll_utree_t * edge,
-                                    pll_utree_t * tree)
+PLL_EXPORT int pllmod_utree_regraft(pll_unode_t * edge,
+                                    pll_unode_t * tree)
 {
-  pll_utree_t *edge1, *edge2;
+  pll_unode_t *edge1, *edge2;
   double new_length;
 
   assert(edge && tree);
@@ -267,11 +267,11 @@ PLL_EXPORT int pllmod_utree_regraft(pll_utree_t * edge,
  * @return PLL_SUCCESS if the operation was applied correctly,
  *         PLL_FAILURE otherwise (check pll_errmsg for details)
  */
-PLL_EXPORT int pllmod_utree_interchange(pll_utree_t * node1,
-                                        pll_utree_t * node2)
+PLL_EXPORT int pllmod_utree_interchange(pll_unode_t * node1,
+                                        pll_unode_t * node2)
 {
-  pll_utree_t *next1 = node2->back;
-  pll_utree_t *next2 = node1->back;
+  pll_unode_t *next1 = node2->back;
+  pll_unode_t *next2 = node1->back;
 
   pllmod_utree_connect_nodes(next1, node1, next1->length);
   pllmod_utree_connect_nodes(next2, node2, next2->length);
@@ -297,14 +297,14 @@ PLL_EXPORT int pllmod_utree_interchange(pll_utree_t * node1,
  *
  * @return the new node
  */
-PLL_EXPORT pll_utree_t * pllmod_utree_create_node(unsigned int clv_index,
+PLL_EXPORT pll_unode_t * pllmod_utree_create_node(unsigned int clv_index,
                                                   int scaler_index,
                                                   char * label,
                                                   void * data)
 {
-  pll_utree_t * new_node = (pll_utree_t *)calloc(1, sizeof(pll_utree_t));
-  new_node->next         = (pll_utree_t *)calloc(1, sizeof(pll_utree_t));
-  new_node->next->next   = (pll_utree_t *)calloc(1, sizeof(pll_utree_t));
+  pll_unode_t * new_node = (pll_unode_t *)calloc(1, sizeof(pll_unode_t));
+  new_node->next         = (pll_unode_t *)calloc(1, sizeof(pll_unode_t));
+  new_node->next->next   = (pll_unode_t *)calloc(1, sizeof(pll_unode_t));
   if (!(new_node && new_node->next && new_node->next->next))
   {
     pllmod_set_error(PLL_ERROR_MEM_ALLOC,
@@ -346,8 +346,8 @@ PLL_EXPORT pll_utree_t * pllmod_utree_create_node(unsigned int clv_index,
  * @param[in] length     the branch length
  *
  */
-PLL_EXPORT int pllmod_utree_connect_nodes(pll_utree_t * parent,
-                                          pll_utree_t * child,
+PLL_EXPORT int pllmod_utree_connect_nodes(pll_unode_t * parent,
+                                          pll_unode_t * child,
                                           double length)
 {
   if(!(parent && child))
@@ -376,8 +376,8 @@ PLL_EXPORT int pllmod_utree_connect_nodes(pll_utree_t * parent,
  * @param[in] min_distance the minimum distance to check
  * @param[in] max_distance the maximum distance to check
  */
-PLL_EXPORT int pllmod_utree_nodes_at_node_dist(pll_utree_t * node,
-                                               pll_utree_t ** outbuffer,
+PLL_EXPORT int pllmod_utree_nodes_at_node_dist(pll_unode_t * node,
+                                               pll_unode_t ** outbuffer,
                                                unsigned int * node_count,
                                                unsigned int min_distance,
                                                unsigned int max_distance)
@@ -425,8 +425,8 @@ PLL_EXPORT int pllmod_utree_nodes_at_node_dist(pll_utree_t * node,
  * @param[in] max_distance the maximum distance to check
  */
 
-PLL_EXPORT int pllmod_utree_nodes_at_edge_dist(pll_utree_t * edge,
-                                               pll_utree_t ** outbuffer,
+PLL_EXPORT int pllmod_utree_nodes_at_edge_dist(pll_unode_t * edge,
+                                               pll_unode_t ** outbuffer,
                                                unsigned int * node_count,
                                                unsigned int min_distance,
                                                unsigned int max_distance)
@@ -471,8 +471,8 @@ PLL_EXPORT int pllmod_utree_nodes_at_edge_dist(pll_utree_t * edge,
 /******************************************************************************/
 /* static functions */
 
-static void utree_nodes_at_dist(pll_utree_t * node,
-                                pll_utree_t ** outbuffer,
+static void utree_nodes_at_dist(pll_unode_t * node,
+                                pll_unode_t ** outbuffer,
                                 unsigned int * index,
                                 unsigned int min_distance,
                                 unsigned int max_distance,

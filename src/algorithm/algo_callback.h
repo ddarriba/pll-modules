@@ -25,13 +25,13 @@
 
 struct default_params {
   pll_partition_t * partition;
-  pll_utree_t * tree;
+  pll_unode_t * tree;
   unsigned int * params_indices;     /* indices for computing the likelihood */
 };
 
 struct freqs_params {
   pll_partition_t * partition;
-  pll_utree_t * tree;
+  pll_unode_t * tree;
   unsigned int * params_indices;    /* indices for computing the likelihood */
   unsigned int params_index;        /* index of the frequencies to optimize */
   unsigned int highest_freq_state;  /* index of the highest frequency */
@@ -39,7 +39,7 @@ struct freqs_params {
 
 struct algo_subst_params {
   pll_partition_t * partition;
-  pll_utree_t * tree;
+  pll_unode_t * tree;
   int * symmetries;                 /* substitution parameters symmetries */
   int subst_free_params;            /* number of free parameters */
   unsigned int * params_indices;    /* indices for computing the likelihood */
@@ -48,14 +48,14 @@ struct algo_subst_params {
 
 struct rate_weights_params {
   pll_partition_t * partition;
-  pll_utree_t * tree;
+  pll_unode_t * tree;
   unsigned int * params_indices;     /* indices for computing the likelihood */
   unsigned int highest_weight_state; /* index of the highest weight */
 };
 
 struct brlen_scaler_params {
   pll_partition_t * partition;
-  pll_utree_t * tree;
+  pll_unode_t * tree;
   unsigned int * params_indices;     /* indices for computing the likelihood */
   double old_scaler;                 /* previous value of branch length scaler*/
 };

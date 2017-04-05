@@ -32,7 +32,7 @@
 
 #include "../pllmod_common.h"
 
-static int cb_get_splits(pll_utree_t * node, void *data);
+static int cb_get_splits(pll_unode_t * node, void *data);
 static inline void clone_split(pll_split_t to,
                          const pll_split_t from,
                          unsigned int split_len);
@@ -44,7 +44,7 @@ static int _cmp_splits (const void * a, const void * b);
 static int compare_splits (pll_split_t s1,
                            pll_split_t s2,
                            unsigned int split_len);
-static unsigned int get_utree_splitmap_id(pll_utree_t * node,
+static unsigned int get_utree_splitmap_id(pll_unode_t * node,
                                           unsigned int tip_count);
 static unsigned int split_length(unsigned int tip_count);
 
@@ -69,16 +69,23 @@ struct cb_split_params
  *         PLL_FAILURE otherwise (check pll_errmsg for details)
  */
 PLL_EXPORT int pllmod_utree_consistency_check(pll_utree_t * t1,
-                                              pll_utree_t * t2,
-                                              unsigned int tip_count)
+                                              pll_utree_t * t2)
 {
   unsigned int i;
   unsigned int node_id;
   int retval = PLL_SUCCESS;
-  pll_utree_t ** tipnodes;
+  pll_unode_t ** tipnodes = t1->nodes;
   char ** tipnames;
+  unsigned int tip_count = t1->tip_count;
 
-  tipnodes = (pll_utree_t **) calloc ((size_t) tip_count, sizeof(pll_utree_t *));
+  if (tip_count != t2->tip_count)
+  {
+    pllmod_set_error(PLLMOD_TREE_ERROR_INVALID_TREE,
+                     "Trees do not have the same number of tips\n");
+    return PLL_FAILURE;
+  }
+
+
   tipnames = (char **) malloc (tip_count * sizeof(char *));
   if (!(tipnodes && tipnames))
   {
@@ -86,8 +93,6 @@ PLL_EXPORT int pllmod_utree_consistency_check(pll_utree_t * t1,
                      "Cannot allocate memory for tipnodes and tipnames\n");
     return PLL_FAILURE;
   }
-
-  pll_utree_query_tipnodes (t1, tipnodes);
 
   /* fill names table */
   for (i = 0; i < tip_count; ++i)
@@ -97,7 +102,7 @@ PLL_EXPORT int pllmod_utree_consistency_check(pll_utree_t * t1,
   }
 
   /* check names consistency */
-  pll_utree_query_tipnodes (t2, tipnodes);
+  tipnodes = t2->nodes;
   for (i = 0; i < tip_count; ++i)
   {
     node_id = tipnodes[i]->node_index;
@@ -109,7 +114,6 @@ PLL_EXPORT int pllmod_utree_consistency_check(pll_utree_t * t1,
   }
 
   free(tipnames);
-  free(tipnodes);
   return retval;
 }
 
@@ -124,16 +128,22 @@ PLL_EXPORT int pllmod_utree_consistency_check(pll_utree_t * t1,
  *         PLL_FAILURE otherwise (check pll_errmsg for details)
  */
 PLL_EXPORT int pllmod_utree_consistency_set(pll_utree_t * t1,
-                                            pll_utree_t * t2,
-                                            unsigned int tip_count)
+                                            pll_utree_t * t2)
 {
   unsigned int i, j;
   unsigned int node_id;
   int retval = PLL_SUCCESS, checkval;
-  pll_utree_t ** tipnodes;
+  pll_unode_t ** tipnodes = t1->nodes;
   char ** tipnames;
+  unsigned int tip_count = t1->tip_count;
 
-  tipnodes = (pll_utree_t **) calloc ((size_t) tip_count, sizeof(pll_utree_t *));
+  if (tip_count != t2->tip_count)
+  {
+    pllmod_set_error(PLLMOD_TREE_ERROR_INVALID_TREE,
+                     "Trees do not have the same number of tips\n");
+    return PLL_FAILURE;
+  }
+
   tipnames = (char **) malloc (tip_count * sizeof(char *));
 
   if (!(tipnodes && tipnames))
@@ -143,8 +153,6 @@ PLL_EXPORT int pllmod_utree_consistency_set(pll_utree_t * t1,
     return PLL_FAILURE;
   }
 
-  pll_utree_query_tipnodes (t1, tipnodes);
-
   /* fill names table */
   for (i = 0; i < tip_count; ++i)
   {
@@ -153,11 +161,11 @@ PLL_EXPORT int pllmod_utree_consistency_set(pll_utree_t * t1,
   }
 
   /* set names consistency */
-  pll_utree_query_tipnodes (t2, tipnodes);
+  tipnodes = t2->nodes;
   for (i = 0; i < tip_count; ++i)
   {
     // node_id = get_utree_node_id(tipnodes[i]);
-    pll_utree_t * tipnode = tipnodes[i];
+    pll_unode_t * tipnode = tipnodes[i];
     checkval = 0;
     for (j = 0; j < tip_count; ++j)
     {
@@ -176,16 +184,15 @@ PLL_EXPORT int pllmod_utree_consistency_set(pll_utree_t * t1,
   }
 
   free(tipnames);
-  free(tipnodes);
   return retval;
 }
 
 /******************************************************************************/
 /* discrete operations */
 
-PLL_EXPORT unsigned int pllmod_utree_rf_distance(pll_utree_t * t1,
-                                              pll_utree_t * t2,
-                                              unsigned int tip_count)
+PLL_EXPORT unsigned int pllmod_utree_rf_distance(pll_unode_t * t1,
+                                                 pll_unode_t * t2,
+                                                 unsigned int tip_count)
 {
   unsigned int split_count;
   unsigned int rf_distance;
@@ -336,7 +343,7 @@ PLL_EXPORT void pllmod_utree_split_show(pll_split_t split, unsigned int tip_coun
 /*
  * Note: This function returns the splits according to the node indices at the tips!
  */
-PLL_EXPORT pll_split_t * pllmod_utree_split_create(pll_utree_t * tree,
+PLL_EXPORT pll_split_t * pllmod_utree_split_create(pll_unode_t * tree,
                                                    unsigned int tip_count,
                                                    unsigned int * _split_count,
                                                    int ** node_to_split_map)
@@ -540,7 +547,7 @@ static inline void merge_split(pll_split_t to,
  * The splits will be stored in data->splits
  * at positions given by node index
  */
-static int cb_get_splits(pll_utree_t * node, void *data)
+static int cb_get_splits(pll_unode_t * node, void *data)
 {
   struct cb_split_params * split_data = (struct cb_split_params *) data;
   pll_split_t current_split;
@@ -670,7 +677,7 @@ static void normalize_split(pll_split_t split, unsigned int tip_count)
   The position of the node in the map of branches to splits is computed
   according to the node id.
  */
-static unsigned int get_utree_splitmap_id(pll_utree_t * node,
+static unsigned int get_utree_splitmap_id(pll_unode_t * node,
                                           unsigned int tip_count)
 {
   unsigned int node_id = node->node_index;

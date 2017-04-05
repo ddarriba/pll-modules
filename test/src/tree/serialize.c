@@ -42,7 +42,7 @@ const char * header[100] = {
   "T81", "T82", "T83", "T84", "T85", "T86", "T87", "T88", "T89", "T90",
   "T91", "T92", "T93", "T94", "T95", "T96", "T97", "T98", "T99", "T100"};
 
-static int cb_set_bl(pll_utree_t * tree,
+static int cb_set_bl(pll_unode_t * tree,
                      void * data)
 {
   assert(tree->pmatrix_index == tree->back->pmatrix_index);
@@ -50,7 +50,7 @@ static int cb_set_bl(pll_utree_t * tree,
   return 1;
 }
 
-static int cb_set_names(pll_utree_t * tree,
+static int cb_set_names(pll_unode_t * tree,
                         void * data)
 {
   const char ** names = (const char **) data;
@@ -73,8 +73,9 @@ int main (int argc, char * argv[])
    /* fix RNG seed to arbitrary number */
    srand(42);
 
-   pll_utree_t * tree = pllmod_utree_create_random(n_taxa,
-                                                   (const char **)header);
+   pll_utree_t * random_tree = pllmod_utree_create_random(n_taxa,
+                                                         (const char **)header);
+   pll_unode_t * tree = random_tree->nodes[2*n_taxa - 3];
 
    /* set arbitrary branch lengths */
    pllmod_utree_traverse_apply(tree,
@@ -89,8 +90,8 @@ int main (int argc, char * argv[])
    pll_utree_show_ascii(tree, PLL_UTREE_SHOW_CLV_INDEX | PLL_UTREE_SHOW_BRANCH_LENGTH | PLL_UTREE_SHOW_LABEL | PLL_UTREE_SHOW_PMATRIX_INDEX);
 
    int rf_distance;
-   pll_utree_t * stree;
-   pll_utree_t * tree2;
+   pll_unode_t * stree;
+   pll_unode_t * tree2;
 
    /* serialize and expand */
    stree = pllmod_utree_serialize(tree, n_taxa);
@@ -113,7 +114,7 @@ int main (int argc, char * argv[])
    assert(!rf_distance);
 
    /* try now with root at tip */
-   pll_utree_destroy(tree, NULL);
+   //pll_utree_destroy(tree, NULL);
    while(tree2->node_index > n_taxa) tree2 = tree2->next?tree2->next->back:tree2->back;
    printf("Root set to %d\n", tree2->node_index);
 
@@ -136,7 +137,8 @@ int main (int argc, char * argv[])
                                           n_taxa);
    assert(!rf_distance);
 
-   pll_utree_destroy(tree, NULL);
-   pll_utree_destroy(tree2->back, NULL);
+   pll_utree_destroy(random_tree, NULL);
+   pll_utree_graph_destroy(tree, NULL);
+   pll_utree_graph_destroy(tree2->back, NULL);
    return PLL_SUCCESS;
 }

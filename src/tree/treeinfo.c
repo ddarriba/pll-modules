@@ -23,7 +23,7 @@
 
 #include "../pllmod_common.h"
 
-static int cb_set_treeinfo_pointer(pll_utree_t * node, void *data)
+static int cb_set_treeinfo_pointer(pll_unode_t * node, void *data)
 {
   pllmod_treeinfo_t * treeinfo = (pllmod_treeinfo_t *) data;
 
@@ -41,14 +41,14 @@ static int cb_set_treeinfo_pointer(pll_utree_t * node, void *data)
 }
 
 /* a callback function for performing a full traversal */
-static int cb_full_traversal(pll_utree_t * node)
+static int cb_full_traversal(pll_unode_t * node)
 {
   UNUSED(node);
   return PLL_SUCCESS;
 }
 
 /* a callback function for performing a partial traversal on invalid CLVs */
-static int cb_partial_traversal(pll_utree_t * node)
+static int cb_partial_traversal(pll_unode_t * node)
 {
   /* do not include tips */
   if (!node->next) return PLL_FAILURE;
@@ -78,7 +78,7 @@ static int treeinfo_partition_active(pllmod_treeinfo_t * treeinfo,
           treeinfo->active_partition == (int) partition_index);
 }
 
-PLL_EXPORT pllmod_treeinfo_t * pllmod_treeinfo_create(pll_utree_t * root,
+PLL_EXPORT pllmod_treeinfo_t * pllmod_treeinfo_create(pll_unode_t * root,
                                                       unsigned int tips,
                                                       unsigned int partitions,
                                                       int brlen_linkage)
@@ -125,8 +125,8 @@ PLL_EXPORT pllmod_treeinfo_t * pllmod_treeinfo_create(pll_utree_t * root,
 
   /* allocate a buffer for storing pointers to nodes of the tree in postorder
      traversal */
-  treeinfo->travbuffer = (pll_utree_t **) malloc(
-                            nodes_count * sizeof(pll_utree_t *));
+  treeinfo->travbuffer = (pll_unode_t **) malloc(
+                            nodes_count * sizeof(pll_unode_t *));
 
   /* allocate a buffer for matrix indices */
   treeinfo->matrix_indices = (unsigned int *)
@@ -351,7 +351,7 @@ PLL_EXPORT int pllmod_treeinfo_set_active_partition(pllmod_treeinfo_t * treeinfo
 }
 
 PLL_EXPORT void pllmod_treeinfo_set_root(pllmod_treeinfo_t * treeinfo,
-                                         pll_utree_t * root)
+                                         pll_unode_t * root)
 {
   assert(treeinfo && root);
 
@@ -360,7 +360,7 @@ PLL_EXPORT void pllmod_treeinfo_set_root(pllmod_treeinfo_t * treeinfo,
 }
 
 PLL_EXPORT void pllmod_treeinfo_set_branch_length(pllmod_treeinfo_t * treeinfo,
-                                                  pll_utree_t * edge,
+                                                  pll_unode_t * edge,
                                                   double length)
 {
   pllmod_utree_set_length(edge, length);
@@ -530,7 +530,7 @@ PLL_EXPORT void pllmod_treeinfo_invalidate_all(pllmod_treeinfo_t * treeinfo)
 }
 
 PLL_EXPORT int pllmod_treeinfo_validate_clvs(pllmod_treeinfo_t * treeinfo,
-                                             pll_utree_t ** travbuffer,
+                                             pll_unode_t ** travbuffer,
                                              unsigned int travbuffer_size)
 {
   unsigned int p;
@@ -542,7 +542,7 @@ PLL_EXPORT int pllmod_treeinfo_validate_clvs(pllmod_treeinfo_t * treeinfo,
       unsigned int i;
       for (i = 0; i < travbuffer_size; ++i)
       {
-        const pll_utree_t * node = travbuffer[i];
+        const pll_unode_t * node = travbuffer[i];
         if (node->next)
         {
           treeinfo->clv_valid[p][node->node_index] = 1;
@@ -560,7 +560,7 @@ PLL_EXPORT int pllmod_treeinfo_validate_clvs(pllmod_treeinfo_t * treeinfo,
 }
 
 PLL_EXPORT void pllmod_treeinfo_invalidate_pmatrix(pllmod_treeinfo_t * treeinfo,
-                                                   const pll_utree_t * edge)
+                                                   const pll_unode_t * edge)
 {
   unsigned int p;
   for (p = 0; p < treeinfo->partition_count; ++p)
@@ -571,7 +571,7 @@ PLL_EXPORT void pllmod_treeinfo_invalidate_pmatrix(pllmod_treeinfo_t * treeinfo,
 }
 
 PLL_EXPORT void pllmod_treeinfo_invalidate_clv(pllmod_treeinfo_t * treeinfo,
-                                               const pll_utree_t * edge)
+                                               const pll_unode_t * edge)
 {
   unsigned int p;
   for (p = 0; p < treeinfo->partition_count; ++p)
@@ -610,6 +610,7 @@ PLL_EXPORT double pllmod_treeinfo_compute_loglh(pllmod_treeinfo_t * treeinfo,
     /* perform a FULL postorder traversal of the unrooted tree */
     unsigned int traversal_size;
     if (!pll_utree_traverse(treeinfo->root,
+                            PLL_TREE_TRAVERSE_POSTORDER,
                             cb_full_traversal,
                             treeinfo->travbuffer,
                             &traversal_size))
@@ -634,6 +635,7 @@ PLL_EXPORT double pllmod_treeinfo_compute_loglh(pllmod_treeinfo_t * treeinfo,
     {
       /* compute partial traversal and update only invalid CLVs */
       if (!pll_utree_traverse(treeinfo->root,
+                              PLL_TREE_TRAVERSE_POSTORDER,
                               cb_partial_traversal,
                               treeinfo->travbuffer,
                               &traversal_size))
@@ -732,7 +734,7 @@ int pllmod_treeinfo_normalize_brlen_scalers(pllmod_treeinfo_t * treeinfo)
   }
 
   const double mean_rate = sum_scalers / sum_sites;
-  pllmod_utree_scale_branches(treeinfo->root, mean_rate);
+  pllmod_utree_scale_branches_all(treeinfo->root, mean_rate);
   for (p = 0; p < treeinfo->partition_count; ++p)
   {
     if (treeinfo->partitions[p])

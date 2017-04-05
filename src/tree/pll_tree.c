@@ -38,11 +38,8 @@ static int rtree_rollback_nni(pll_tree_rollback_t * rollback_info);
 static int utree_rollback_tbr(pll_tree_rollback_t * rollback_info);
 static int utree_rollback_spr(pll_tree_rollback_t * rollback_info);
 static int utree_rollback_nni(pll_tree_rollback_t * rollback_info);
-static int utree_find_node_in_subtree(pll_utree_t * root, pll_utree_t * node);
-static int cb_update_matrices_partials(pll_utree_t * node, void *data);
-static void utree_set_length_recursive(pll_utree_t * tree, double length,
-                                       int missing_only);
-static void scale_branch_length_recursive (pll_utree_t * tree, double factor);
+static int utree_find_node_in_subtree(pll_unode_t * root, pll_unode_t * node);
+static int cb_update_matrices_partials(pll_unode_t * node, void *data);
 
 struct cb_params
 {
@@ -67,11 +64,11 @@ struct cb_params
  * @return PLL_SUCCESS if the move was applied correctly,
  *         PLL_FAILURE otherwise (check pll_errmsg for details)
  */
-PLL_EXPORT int pllmod_utree_tbr(pll_utree_t * b_edge,
+PLL_EXPORT int pllmod_utree_tbr(pll_unode_t * b_edge,
                                 pll_tree_edge_t * r_edge,
                                 pll_tree_rollback_t * rollback_info)
 {
-  pll_utree_t *parent, *child;
+  pll_unode_t *parent, *child;
 
   /* validate if the move can be applied */
 
@@ -154,8 +151,8 @@ PLL_EXPORT int pllmod_utree_tbr(pll_utree_t * b_edge,
  * @return PLL_SUCCESS if the move was applied correctly,
  *         PLL_FAILURE otherwise (check pll_errmsg for details)
  */
-PLL_EXPORT int pllmod_utree_spr(pll_utree_t * p_edge,
-                                pll_utree_t * r_edge,
+PLL_EXPORT int pllmod_utree_spr(pll_unode_t * p_edge,
+                                pll_unode_t * r_edge,
                                 pll_tree_rollback_t * rollback_info)
 {
   int retval;
@@ -200,7 +197,7 @@ PLL_EXPORT int pllmod_utree_spr(pll_utree_t * p_edge,
  * @return PLL_SUCCESS if the move was applied correctly,
  *         PLL_FAILURE otherwise (check pll_errmsg for details)
  */
-PLL_EXPORT int pllmod_utree_nni(pll_utree_t * edge,
+PLL_EXPORT int pllmod_utree_nni(pll_unode_t * edge,
                                 int type,
                                 pll_tree_rollback_t * rollback_info)
 {
@@ -310,15 +307,17 @@ PLL_EXPORT pll_utree_t * pllmod_utree_create_random(unsigned int taxa_count,
   unsigned int max_branches          = 2 * tip_node_count - 3;
   unsigned int placed_branches_count = 0;
 
-  pll_utree_t ** nodes    = (pll_utree_t **) calloc(node_count,
-                                                    sizeof(pll_utree_t *));
-  pll_utree_t ** branches = (pll_utree_t **) calloc(max_branches,
-                                                    sizeof(pll_utree_t *));
+  pll_unode_t ** nodes    = (pll_unode_t **) calloc(node_count,
+                                                    sizeof(pll_unode_t *));
+  pll_unode_t ** branches = (pll_unode_t **) calloc(max_branches,
+                                                    sizeof(pll_unode_t *));
 
-  pll_utree_t * next_tip;
-  pll_utree_t * next_inner;
-  pll_utree_t * next_branch;
-  pll_utree_t * new_tree;
+  pll_unode_t * next_tip;
+  pll_unode_t * next_inner;
+  pll_unode_t * next_branch;
+  pll_unode_t * tree_root;
+
+  pll_utree_t * wrapped_tree;
 
   unsigned int next_branch_id = taxa_count;
   unsigned int rand_branch_id;
@@ -327,7 +326,7 @@ PLL_EXPORT pll_utree_t * pllmod_utree_create_random(unsigned int taxa_count,
   /* allocate tips */
   for (i=0; i<taxa_count; ++i)
   {
-    nodes[i] = (pll_utree_t *)calloc(1, sizeof(pll_utree_t));
+    nodes[i] = (pll_unode_t *)calloc(1, sizeof(pll_unode_t));
     nodes[i]->clv_index = i;
     nodes[i]->scaler_index = PLL_SCALE_BUFFER_NONE;
     nodes[i]->pmatrix_index = i;
@@ -359,7 +358,7 @@ PLL_EXPORT pll_utree_t * pllmod_utree_create_random(unsigned int taxa_count,
   assert(node_id == tip_node_count + inner_node_count * 3);
 
   /* set an inner node as return value */
-  new_tree = nodes[taxa_count];
+  tree_root = nodes[taxa_count];
 
   /* build minimal tree with 3 tips and 1 inner node */
   pllmod_utree_connect_nodes(nodes[0], nodes[taxa_count],
@@ -411,7 +410,8 @@ PLL_EXPORT pll_utree_t * pllmod_utree_create_random(unsigned int taxa_count,
   free (nodes);
   free (branches);
 
-  return (new_tree);
+  wrapped_tree = pll_utree_wraptree(tree_root, tip_node_count);
+  return (wrapped_tree);
 }
 
 /**
@@ -456,11 +456,16 @@ pll_utree_t * pllmod_utree_create_parsimony(unsigned int taxa_count,
 
   if (parsimony)
   {
-    tree = pll_fastparsimony_stepwise(&parsimony, (char **) names,
-                                                    score, 1, random_seed);
+    tree = pll_fastparsimony_stepwise(&parsimony,
+                                      (char **) names,
+                                      score,
+                                      1,
+                                      random_seed);
 
     /* update pmatrix/scaler/node indices */
-    pll_utree_reset_template_indices(tree, taxa_count);
+    pll_utree_reset_template_indices(tree->nodes[tree->tip_count +
+                                                 tree->inner_count - 1],
+                                     taxa_count);
 
     /* set default branch lengths */
     pllmod_utree_set_length_recursive(tree,
@@ -480,8 +485,8 @@ pll_utree_t * pllmod_utree_create_parsimony(unsigned int taxa_count,
 
 /* static functions */
 
-static int utree_find_node_in_subtree(pll_utree_t * root,
-                                                 pll_utree_t * node)
+static int utree_find_node_in_subtree(pll_unode_t * root,
+                                                 pll_unode_t * node)
 {
   if (root == node)
   {
@@ -507,14 +512,14 @@ static int utree_find_node_in_subtree(pll_utree_t * root,
 /******************************************************************************/
 /* Additional utilities */
 
-static int utree_traverse_apply(pll_utree_t * node,
-                                int (*cb_pre_trav)(pll_utree_t *, void *),
-                                int (*cb_in_trav)(pll_utree_t *, void *),
-                                int (*cb_post_trav)(pll_utree_t *, void *),
+static int utree_traverse_apply(pll_unode_t * node,
+                                int (*cb_pre_trav)(pll_unode_t *, void *),
+                                int (*cb_in_trav)(pll_unode_t *, void *),
+                                int (*cb_post_trav)(pll_unode_t *, void *),
                                 void *data)
 {
   int retval = 1;
-  pll_utree_t * child_tree = 0;
+  pll_unode_t * child_tree = 0;
 
   if (cb_pre_trav && !cb_pre_trav(node,  data))
     return PLL_FAILURE;
@@ -548,12 +553,12 @@ static int utree_traverse_apply(pll_utree_t * node,
   return retval;
 }
 
-PLL_EXPORT int pllmod_utree_traverse_apply(pll_utree_t * root,
-                                           int (*cb_pre_trav)(pll_utree_t *,
+PLL_EXPORT int pllmod_utree_traverse_apply(pll_unode_t * root,
+                                           int (*cb_pre_trav)(pll_unode_t *,
                                                                void *),
-                                           int (*cb_in_trav)(pll_utree_t *,
+                                           int (*cb_in_trav)(pll_unode_t *,
                                                                void *),
-                                           int (*cb_post_trav)(pll_utree_t *,
+                                           int (*cb_post_trav)(pll_unode_t *,
                                                                void *),
                                            void *data)
 {
@@ -573,12 +578,12 @@ PLL_EXPORT int pllmod_utree_traverse_apply(pll_utree_t * root,
   return retval;
 }
 
-PLL_EXPORT int pllmod_utree_is_tip(pll_utree_t * node)
+PLL_EXPORT int pllmod_utree_is_tip(pll_unode_t * node)
 {
   return (node->next == NULL);
 }
 
-PLL_EXPORT void pllmod_utree_set_length(pll_utree_t * edge,
+PLL_EXPORT void pllmod_utree_set_length(pll_unode_t * edge,
                                             double length)
 {
   edge->length = edge->back->length = length;
@@ -588,23 +593,75 @@ PLL_EXPORT void pllmod_utree_set_length_recursive(pll_utree_t * tree,
                                                   double length,
                                                   int missing_only)
 {
-  utree_set_length_recursive(tree, length, missing_only);
-  utree_set_length_recursive(tree->back, length, missing_only);
+  /* set branch lengths */
+  unsigned int i;
+  unsigned int tip_count = tree->tip_count;
+  unsigned int inner_count = tree->inner_count;
+  pll_unode_t ** nodes = tree->nodes;
+  for (i=0; i<tip_count; ++i)
+  {
+    if (!nodes[i]->length || !missing_only)
+      pllmod_utree_set_length(nodes[i], length);
+  }
+  for (i=tip_count; i<tip_count+inner_count; ++i)
+  {
+    if (!nodes[i]->length || !missing_only)
+      pllmod_utree_set_length(nodes[i], length);
+    if (!nodes[i]->length || !missing_only)
+      pllmod_utree_set_length(nodes[i], length);
+    if (!nodes[i]->length || !missing_only)
+      pllmod_utree_set_length(nodes[i], length);
+  }
 }
 
 PLL_EXPORT void pllmod_utree_scale_branches(pll_utree_t * tree,
-                                         double branch_length_scaler)
+                                            double branch_length_scaler)
 {
   /* scale branch lengths */
-  scale_branch_length_recursive(tree, branch_length_scaler);
-  if (tree->back->next)
+  unsigned int i;
+  unsigned int tip_count = tree->tip_count;
+  unsigned int inner_count = tree->inner_count;
+  pll_unode_t ** nodes = tree->nodes;
+  for (i=0; i<tip_count; ++i)
   {
-    scale_branch_length_recursive(tree->back->next->back,
-                                  branch_length_scaler);
-    scale_branch_length_recursive(tree->back->next->next->back,
-                                  branch_length_scaler);
+    nodes[i]->length *= branch_length_scaler;
+  }
+  for (i=tip_count; i<tip_count+inner_count; ++i)
+  {
+    nodes[i]->length *= branch_length_scaler;
+    nodes[i]->next->length *= branch_length_scaler;
+    nodes[i]->next->next->length *= branch_length_scaler;
   }
 }
+
+PLL_EXPORT void pllmod_utree_scale_branches_all(pll_unode_t * root,
+                                                double branch_length_scaler)
+{
+  double root_length;
+
+  /* scale all branches in a tree */
+  pllmod_utree_scale_subtree_branches(root, branch_length_scaler);
+  root_length = root->length;
+  pllmod_utree_scale_subtree_branches(root->back, branch_length_scaler);
+
+  /* undo duplicated scaling */
+  root->length = root->back->length = root_length;
+}
+
+PLL_EXPORT void pllmod_utree_scale_subtree_branches(pll_unode_t * root,
+                                                    double branch_length_scaler)
+{
+ /* scale all branches in a subtree rooted at node */
+  root->length *= branch_length_scaler;
+  root->back->length *= branch_length_scaler;
+
+  if (root->next)
+  {
+    pllmod_utree_scale_subtree_branches(root->next->back, branch_length_scaler);
+    pllmod_utree_scale_subtree_branches(root->next->next->back, branch_length_scaler);
+  }
+}
+
 
 /**
  * compute the likelihood on a utree structure
@@ -612,7 +669,7 @@ PLL_EXPORT void pllmod_utree_scale_branches(pll_utree_t * tree,
  * updated before computing the likelihood.
  */
 PLL_EXPORT double pllmod_utree_compute_lk(pll_partition_t * partition,
-                                       pll_utree_t * tree,
+                                       pll_unode_t * tree,
                                        const unsigned int * params_indices,
                                        int update_pmatrices,
                                        int update_partials)
@@ -655,7 +712,7 @@ struct clv_set_data
   unsigned int tip_count;
 };
 
-static int cb_set_clv_minimal(pll_utree_t * node, void * data)
+static int cb_set_clv_minimal(pll_unode_t * node, void * data)
 {
   unsigned int i, next_index;
   int index_found;
@@ -706,7 +763,7 @@ static int cb_set_clv_minimal(pll_utree_t * node, void * data)
   return 1;
 }
 
-PLL_EXPORT int pllmod_utree_set_clv_minimal(pll_utree_t * root,
+PLL_EXPORT int pllmod_utree_set_clv_minimal(pll_unode_t * root,
                                             unsigned int tip_count)
 {
   unsigned int clv_count = (unsigned int) ceil(log2(tip_count)) + 2;
@@ -721,10 +778,10 @@ PLL_EXPORT int pllmod_utree_set_clv_minimal(pll_utree_t * root,
   return PLL_SUCCESS;
 }
 
-static int rtree_traverse_apply(pll_rtree_t * node,
-                                int (*cb_pre_trav)(pll_rtree_t *, void *),
-                                int (*cb_in_trav)(pll_rtree_t *, void *),
-                                int (*cb_post_trav)(pll_rtree_t *, void *),
+static int rtree_traverse_apply(pll_rnode_t * node,
+                                int (*cb_pre_trav)(pll_rnode_t *, void *),
+                                int (*cb_in_trav)(pll_rnode_t *, void *),
+                                int (*cb_post_trav)(pll_rnode_t *, void *),
                                 void *data)
 {
   int retval = 1;
@@ -756,12 +813,12 @@ static int rtree_traverse_apply(pll_rtree_t * node,
   return retval;
 }
 
-PLL_EXPORT int pllmod_rtree_traverse_apply(pll_rtree_t * root,
-                                           int (*cb_pre_trav)(pll_rtree_t *,
+PLL_EXPORT int pllmod_rtree_traverse_apply(pll_rnode_t * root,
+                                           int (*cb_pre_trav)(pll_rnode_t *,
                                                                void *),
-                                           int (*cb_in_trav)(pll_rtree_t *,
+                                           int (*cb_in_trav)(pll_rnode_t *,
                                                                void *),
-                                           int (*cb_post_trav)(pll_rtree_t *,
+                                           int (*cb_post_trav)(pll_rnode_t *,
                                                                void *),
                                            void *data)
 {
@@ -780,46 +837,46 @@ PLL_EXPORT int pllmod_rtree_traverse_apply(pll_rtree_t * root,
 
 /* auxiliary structure for the callback function below */
 struct serial_tree_s {
-  pll_utree_t * serialized_tree;
+  pll_unode_t * serialized_tree;
   int node_count;
   int max_nodes;
 };
 
 /* callback function to fill the serialized tree */
-static int cb_serialize(pll_utree_t * tree,
+static int cb_serialize(pll_unode_t * tree,
                         void * data)
 {
   struct serial_tree_s * list = (struct serial_tree_s *) data;
-  pll_utree_t * serialized_tree = list->serialized_tree;
+  pll_unode_t * serialized_tree = list->serialized_tree;
   int cur_pos = list->node_count;
 
   assert(cur_pos < list->max_nodes);
 
-  memcpy(&(serialized_tree[cur_pos]), tree, sizeof(pll_utree_t));
+  memcpy(&(serialized_tree[cur_pos]), tree, sizeof(pll_unode_t));
   serialized_tree[cur_pos].data  = 0;
   serialized_tree[cur_pos].label = 0;
   if (!pllmod_utree_is_tip(tree))
   {
     /* set to arbitrary non-junk value */
-    serialized_tree[cur_pos].next = (pll_utree_t *) 1;
+    serialized_tree[cur_pos].next = (pll_unode_t *) 1;
   }
 
   ++list->node_count;
   return 1;
 }
 
-//TODO: serialize/expand using a compressed format instead of pll_utree_t
-PLL_EXPORT pll_utree_t * pllmod_utree_serialize(pll_utree_t * tree,
+//TODO: serialize/expand using a compressed format instead of pll_unode_t
+PLL_EXPORT pll_unode_t * pllmod_utree_serialize(pll_unode_t * tree,
                                                 unsigned int tip_count)
 {
   unsigned int node_count;
-  pll_utree_t * serialized_tree;
+  pll_unode_t * serialized_tree;
   struct serial_tree_s data;
 
   node_count = 2*tip_count - 2;
 
   /* allocate the serialized structure */
-  serialized_tree = (pll_utree_t *) malloc(node_count * sizeof (pll_utree_t));
+  serialized_tree = (pll_unode_t *) malloc(node_count * sizeof (pll_unode_t));
 
   /* fill data for callback function */
   data.serialized_tree = serialized_tree;
@@ -848,12 +905,12 @@ PLL_EXPORT pll_utree_t * pllmod_utree_serialize(pll_utree_t * tree,
   return serialized_tree;
 }
 
-PLL_EXPORT pll_utree_t * pllmod_utree_expand(pll_utree_t * serialized_tree,
+PLL_EXPORT pll_utree_t * pllmod_utree_expand(pll_unode_t * serialized_tree,
                                              unsigned int tip_count)
 {
   unsigned int i, node_count, next_node_index;
-  pll_utree_t ** tree_stack;
-  pll_utree_t * tree;
+  pll_unode_t ** tree_stack;
+  pll_unode_t * tree;
   unsigned int tree_stack_top;
 
   pllmod_reset_error();
@@ -861,7 +918,7 @@ PLL_EXPORT pll_utree_t * pllmod_utree_expand(pll_utree_t * serialized_tree,
   node_count  = 2*tip_count - 2;
 
   /* allocate stack for at most 'n_tips' nodes */
-  tree_stack = (pll_utree_t **) malloc(tip_count * sizeof (pll_utree_t *));
+  tree_stack = (pll_unode_t **) malloc(tip_count * sizeof (pll_unode_t *));
   tree_stack_top = 0;
 
   next_node_index = tip_count;
@@ -869,12 +926,12 @@ PLL_EXPORT pll_utree_t * pllmod_utree_expand(pll_utree_t * serialized_tree,
   /* read nodes */
   for (i=0; i<node_count; ++i)
   {
-    pll_utree_t * t = 0;                   /* new node */
-    pll_utree_t t_s = serialized_tree[i];  /* serialized node */
+    pll_unode_t * t = 0;                   /* new node */
+    pll_unode_t t_s = serialized_tree[i];  /* serialized node */
     if (t_s.next)
     {
       /* build inner node and connect */
-      pll_utree_t *t_cr, *t_r, *t_cl, *t_l;
+      pll_unode_t *t_cr, *t_r, *t_cl, *t_l;
       t = pllmod_utree_create_node(t_s.clv_index,
                                    t_s.scaler_index,
                                    0,  /* label */
@@ -902,8 +959,8 @@ PLL_EXPORT pll_utree_t * pllmod_utree_expand(pll_utree_t * serialized_tree,
     }
     else
     {
-      t = (pll_utree_t *)calloc(1, sizeof(pll_utree_t));
-      memcpy(t, &t_s, sizeof(pll_utree_t));
+      t = (pll_unode_t *)calloc(1, sizeof(pll_unode_t));
+      memcpy(t, &t_s, sizeof(pll_unode_t));
       assert(t->node_index < tip_count);
     }
 
@@ -938,13 +995,13 @@ PLL_EXPORT pll_utree_t * pllmod_utree_expand(pll_utree_t * serialized_tree,
 
   if (pll_errno)
   {
-    pll_utree_destroy(tree, NULL);
+    pll_utree_graph_destroy(tree, NULL);
     tree = 0;
   }
 
   free(tree_stack);
 
-  return tree;
+  return pll_utree_wraptree(tree, tip_count);
 }
 
 /******************************************************************************/
@@ -961,8 +1018,8 @@ static int rtree_rollback_spr(pll_tree_rollback_t * rollback_info)
 {
   //TODO: Add preconditions
 
-  pll_rtree_t * p = (pll_rtree_t *) rollback_info->SPR.prune_edge;
-  pll_rtree_t * r = (pll_rtree_t *) rollback_info->SPR.regraft_edge;
+  pll_rnode_t * p = (pll_rnode_t *) rollback_info->SPR.prune_edge;
+  pll_rnode_t * r = (pll_rnode_t *) rollback_info->SPR.regraft_edge;
 
   /* undo move */
   if (!pllmod_rtree_spr(p, r, 0, 0))
@@ -986,9 +1043,9 @@ static int utree_rollback_tbr(pll_tree_rollback_t * rollback_info)
   assert(!rollback_info->rooted);
   assert(rollback_info->rearrange_type == PLLMOD_TREE_REARRANGE_TBR);
 
-  pll_utree_t * p = (pll_utree_t *) rollback_info->TBR.bisect_edge;
-  pll_utree_t * q = p->next->back;
-  pll_utree_t * r = p->back->next->back;
+  pll_unode_t * p = (pll_unode_t *) rollback_info->TBR.bisect_edge;
+  pll_unode_t * q = p->next->back;
+  pll_unode_t * r = p->back->next->back;
   double reconn_length = rollback_info->TBR.reconn_edge.length;
 
   /* undo move */
@@ -1012,10 +1069,10 @@ static int utree_rollback_spr(pll_tree_rollback_t * rollback_info)
   assert(!rollback_info->rooted);
   assert(rollback_info->rearrange_type == PLLMOD_TREE_REARRANGE_SPR);
 
-  pll_utree_t * p = (pll_utree_t *) rollback_info->SPR.prune_edge;
-  pll_utree_t * r = (pll_utree_t *) rollback_info->SPR.regraft_edge;
-  pll_utree_t * z1 =  p->next->back;
-  pll_utree_t * z2 =  r->back;
+  pll_unode_t * p = (pll_unode_t *) rollback_info->SPR.prune_edge;
+  pll_unode_t * r = (pll_unode_t *) rollback_info->SPR.regraft_edge;
+  pll_unode_t * z1 =  p->next->back;
+  pll_unode_t * z2 =  r->back;
 
   /* undo move */
   if (!pllmod_utree_spr(p, r, 0))
@@ -1035,8 +1092,8 @@ static int utree_rollback_nni(pll_tree_rollback_t * rollback_info)
   assert(!rollback_info->rooted);
   assert(rollback_info->rearrange_type == PLLMOD_TREE_REARRANGE_NNI);
 
-  pll_utree_t * p = rollback_info->NNI.edge;
-  pll_utree_t * q = p->back;
+  pll_unode_t * p = rollback_info->NNI.edge;
+  pll_unode_t * q = p->back;
 
   /* undo move */
   if (!pllmod_utree_nni(p, rollback_info->NNI.type, 0))
@@ -1057,7 +1114,7 @@ static int utree_rollback_nni(pll_tree_rollback_t * rollback_info)
 /**
  * callback function for updating p-matrices and partials
  */
-static int cb_update_matrices_partials(pll_utree_t * node, void *data)
+static int cb_update_matrices_partials(pll_unode_t * node, void *data)
 {
   struct cb_params * st_data = (struct cb_params *) data;
 
@@ -1097,49 +1154,4 @@ static int cb_update_matrices_partials(pll_utree_t * node, void *data)
   }
 
   return PLL_SUCCESS;
-}
-
-/*
- * scale all branches in a subtree
- */
-static void scale_branch_length_recursive (pll_utree_t * tree,
-                                           double factor)
-{
-  if (tree)
-  {
-    tree->length *= factor;
-    tree->back->length *= factor;
-
-    if (tree->next)
-    {
-      scale_branch_length_recursive (tree->next->back, factor);
-      scale_branch_length_recursive (tree->next->next->back, factor);
-    }
-  }
-}
-
-/*
- * traverse the tree and set all branch lengths to a fixed value
- * */
-static void utree_set_length_recursive(pll_utree_t * tree,
-                                       double length, int missing_only)
-{
-  if (tree)
-  {
-    /* set branch length to the fixed value if not set */
-    if (!tree->length || !missing_only)
-      tree->length = length;
-
-    if (tree->next)
-    {
-      if (!tree->next->length || !missing_only)
-        tree->next->length = length;
-
-      if (!tree->next->next->length || !missing_only)
-        tree->next->next->length = length;
-
-      utree_set_length_recursive(tree->next->back, length, missing_only);
-      utree_set_length_recursive(tree->next->next->back, length, missing_only);
-    }
-  }
 }
