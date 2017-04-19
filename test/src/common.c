@@ -63,7 +63,7 @@ void show_tree (pll_unode_t * tree, int SHOW_ASCII_TREE)
         PLL_UTREE_SHOW_BRANCH_LENGTH |
         PLL_UTREE_SHOW_CLV_INDEX | PLL_UTREE_SHOW_PMATRIX_INDEX
             | PLL_UTREE_SHOW_SCALER_INDEX);
-    char * newick = pll_utree_export_newick (tree);
+    char * newick = pll_utree_export_newick (tree, NULL);
     printf ("%s\n\n", newick);
     free (newick);
   }
@@ -85,7 +85,7 @@ void show_rtree (pll_rnode_t * tree, int SHOW_ASCII_TREE)
         PLL_UTREE_SHOW_BRANCH_LENGTH |
         PLL_UTREE_SHOW_CLV_INDEX | PLL_UTREE_SHOW_PMATRIX_INDEX
             | PLL_UTREE_SHOW_SCALER_INDEX);
-    char * newick = pll_rtree_export_newick (tree);
+    char * newick = pll_rtree_export_newick (tree, NULL);
     printf ("%s\n\n", newick);
     free (newick);
   }

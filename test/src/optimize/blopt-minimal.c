@@ -141,7 +141,7 @@ int main(int argc, char * argv[])
   tree[2].label = "INNER";
   tree[3].label = tree[4].label = tree[5].label = NULL;
 
-  char * newick = pll_utree_export_newick(tree);
+  char * newick = pll_utree_export_newick(tree, NULL);
   printf("Tree (reference): %s\n", newick);
   free(newick);
 
@@ -171,7 +171,7 @@ int main(int argc, char * argv[])
    printf("-Log-L returned by BL-opt:       %.10f\n", test_logl);
    printf(" Log-L recomputed after BL-opt: %.10f\n", logl);
 
-   newick = pll_utree_export_newick(tree);
+   newick = pll_utree_export_newick(tree, NULL);
    printf("Tree (optimized): %s\n", newick);
    free(newick);
 

@@ -138,7 +138,7 @@ int main (int argc, char * argv[])
   if (!parsed_tree)
     fatal ("Error parsing %s", TREEFILE);
   tip_nodes_count = parsed_tree->tip_count;
-  pll_rnode_t * tree = parsed_tree->nodes[2*tip_nodes_count - 3];
+  pll_rnode_t * tree = parsed_tree->root;
 
   /* compute and show node count information */
   inner_nodes_count = tip_nodes_count - 1;
