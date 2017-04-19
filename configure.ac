@@ -75,23 +75,16 @@ use_fast_blo=yes
 
 AX_EXT
 
-if test "x${ax_cv_have_avx_ext}" = "xyes"; then
-  have_avx=yes
-fi
-
-if test "x${ax_cv_have_sse3_ext}" = "xyes"; then
-  have_sse=yes
-fi
-
-AC_ARG_ENABLE(avx, AS_HELP_STRING([--disable-avx], [Build without AVX support]))
 AS_IF([test "x${ax_cv_have_avx_ext}" = "xyes"], [
   have_avx=yes
 ])
 
-AC_ARG_ENABLE(sse,i AS_HELP_STRING([--disable-sse],[Build without SSE support]))
 AS_IF([test "x${ax_cv_have_sse3_ext}" = "xyes"], [
   have_sse=yes
 ])
+
+AC_ARG_ENABLE(avx, AS_HELP_STRING([--disable-avx], [Build without AVX support]), [have_avx=no])
+AC_ARG_ENABLE(sse,i AS_HELP_STRING([--disable-sse],[Build without SSE support]), [have_sse=no])
 
 AM_CONDITIONAL(HAVE_AVX, test "x${have_avx}" = "xyes")
 AM_CONDITIONAL(HAVE_SSE, test "x${have_sse}" = "xyes")
