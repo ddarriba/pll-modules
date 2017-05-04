@@ -27,6 +27,7 @@
 #endif
 
 /* Parameters mask */
+#define PLLMOD_OPT_PARAM_ALL                 (~0)
 #define PLLMOD_OPT_PARAM_SUBST_RATES         (1<<0)
 #define PLLMOD_OPT_PARAM_ALPHA               (1<<1)
 #define PLLMOD_OPT_PARAM_PINV                (1<<2)
@@ -38,7 +39,9 @@
 #define PLLMOD_OPT_PARAM_FREE_RATES          (1<<8)
 #define PLLMOD_OPT_PARAM_RATE_WEIGHTS        (1<<9)
 #define PLLMOD_OPT_PARAM_BRANCH_LEN_SCALER   (1<<10)
-#define PLLMOD_OPT_PARAM_ALL                 (~0)
+/* !!! NOTE: all params in user code must be defined as
+ *           PLLMOD_OPT_PARAM_USER<<0, PLLMOD_OPT_PARAM_USER<<1 etc. !!! */
+#define PLLMOD_OPT_PARAM_USER                (1<<16)
 
 /* L-BFGS-B bound type */
 #define PLLMOD_OPT_LBFGSB_BOUND_NONE  0
@@ -83,6 +86,7 @@
 #define PLLMOD_OPT_ERROR_NEWTON_LIMIT        2220
 #define PLLMOD_OPT_ERROR_NEWTON_UNKNOWN      2230
 #define PLLMOD_OPT_ERROR_NEWTON_WORSE_LK     2240
+#define PLLMOD_OPT_ERROR_BRENT_INIT          2310
 
 /* Structure with information necessary for evaluating the likelihood */
 

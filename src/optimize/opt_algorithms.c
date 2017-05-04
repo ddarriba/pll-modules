@@ -876,6 +876,17 @@ static int brent_opt_alt (int xnum,
     l_xmax = xmax;
   }
 
+  /* check that lower bound is > 0., seems to be a requirement for Brent */
+  for (i = 0; i < xnum; ++i)
+  {
+    if (!(l_xmin[i] > 0.))
+    {
+      pllmod_set_error(PLLMOD_ERROR_INVALID_RANGE,
+                       "BRENT: lower bound has to be greater than 0!");
+      return PLL_FAILURE;
+    }
+  }
+
   /* this function is a refactored version of brent_opt */
   /* if we consider the following structure:
    *
@@ -906,6 +917,7 @@ static int brent_opt_alt (int xnum,
    *
    * I observed no impact in results nor in runtime
    */
+
   for (i = 0; i < xnum; ++i)
   {
     double eps;
@@ -971,6 +983,7 @@ static int brent_opt_alt (int xnum,
   if (init_failed)
   {
     free(brent_params);
+    pllmod_set_error(PLLMOD_OPT_ERROR_BRENT_INIT, "BRENT: initialization failed!");
     return PLL_FAILURE;
   }
 
