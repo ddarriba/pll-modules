@@ -513,27 +513,113 @@ static void fill_weights (double *weights,
   }
 }
 
-PLL_EXPORT double pllmod_algo_opt_onedim_treeinfo(pllmod_treeinfo_t * treeinfo,
-                                                  int param_to_optimize,
-                                                  double min_value,
-                                                  double max_value,
-                                                  double tolerance)
+static int treeinfo_get_alpha(const pllmod_treeinfo_t * treeinfo,
+                              unsigned int  part_num,
+                              double * param_vals,
+                              unsigned int param_count)
+{
+  if (part_num >= treeinfo->partition_count)
+    return PLL_FAILURE;
+
+  param_vals[0] = treeinfo->alphas[part_num];
+  return PLL_SUCCESS;
+}
+
+static int treeinfo_set_alpha(pllmod_treeinfo_t * treeinfo,
+                              unsigned int  part_num,
+                              const double * param_vals,
+                              unsigned int param_count)
+{
+  if (part_num >= treeinfo->partition_count)
+    return PLL_FAILURE;
+
+  treeinfo->alphas[part_num] = param_vals[0];
+
+  pll_partition_t * partition = treeinfo->partitions[part_num];
+
+  /* update rate categories */
+  if (!pll_compute_gamma_cats (treeinfo->alphas[part_num],
+                               partition->rate_cats,
+                               partition->rates))
+    return PLL_FAILURE;
+
+  return PLL_SUCCESS;
+}
+
+static int treeinfo_get_pinv(const pllmod_treeinfo_t * treeinfo,
+                             unsigned int  part_num,
+                             double * param_vals,
+                             unsigned int param_count)
+{
+  if (part_num >= treeinfo->partition_count)
+    return PLL_FAILURE;
+
+  pll_partition_t * partition = treeinfo->partitions[part_num];
+  param_vals[0] = partition->prop_invar[treeinfo->param_indices[part_num][0]];
+  return PLL_SUCCESS;
+}
+
+static int treeinfo_set_pinv(pllmod_treeinfo_t * treeinfo,
+                             unsigned int  part_num,
+                             const double * param_vals,
+                             unsigned int param_count)
+{
+  if (part_num >= treeinfo->partition_count)
+    return PLL_FAILURE;
+
+  unsigned int k;
+  pll_partition_t * partition = treeinfo->partitions[part_num];
+
+  /* update proportion of invariant sites */
+  for (k = 0; k < partition->rate_cats; ++k)
+  {
+    if (!pll_update_invariant_sites_proportion(partition,
+                                          treeinfo->param_indices[part_num][k],
+                                          param_vals[0]))
+      return PLL_FAILURE;
+  }
+
+  return PLL_SUCCESS;
+}
+
+static int treeinfo_get_brlen_scaler(const pllmod_treeinfo_t * treeinfo,
+                                     unsigned int part_num,
+                                     double * param_vals,
+                                     unsigned int param_count)
+{
+  if (part_num >= treeinfo->partition_count)
+    return PLL_FAILURE;
+
+  param_vals[0] = treeinfo->brlen_scalers[part_num];
+  return PLL_SUCCESS;
+}
+
+static int treeinfo_set_brlen_scaler(pllmod_treeinfo_t * treeinfo,
+                                     unsigned int part_num,
+                                     const double * param_vals,
+                                     unsigned int param_count)
+{
+  if (part_num >= treeinfo->partition_count)
+    return PLL_FAILURE;
+
+  treeinfo->brlen_scalers[part_num] = param_vals[0];
+
+  return PLL_SUCCESS;
+}
+
+PLL_EXPORT
+double pllmod_algo_opt_onedim_treeinfo_custom(pllmod_treeinfo_t * treeinfo,
+                                              int param_to_optimize,
+                                              treeinfo_param_get_cb params_getter,
+                                              treeinfo_param_set_cb params_setter,
+                                              double min_value,
+                                              double max_value,
+                                              double tolerance)
 {
   size_t param_count = 0;
   size_t i;
 
-  /* check parameters: only ONE of the following params is allowed */
-  const int supported_params = PLLMOD_OPT_PARAM_ALPHA |
-                               PLLMOD_OPT_PARAM_PINV |
-                               PLLMOD_OPT_PARAM_BRANCH_LEN_SCALER;
-
-  if (__builtin_popcount(param_to_optimize & supported_params) != 1)
-  {
-    pllmod_set_error(PLL_ERROR_PARAM_INVALID, "Unsupported parameter");
-    return -INFINITY;
-  }
-
-  /* check how many alphas have to be optimized */
+  /* check how many partitions have to be optimized */
   for (i = 0; i < treeinfo->partition_count; ++i)
   {
     if (treeinfo->params_to_optimize[i] & param_to_optimize)
@@ -544,7 +630,7 @@ PLL_EXPORT double pllmod_algo_opt_onedim_treeinfo(pllmod_treeinfo_t * treeinfo,
   {
     double * param_vals = (double *) malloc(param_count * sizeof(double));
 
-    /* collect current values of alphas */
+    /* collect current values of parameters */
     size_t j = 0;
     for (i = 0; i < treeinfo->partition_count; ++i)
     {
@@ -559,20 +645,7 @@ PLL_EXPORT double pllmod_algo_opt_onedim_treeinfo(pllmod_treeinfo_t * treeinfo,
           continue;
         }
 
-        switch (param_to_optimize)
-        {
-          case PLLMOD_OPT_PARAM_ALPHA:
-            param_vals[j] = treeinfo->alphas[i];
-            break;
-          case PLLMOD_OPT_PARAM_PINV:
-            param_vals[j] = partition->prop_invar[treeinfo->param_indices[i][0]];
-            break;
-          case PLLMOD_OPT_PARAM_BRANCH_LEN_SCALER:
-            param_vals[j] = treeinfo->brlen_scalers[i];
-            break;
-          default:
-            assert(0);
-        }
+        params_getter(treeinfo, i, &param_vals[j], 1);
         j++;
       }
     }
@@ -582,6 +655,7 @@ PLL_EXPORT double pllmod_algo_opt_onedim_treeinfo(pllmod_treeinfo_t * treeinfo,
     opt_params.treeinfo           = treeinfo;
     opt_params.param_to_optimize  = param_to_optimize;
     opt_params.num_opt_partitions = param_count;
+    opt_params.param_set_cb       = params_setter;
 
     /* run BRENT optimization for all partitions in parallel */
     int ret = pllmod_opt_minimize_brent_multi(param_count,
@@ -595,42 +669,59 @@ PLL_EXPORT double pllmod_algo_opt_onedim_treeinfo(pllmod_treeinfo_t * treeinfo,
 
     if (ret != PLL_SUCCESS)
       return -INFINITY;
-
-    j = 0;
-    for (i = 0; i < treeinfo->partition_count; ++i)
-    {
-      if (treeinfo->params_to_optimize[i] & param_to_optimize)
-      {
-        /* remote partition -> skip */
-        if (!treeinfo->partitions[i])
-        {
-          j++;
-          continue;
-        }
-
-        switch (param_to_optimize)
-        {
-          case PLLMOD_OPT_PARAM_ALPHA:
-            treeinfo->alphas[i] = param_vals[j];
-            break;
-          case PLLMOD_OPT_PARAM_PINV:
-            /* p-inv was updated by target function directly in the partition */
-            break;
-          case PLLMOD_OPT_PARAM_BRANCH_LEN_SCALER:
-            treeinfo->brlen_scalers[i] = param_vals[j];
-            break;
-          default:
-            assert(0);
-        }
-        j++;
-      }
-    }
-    assert(j == param_count);
   }
 
   double cur_logl = pllmod_treeinfo_compute_loglh(treeinfo, 0);
 
   return -1 * cur_logl;
+}
+
+PLL_EXPORT double pllmod_algo_opt_onedim_treeinfo(pllmod_treeinfo_t * treeinfo,
+                                                  int param_to_optimize,
+                                                  double min_value,
+                                                  double max_value,
+                                                  double tolerance)
+{
+  if (__builtin_popcount(param_to_optimize) > 1)
+  {
+    pllmod_set_error(PLL_ERROR_PARAM_INVALID,
+                     "Multi-parameter optimization is not supported by the "
+                     "pllmod_algo_opt_onedim_treeinfo() function!");
+    return -INFINITY;
+  }
+
+  treeinfo_param_get_cb params_getter = NULL;
+  treeinfo_param_set_cb params_setter = NULL;
+
+  switch (param_to_optimize)
+  {
+    case PLLMOD_OPT_PARAM_ALPHA:
+      params_getter = treeinfo_get_alpha;
+      params_setter = treeinfo_set_alpha;
+      break;
+    case PLLMOD_OPT_PARAM_PINV:
+      params_getter = treeinfo_get_pinv;
+      params_setter = treeinfo_set_pinv;
+      break;
+    case PLLMOD_OPT_PARAM_BRANCH_LEN_SCALER:
+      params_getter = treeinfo_get_brlen_scaler;
+      params_setter = treeinfo_set_brlen_scaler;
+      break;
+    default:
+      pllmod_set_error(PLL_ERROR_PARAM_INVALID, "Unsupported parameter: %d",
+                       param_to_optimize);
+      return -INFINITY;
+  }
+
+  assert(params_getter && params_setter);
+
+  return pllmod_algo_opt_onedim_treeinfo_custom(treeinfo,
+                                                param_to_optimize,
+                                                params_getter,
+                                                params_setter,
+                                                min_value,
+                                                max_value,
+                                                tolerance);
 }
 
 PLL_EXPORT

@@ -982,6 +982,8 @@ static int brent_opt_alt (int xnum,
 
   if (init_failed)
   {
+    /* restore the original parameter value */
+    target_funk (params, xguess, fx, NULL);
     free(brent_params);
     pllmod_set_error(PLLMOD_OPT_ERROR_BRENT_INIT, "BRENT: initialization failed!");
     return PLL_FAILURE;

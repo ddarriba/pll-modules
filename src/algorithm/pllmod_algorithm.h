@@ -46,6 +46,16 @@ typedef struct cutoff_info
   int lh_dec_count;
 } cutoff_info_t;
 
+typedef int (*treeinfo_param_set_cb)(pllmod_treeinfo_t * treeinfo,
+                                     unsigned int  part_num,
+                                     const double * param_vals,
+                                     unsigned int param_count);
+
+typedef int (*treeinfo_param_get_cb)(const pllmod_treeinfo_t * treeinfo,
+                                     unsigned int  part_num,
+                                     double * param_vals,
+                                     unsigned int param_count);
+
 /*
  * Optimize stationary frequencies for parameters `params_index`.
  */
@@ -128,6 +138,15 @@ PLL_EXPORT double pllmod_algo_opt_onedim_treeinfo(pllmod_treeinfo_t * treeinfo,
                                                   double min_value,
                                                   double max_value,
                                                   double tolerance);
+
+PLL_EXPORT
+double pllmod_algo_opt_onedim_treeinfo_custom(pllmod_treeinfo_t * treeinfo,
+                                              int param_to_optimize,
+                                              treeinfo_param_get_cb params_getter,
+                                              treeinfo_param_set_cb params_setter,
+                                              double min_value,
+                                              double max_value,
+                                              double tolerance);
 
 PLL_EXPORT
 double pllmod_algo_opt_subst_rates_treeinfo (pllmod_treeinfo_t * treeinfo,
