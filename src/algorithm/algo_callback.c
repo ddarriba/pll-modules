@@ -136,7 +136,8 @@ double target_alpha_func(void *p, double x)
   /* update rate categories */
   if (!pll_compute_gamma_cats (x,
                                partition->rate_cats,
-                               partition->rates))
+                               partition->rates,
+                               params->gamma_mode))
   {
     return PLL_FAILURE;
   }
@@ -186,7 +187,8 @@ double target_alpha_pinv_func(void *p, double *x)
   /* update rate categories */
   if (!pll_compute_gamma_cats (x[0],
                                partition->rate_cats,
-                               partition->rates))
+                               partition->rates,
+                               params->gamma_mode))
   {
     return PLL_FAILURE;
   }

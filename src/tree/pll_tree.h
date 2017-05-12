@@ -189,6 +189,7 @@ typedef struct treeinfo
   // partitions & partition-specific stuff
   pll_partition_t ** partitions;
   double * alphas;
+  int * gamma_mode; /* discrete GAMMA rates computation mode (mean, median) */
   unsigned int ** param_indices;
   int ** subst_matrix_symmetries;
   double ** branch_lengths;
@@ -470,6 +471,7 @@ PLL_EXPORT int pllmod_treeinfo_init_partition(pllmod_treeinfo_t * treeinfo,
                                            unsigned int partition_index,
                                            pll_partition_t * partition,
                                            int params_to_optimize,
+                                           int gamma_mode,
                                            double alpha,
                                            const unsigned int * param_indices,
                                            const int * subst_matrix_symmetries);

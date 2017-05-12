@@ -48,7 +48,7 @@ int main(int argc, char * argv[])
   unsigned int matrix_indices[3] = { 0, 1, 2 };
   double subst_params[6] = {1.452176, 0.937951, 0.462880, 0.617729, 1.745312, 1.000000};
   double rate_cats[4];
-  pll_compute_gamma_cats(alpha, 4, rate_cats);
+  pll_compute_gamma_cats(alpha, 4, rate_cats, PLL_GAMMA_RATES_MEAN);
 
   /* set */
   pll_set_frequencies(partition, 0, frequencies);
@@ -85,9 +85,9 @@ int main(int argc, char * argv[])
                        0.0000002445,0.0000001169,0.0165200071,0.0000006303,0.0000002578,0.0000001236,0.0161407319,0.0000006936,
                        0.0000006741,0.0000006317,0.0001509298,0.0000005609,0.0000007244,0.0000006695,0.0001579430,0.0000006157,
                        0.0000007612,0.0000006968,0.0001627960,0.0000006564,0.0000008184,0.0000007388,0.0001699152,0.0000007205};
-    pll_set_tip_clv(partition, 0, tip1);
-    pll_set_tip_clv(partition, 1, tip2);
-    pll_set_tip_clv(partition, 2, tip3);
+    pll_set_tip_clv(partition, 0, tip1, PLL_FALSE);
+    pll_set_tip_clv(partition, 1, tip2, PLL_FALSE);
+    pll_set_tip_clv(partition, 2, tip3, PLL_FALSE);
   }
 
   pll_update_prob_matrices(partition, params_indices, matrix_indices, branch_lengths, 3);

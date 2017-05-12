@@ -215,7 +215,7 @@ int main (int argc, char * argv[])
     return 1;
   }
 
-  pll_compute_gamma_cats(ALPHA, N_RATE_CATS, rate_cats);
+  pll_compute_gamma_cats(ALPHA, N_RATE_CATS, rate_cats, PLL_GAMMA_RATES_MEAN);
   pll_set_frequencies(partition, 0, frequencies);
   pll_set_subst_params(partition, 0, subst_params);
   pll_set_category_rates(partition, rate_cats);

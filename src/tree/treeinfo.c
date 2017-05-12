@@ -148,6 +148,7 @@ PLL_EXPORT pllmod_treeinfo_t * pllmod_treeinfo_create(pll_unode_t * root,
   treeinfo->partitions = (pll_partition_t **) calloc(partitions, sizeof(pll_partition_t *));
   treeinfo->params_to_optimize = (int *) calloc(partitions, sizeof(int));
   treeinfo->alphas = (double *) calloc(partitions, sizeof(double));
+  treeinfo->gamma_mode = (int *) calloc(partitions, sizeof(int));
   treeinfo->param_indices = (unsigned int **) calloc(partitions, sizeof(unsigned int*));
   treeinfo->subst_matrix_symmetries = (int **) calloc(partitions, sizeof(int*));
   treeinfo->branch_lengths = (double **) calloc(partitions, sizeof(double*));
@@ -170,6 +171,7 @@ PLL_EXPORT pllmod_treeinfo_t * pllmod_treeinfo_create(pll_unode_t * root,
       !treeinfo->subst_matrix_symmetries || !treeinfo->branch_lengths ||
       !treeinfo->deriv_precomp || !treeinfo->clv_valid || !treeinfo->pmatrix_valid ||
       !treeinfo->linked_branch_lengths || !treeinfo->partition_loglh ||
+      !treeinfo->gamma_mode ||
       (brlen_linkage == PLLMOD_TREE_BRLEN_SCALED && !treeinfo->brlen_scalers))
   {
     pllmod_set_error(PLL_ERROR_MEM_ALLOC,
@@ -180,6 +182,9 @@ PLL_EXPORT pllmod_treeinfo_t * pllmod_treeinfo_create(pll_unode_t * root,
   unsigned int p;
   for (p = 0; p < partitions; ++p)
   {
+    /* use mean GAMMA rates per default */
+    treeinfo->gamma_mode[p] = PLL_GAMMA_RATES_MEAN;
+
     /* allocate arrays for storing the per-partition branch lengths */
     if (brlen_linkage == PLLMOD_TREE_BRLEN_UNLINKED)
       treeinfo->branch_lengths[p] =
@@ -226,6 +231,7 @@ PLL_EXPORT int pllmod_treeinfo_init_partition(pllmod_treeinfo_t * treeinfo,
                                            unsigned int partition_index,
                                            pll_partition_t * partition,
                                            int params_to_optimize,
+                                           int gamma_mode,
                                            double alpha,
                                            const unsigned int * param_indices,
                                            const int * subst_matrix_symmetries)
@@ -245,6 +251,7 @@ PLL_EXPORT int pllmod_treeinfo_init_partition(pllmod_treeinfo_t * treeinfo,
 
   treeinfo->partitions[partition_index] = partition;
   treeinfo->params_to_optimize[partition_index] = params_to_optimize;
+  treeinfo->gamma_mode[partition_index] = gamma_mode;
   treeinfo->alphas[partition_index] = alpha;
 
   /* compute some derived dimensions */
@@ -456,6 +463,7 @@ PLL_EXPORT void pllmod_treeinfo_destroy(pllmod_treeinfo_t * treeinfo)
   /* free alpha and param_indices arrays */
   free(treeinfo->params_to_optimize);
   free(treeinfo->alphas);
+  free(treeinfo->gamma_mode);
   free(treeinfo->param_indices);
   free(treeinfo->branch_lengths);
   free(treeinfo->partition_loglh);

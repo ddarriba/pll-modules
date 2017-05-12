@@ -27,6 +27,7 @@ struct default_params {
   pll_partition_t * partition;
   pll_unode_t * tree;
   unsigned int * params_indices;     /* indices for computing the likelihood */
+  int gamma_mode;    /* discrete GAMMA rates computation mode (mean, median) */
 };
 
 struct freqs_params {

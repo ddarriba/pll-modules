@@ -225,6 +225,7 @@ PLL_EXPORT double pllmod_algo_opt_alpha (pll_partition_t * partition,
   opt_params.partition      = partition;
   opt_params.tree           = tree;
   opt_params.params_indices = params_indices;
+  opt_params.gamma_mode     = PLL_GAMMA_RATES_MEAN;  // for now
 
   xres = pllmod_opt_minimize_brent(min_alpha, *alpha, max_alpha,
                             tolerance,
@@ -291,6 +292,7 @@ PLL_EXPORT double pllmod_algo_opt_alpha_pinv (pll_partition_t * partition,
   opt_params.partition      = partition;
   opt_params.tree           = tree;
   opt_params.params_indices = params_indices;
+  opt_params.gamma_mode     = PLL_GAMMA_RATES_MEAN;  // for now
 
   /* init alpha */
   x[0] = *alpha;
@@ -540,7 +542,8 @@ static int treeinfo_set_alpha(pllmod_treeinfo_t * treeinfo,
   /* update rate categories */
   if (!pll_compute_gamma_cats (treeinfo->alphas[part_num],
                                partition->rate_cats,
-                               partition->rates))
+                               partition->rates,
+                               treeinfo->gamma_mode[part_num]))
     return PLL_FAILURE;
 
   return PLL_SUCCESS;

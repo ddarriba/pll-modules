@@ -68,7 +68,7 @@ int main(int argc, char * argv[])
   double subst_params[10] = {1.452176, 0.937951, 0.462880, 0.617729, 1.745312, 0.937951, 0.462880, 0.617729, 1.745312, 1.000000};
 
 
-  pll_compute_gamma_cats(alpha, RATE_CATS, rates);
+  pll_compute_gamma_cats(alpha, RATE_CATS, rates, PLL_GAMMA_RATES_MEAN);
 
   /* set */
   pll_set_frequencies(partition, 0, frequencies);

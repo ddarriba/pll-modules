@@ -210,7 +210,8 @@ static int set_x_to_parameters(pll_optimize_options_t * params,
     }
 
     params->lk_params.alpha_value = xptr[0];
-    if (!pll_compute_gamma_cats (xptr[0], partition->rate_cats, rate_cats))
+    if (!pll_compute_gamma_cats (xptr[0], partition->rate_cats,
+                                 rate_cats, PLL_GAMMA_RATES_MEAN))
     {
       return PLL_FAILURE;
     }
