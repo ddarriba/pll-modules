@@ -28,6 +28,8 @@
 
 bitv_hashtable_t *hash_init(unsigned int n);
 
+void hash_destroy_entry(bitv_hash_entry_t *e);
+
 void hash_destroy(bitv_hashtable_t *h);
 
 bitv_hash_entry_t *entry_init(void);
@@ -46,6 +48,10 @@ void hash_insert(pll_split_t bit_vector,
                  unsigned int bip_number,
                  hash_key_t key,
                  unsigned int position);
+
+void hash_remove(bitv_hashtable_t *h,
+                 bitv_hash_entry_t ** prev_ptr,
+                 bitv_hash_entry_t * e);
 
 /* string */
 

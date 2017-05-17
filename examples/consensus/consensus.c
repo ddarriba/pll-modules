@@ -30,8 +30,8 @@
 static void fatal (const char * format, ...);
 
 /* function for printing non-binary trees */
-static void print_newick_recurse(pll_utree_t * node);
-static void print_newick(pll_utree_t * tree);
+static void print_newick_recurse(pll_unode_t * node);
+static void print_newick(pll_unode_t * tree);
 
 int main (int argc, char * argv[])
 {
@@ -40,7 +40,7 @@ int main (int argc, char * argv[])
 
   double support = atof(argv[2]);
 
-  pll_utree_t * constree =
+  pll_unode_t * constree =
     pllmod_utree_consensus(argv[1],
                           support,
                           0);
@@ -49,7 +49,7 @@ int main (int argc, char * argv[])
 
   print_newick(constree);
 
-  pll_utree_destroy(constree, NULL);
+  pll_utree_graph_destroy(constree, NULL);
 
   return 0;
 }
@@ -68,9 +68,9 @@ static void fatal (const char * format, ...)
   exit (EXIT_FAILURE);
 }
 
-static void print_newick_recurse(pll_utree_t * node)
+static void print_newick_recurse(pll_unode_t * node)
 {
-  pll_utree_t * child;
+  pll_unode_t * child;
   if (pllmod_utree_is_tip(node))
   {
     printf("%s", node->label);
@@ -91,11 +91,11 @@ static void print_newick_recurse(pll_utree_t * node)
   printf(")");
 }
 
-static void print_newick(pll_utree_t * tree)
+static void print_newick(pll_unode_t * tree)
 {
   printf("(");
   print_newick_recurse(tree->back);
-  pll_utree_t * child = tree->next;
+  pll_unode_t * child = tree->next;
   while(child != tree)
   {
     printf(",");

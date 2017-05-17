@@ -291,6 +291,10 @@ static pll_utree_t * read_tree(FILE * file,
   else
   {
     utree = pll_utree_parse_newick_string(tree_str);
+    if (!utree)
+    {
+      return NULL;
+    }
     *tip_count = utree->tip_count;
     root = utree->nodes[utree->tip_count + utree->inner_count - 1];
 
@@ -340,6 +344,82 @@ static FILE *get_number_of_trees(unsigned int *tree_count,
   return f;
 }
 
+/* reverse sort splits by weight */
+static int sort_by_weight(const void *a, const void *b)
+{
+  int ca,
+      cb;
+
+  ca = ((*((bitv_hash_entry_t **)a))->support);
+  cb = ((*((bitv_hash_entry_t **)b))->support);
+
+  if (ca == cb)
+    return 0;
+
+  return ((ca<cb)?1:-1);
+}
+
+static void mre(bitv_hashtable_t *h,
+                pll_split_t *consensus,
+                unsigned int *split_count,
+                unsigned int split_len,
+                unsigned int max_splits)
+{
+  bitv_hash_entry_t **split_list;
+
+  unsigned int
+    i = 0,
+    j = 0;
+
+  /* queue all splits */
+
+  split_list = (bitv_hash_entry_t **) malloc(sizeof(bitv_hash_entry_t *) *
+                                             h->entry_count);
+
+  j = 0;
+  for(i = 0; i < h->table_size; i++) /* copy hashtable h to list sbw */
+  {
+    bitv_hash_entry_t * e =  h->table[i];
+    while (e != NULL)
+    {
+      split_list[j] = e;
+      ++j;
+      e = e->next;
+    }
+  }
+  assert(h->entry_count == j);
+
+  /* sort by weight descending */
+  qsort(split_list, h->entry_count, sizeof(bitv_hash_entry_t *), sort_by_weight);
+
+  for(i = 0; i < h->entry_count && (*split_count) < max_splits; i++)
+  {
+    int compatible = 1;
+    bitv_hash_entry_t * split_candidate = split_list[i];
+    for (j=0; j<*split_count; ++j)
+    {
+      pll_split_t split_consolidated = consensus[j];
+      if (!pllmod_utree_compatible_splits(split_candidate->bit_vector,
+                                          split_consolidated,
+                                          split_len))
+      {
+        compatible = 0;
+        break;
+      }
+    }
+
+    if(compatible)
+    {
+      consensus[*split_count] = clone_split(split_candidate->bit_vector, split_len);
+      ++(*split_count);
+    }
+  }
+
+  free(split_list);
+
+  return;
+}
+
 /**
  * Build a consensus tree out of a set of trees in a file in NEWICK format
  *
@@ -369,14 +449,15 @@ PLL_EXPORT pll_unode_t * pllmod_utree_consensus(const char * trees_filename,
                split_len,
                tree_count,         /* number of trees */
                min_support,        /* minimum split support */
+               thr_support,        /* threshold support */
                current_tree_index; /* for error management */
 
   /* validate threshold */
-  if (threshold < 0.5 || threshold > 1)
+  if (threshold > 1)
   {
     pllmod_set_error(
       PLLMOD_TREE_ERROR_INVALID_THRESHOLD,
-      "Invalid consensus threshold (%f). Should be in range [0.5,1.0]",
+      "Invalid consensus threshold (%f). Should be in range [0.0,1.0]",
       threshold);
     return NULL;
   }
@@ -388,15 +469,17 @@ PLL_EXPORT pll_unode_t * pllmod_utree_consensus(const char * trees_filename,
   }
 
   min_support = (unsigned int) floor(threshold * tree_count);
+  if (threshold >= .5)
+    thr_support = min_support;
+  else
+    thr_support = (unsigned int) floor(tree_count/2);
 
   /* read first tree */
   reference_tree = read_tree(trees_file, &n_chunks, &tip_count, NULL);
 
-  if(tree_count == 0 || !reference_tree)
+  if(!reference_tree)
   {
-    pllmod_set_error(
-      PLLMOD_TREE_ERROR_INVALID_TREE,
-      "Input file contains no valid trees");
+    assert(pll_errno);
     fclose(trees_file);
     return NULL;
   }
@@ -473,22 +556,51 @@ PLL_EXPORT pll_unode_t * pllmod_utree_consensus(const char * trees_filename,
   unsigned int max_splits = tip_count - 3;
   split_system = (pll_split_t *) malloc (sizeof(pll_split_t) * max_splits);
   unsigned int cons_split_count = 0;
+
   for (i=0; i<splits_hash->table_size; ++i)
   {
     bitv_hash_entry_t * e =  splits_hash->table[i];
+    bitv_hash_entry_t ** e_ptr = &(splits_hash->table[i]);
     while (e != NULL)
     {
       // This works for MR and STRICT consensus (i.e., threshold >= 0.5)
       // TODO: Implement also MR extended
-      if (e->support > (int) min_support)
+      int delete_split = e->support <= (int) min_support || e->support > (int) thr_support;
+
+      if (e->support > (int) thr_support)
       {
         assert (cons_split_count < max_splits);
         split_system[cons_split_count++] = clone_split(e->bit_vector, split_len);
       }
-      e = e->next;
+
+      if (delete_split)
+      {
+        /* remove entry */
+        hash_remove(splits_hash, e_ptr, e);
+
+        e = *e_ptr;
+      }
+      else
+      {
+        e_ptr = &(e->next);
+        e = e->next;
+      }
     }
   }
+
+  if (min_support < thr_support)
+  {
+    mre(splits_hash,
+        split_system,
+        &cons_split_count,
+        split_len,
+        max_splits);
+  }
   hash_destroy(splits_hash);
+
+  /* find set of splits compatible with the tree */
+
+  /* add largest subset of compatible scripts */
 
   /* buld tree from splits */
   consensus_tree = pllmod_utree_from_splits(split_system,

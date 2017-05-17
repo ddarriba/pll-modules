@@ -73,6 +73,17 @@ bitv_hashtable_t *hash_init(unsigned int n)
   return h;
 }
 
+void hash_destroy_entry(bitv_hash_entry_t *e)
+{
+  if(e->bit_vector)
+    free(e->bit_vector);
+
+  if(e->tree_vector)
+    free(e->tree_vector);
+
+  free(e);
+}
+
 void hash_destroy(bitv_hashtable_t *h)
 {
   unsigned int
@@ -92,13 +103,7 @@ void hash_destroy(bitv_hashtable_t *h)
 	      previous = e;
 	      e = e->next;
 
-	      if(previous->bit_vector)
-		      free(previous->bit_vector);
-
-	      if(previous->tree_vector)
-		      free(previous->tree_vector);
-
-	      free(previous);
+        hash_destroy_entry(previous);
 	      ++entry_count;
 	    }
   	  while(e != NULL);
@@ -191,29 +196,6 @@ void hash_insert(pll_split_t bit_vector,
 
   if(h->table[position] != NULL)
     {
-//      e = h->table[position];
-//      do
-//      {
-//        unsigned int i = 0;
-//
-//        /* check for identity of bipartitions */
-//
-//        if (e->key == key)
-//          for(i = 0; i < vector_length; ++i)
-//            if(bit_vector[i] != e->bit_vector[i])
-//              break;
-//
-//        if(i == vector_length)
-//        {
-//          e->support = e->support + 1;
-//          return;
-//        }
-//
-//        /* otherwise keep searching */
-//        e = e->next;
-//      }
-//      while(e != (bitv_hash_entry_t*)NULL);
-
       /* search for this split in hashtable, and increment its support if found */
       if (hash_update(bit_vector, h, vector_length, key, position))
         return;
@@ -243,6 +225,15 @@ void hash_insert(pll_split_t bit_vector,
   h->entry_count =  h->entry_count + 1;
 }
 
+void hash_remove(bitv_hashtable_t *h,
+                 bitv_hash_entry_t ** prev_ptr,
+                 bitv_hash_entry_t * e)
+{
+  *prev_ptr = e->next;
+  hash_destroy_entry(e);
+  --h->entry_count;
+  assert(h->entry_count >= 0);
+}
 
 /* string */
 
