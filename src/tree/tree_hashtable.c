@@ -22,7 +22,8 @@
 #include "tree_hashtable.h"
 #include "../pllmod_common.h"
 
-bitv_hashtable_t *hash_init(unsigned int n)
+bitv_hashtable_t *hash_init(unsigned int n,
+                            unsigned int bit_count)
 {
   /* init with powers of two */
   static const unsigned int init_table[] = {
@@ -61,6 +62,8 @@ bitv_hashtable_t *hash_init(unsigned int n)
   h->table = (bitv_hash_entry_t**)calloc(table_size, sizeof(bitv_hash_entry_t*));
   h->table_size = table_size;
   h->entry_count = 0;
+  h->bit_count = bit_count;
+  h->bitv_len = bitv_length(bit_count);
 
   if (!h->table)
   {
@@ -152,10 +155,15 @@ hash_key_t hash_get_key(pll_split_t s, int len)
  * but never adds new splits to the hashtable */
 int hash_update(pll_split_t bit_vector,
                 bitv_hashtable_t *h,
-                unsigned int vector_length,
                 hash_key_t key,
                 unsigned int position)
 {
+  if (key == HASH_KEY_UNDEF)
+  {
+      key = hash_get_key(bit_vector, (int)h->bitv_len);
+      position = key % h->table_size;
+  }
+
   if(h->table[position] != NULL)
   {
     bitv_hash_entry_t *e = h->table[position];
@@ -166,11 +174,11 @@ int hash_update(pll_split_t bit_vector,
       /* check for identity of bipartitions */
 
       if (e->key == key)
-        for(i = 0; i < vector_length; ++i)
+        for(i = 0; i < h->bitv_len; ++i)
           if(bit_vector[i] != e->bit_vector[i])
             break;
 
-      if(i == vector_length)
+      if(i == h->bitv_len)
       {
         e->support = e->support + 1;
         return PLL_SUCCESS;
@@ -187,17 +195,22 @@ int hash_update(pll_split_t bit_vector,
 
 void hash_insert(pll_split_t bit_vector,
                  bitv_hashtable_t *h,
-                 unsigned int vector_length,
                  unsigned int bip_number,
                  hash_key_t key,
                  unsigned int position)
 {
   bitv_hash_entry_t *e;
 
+  if (key == HASH_KEY_UNDEF)
+  {
+      key = hash_get_key(bit_vector, (int)h->bitv_len);
+      position = key % h->table_size;
+  }
+
   if(h->table[position] != NULL)
     {
       /* search for this split in hashtable, and increment its support if found */
-      if (hash_update(bit_vector, h, vector_length, key, position))
+      if (hash_update(bit_vector, h, key, position))
         return;
 
       /* add new split to the hashtable */
@@ -205,8 +218,8 @@ void hash_insert(pll_split_t bit_vector,
       e->key = key;
       e->bip_number = bip_number;
 
-      e->bit_vector = (pll_split_t) calloc(vector_length, sizeof(pll_split_base_t));
-      memcpy(e->bit_vector, bit_vector, sizeof(pll_split_base_t) * vector_length);
+      e->bit_vector = (pll_split_t) calloc(h->bitv_len, sizeof(pll_split_base_t));
+      memcpy(e->bit_vector, bit_vector, sizeof(pll_split_base_t) * h->bitv_len);
 
       e->next = h->table[position];
       h->table[position] = e;
@@ -216,8 +229,8 @@ void hash_insert(pll_split_t bit_vector,
     e = entry_init();
     e->key = key;
     e->bip_number = bip_number;
-    e->bit_vector = (pll_split_t) calloc(vector_length, sizeof(pll_split_base_t));
-    memcpy(e->bit_vector, bit_vector, sizeof(pll_split_base_t) * vector_length);
+    e->bit_vector = (pll_split_t) calloc(h->bitv_len, sizeof(pll_split_base_t));
+    memcpy(e->bit_vector, bit_vector, sizeof(pll_split_base_t) * h->bitv_len);
 
     h->table[position] = e;
   }
@@ -233,6 +246,55 @@ void hash_remove(bitv_hashtable_t *h,
   hash_destroy_entry(e);
   --h->entry_count;
   assert(h->entry_count >= 0);
+}
+
+void hash_print(bitv_hashtable_t *h)
+{
+  unsigned int i;
+  for (i=0; i<h->table_size; ++i)
+  {
+    bitv_hash_entry_t * e =  h->table[i];
+    while (e != NULL)
+    {
+      pllmod_utree_split_show(e->bit_vector, h->bit_count);
+      printf(" %d\n", e->support);
+      e = e->next;
+    }
+  }
+}
+
+void bitv_normalize(pll_split_t bitv, unsigned int bit_count)
+{
+  unsigned int split_size  = sizeof(pll_split_base_t) * 8;
+  unsigned int split_offset = bit_count % split_size;
+  unsigned int split_len    = bitv_length(bit_count);
+  unsigned int i;
+
+  int normalized = bitv_is_normalized(bitv);
+
+  if (!normalized)
+  {
+    for (i=0; i<split_len; ++i)
+    {
+      bitv[i] = ~bitv[i];
+    }
+
+    unsigned int mask = (1<<split_offset) - 1;
+    bitv[split_len - 1] &= mask;
+  }
+}
+
+int bitv_is_normalized(const pll_split_t bitv)
+{
+  return bitv[0]&1;
+}
+
+unsigned int bitv_length(unsigned int bit_count)
+{
+  unsigned int split_size = sizeof(pll_split_base_t) * 8;
+  unsigned int split_offset = bit_count % split_size;
+
+  return bit_count / split_size + (split_offset>0);
 }
 
 /* string */

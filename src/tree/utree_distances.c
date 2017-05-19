@@ -33,20 +33,15 @@
 #include "../pllmod_common.h"
 
 static int cb_get_splits(pll_unode_t * node, void *data);
-static inline void clone_split(pll_split_t to,
-                         const pll_split_t from,
-                         unsigned int split_len);
 static inline void merge_split(pll_split_t to,
                          const pll_split_t from,
                          unsigned int split_len);
-static void normalize_split(pll_split_t split, unsigned int tip_count);
 static int _cmp_splits (const void * a, const void * b);
 static int compare_splits (pll_split_t s1,
                            pll_split_t s2,
                            unsigned int split_len);
 static unsigned int get_utree_splitmap_id(pll_unode_t * node,
                                           unsigned int tip_count);
-static unsigned int split_length(unsigned int tip_count);
 
 struct cb_split_params
 {
@@ -226,7 +221,7 @@ PLL_EXPORT unsigned int pllmod_utree_split_rf_distance(pll_split_t * s1,
                                                        unsigned int tip_count)
 {
   unsigned int split_count = tip_count - 3;
-  unsigned int split_len   = split_length(tip_count);
+  unsigned int split_len   = bitv_length(tip_count);
   unsigned int equal = 0;
   unsigned int s1_idx = 0,
                s2_idx = 0;
@@ -294,14 +289,14 @@ PLL_EXPORT void pllmod_utree_split_normalize_and_sort(pll_split_t * s,
 
   pll_split_t first_split;
   for (i=0; i<split_count;++i)
-    normalize_split(s[i], tip_count);
+    bitv_normalize(s[i], tip_count);
 
   first_split = s[0];
   qsort(s, split_count, sizeof(pll_split_t), _cmp_splits);
 
   if (keep_first && first_split != s[0])
   {
-    split_len = split_length(tip_count);
+    split_len = bitv_length(tip_count);
 
     /* find first split */
     for (i=1; s[i] != first_split && i < split_count; ++i);
@@ -329,7 +324,7 @@ PLL_EXPORT void pllmod_utree_split_show(pll_split_t split, unsigned int tip_coun
 {
   unsigned int split_size   = sizeof(pll_split_base_t) * 8;
   unsigned int split_offset = tip_count % split_size;
-  unsigned int split_len    = split_length(tip_count);;
+  unsigned int split_len    = bitv_length(tip_count);;
   unsigned int i, j;
 
   for (i=0; i<(split_len-1); ++i)
@@ -337,7 +332,6 @@ PLL_EXPORT void pllmod_utree_split_show(pll_split_t split, unsigned int tip_coun
       (split[i]&(1u<<j))?putchar('*'):putchar('-');
   for (j=0; j<split_offset; ++j)
     (split[i]&(1u<<j))?putchar('*'):putchar('-');
-  printf("\n");
 }
 
 /*
@@ -418,7 +412,7 @@ PLL_EXPORT pll_split_t * pllmod_utree_split_create(pll_unode_t * tree,
 
   /* normalize the splits such that first position is set */
   for (i=0; i<split_count;++i)
-    normalize_split(split_list[i], tip_count);
+    bitv_normalize(split_list[i], tip_count);
 
   if (_split_count)
     *_split_count = split_count;
@@ -445,12 +439,11 @@ pllmod_utree_split_hashtable_insert(bitv_hashtable_t * splits_hash,
                                     int update_only)
 {
   unsigned int i;
-  unsigned int split_len = split_length(tip_count);
 
   if (!splits_hash)
   {
     /* create new hashtable */
-    splits_hash = hash_init(tip_count * 10);
+    splits_hash = hash_init(tip_count * 10, tip_count);
     /* hashtable is empty, so update_only doesn't make sense here */
     update_only = 0;
   }
@@ -463,25 +456,20 @@ pllmod_utree_split_hashtable_insert(bitv_hashtable_t * splits_hash,
   /* insert splits */
   for (i=0; i<split_count; ++i)
   {
-    hash_key_t key = hash_get_key(splits[i], (int)split_len);
-    unsigned int hash_position = key % splits_hash->table_size;
-
     if (update_only)
     {
       hash_update(splits[i],
                   splits_hash,
-                  split_len,
-                  key,
-                  hash_position);
+                  HASH_KEY_UNDEF,
+                  0);
     }
     else
     {
       hash_insert(splits[i],
                   splits_hash,
-                  split_len,
                   i,
-                  key,
-                  hash_position);
+                  HASH_KEY_UNDEF,
+                  0);
     }
   }
 
@@ -493,7 +481,7 @@ pllmod_utree_split_hashtable_lookup(bitv_hashtable_t * splits_hash,
                                     pll_split_t split,
                                     unsigned int tip_count)
 {
-  unsigned int split_len = split_length(tip_count);
+  unsigned int split_len = bitv_length(tip_count);
   hash_key_t position = hash_get_key(split, split_len) % splits_hash->table_size;
   bitv_hash_entry_t *p = splits_hash->table[position];
 
@@ -523,13 +511,6 @@ PLL_EXPORT void pllmod_utree_split_destroy(pll_split_t * split_list)
 
 /******************************************************************************/
 /* static functions */
-
-static inline void clone_split(pll_split_t to,
-                         const pll_split_t from,
-                         unsigned int split_len)
-{
-  memcpy(to, from, sizeof(pll_split_base_t) * split_len);
-}
 
 static inline void merge_split(pll_split_t to,
                          const pll_split_t from,
@@ -586,7 +567,9 @@ static int cb_get_splits(pll_unode_t * node, void *data)
     {
       child_split_id = (unsigned int)
         split_data->id_to_split[get_utree_splitmap_id(node->next, tip_count)];
-      clone_split(current_split, split_data->splits[child_split_id], split_len);
+
+      memcpy(current_split, split_data->splits[child_split_id],
+             sizeof(pll_split_base_t) * split_len);
     }
     else
     {
@@ -654,25 +637,6 @@ static int _cmp_splits (const void * a, const void * b)
   return (int) ((*s1)[i]>(*s2)[i]?1:-1);
 }
 
-static void normalize_split(pll_split_t split, unsigned int tip_count)
-{
-  unsigned int split_size  = sizeof(pll_split_base_t) * 8;
-  unsigned int split_offset = tip_count % split_size;
-  unsigned int split_len    = split_length(tip_count);
-  unsigned int i;
-
-  int normalized = split[0]&1;
-
-  if (!normalized)
-  {
-    for (i=0; i<split_len; ++i)
-      split[i] = ~split[i];
-
-    unsigned int mask = (1<<split_offset) - 1;
-    split[split_len - 1] &= mask;
-  }
-}
-
 /*
   The position of the node in the map of branches to splits is computed
   according to the node id.
@@ -683,12 +647,4 @@ static unsigned int get_utree_splitmap_id(pll_unode_t * node,
   unsigned int node_id = node->node_index;
   assert(node_id >= tip_count);
   return node_id - tip_count;
-}
-
-static unsigned int split_length(unsigned int tip_count)
-{
-  unsigned int split_size = sizeof(pll_split_base_t) * 8;
-  unsigned int split_offset = tip_count % split_size;
-
-  return tip_count / split_size + (split_offset>0);
 }

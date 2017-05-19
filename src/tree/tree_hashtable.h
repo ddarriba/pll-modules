@@ -26,7 +26,8 @@
 
 /* bitvector */
 
-bitv_hashtable_t *hash_init(unsigned int n);
+bitv_hashtable_t *hash_init(unsigned int n,
+                            unsigned int bit_count);
 
 void hash_destroy_entry(bitv_hash_entry_t *e);
 
@@ -38,13 +39,11 @@ hash_key_t hash_get_key(pll_split_t s, int len);
 
 int hash_update(pll_split_t bit_vector,
                  bitv_hashtable_t *h,
-                 unsigned int vector_length,
                  hash_key_t key,
                  unsigned int position);
 
 void hash_insert(pll_split_t bit_vector,
                  bitv_hashtable_t *h,
-                 unsigned int vector_length,
                  unsigned int bip_number,
                  hash_key_t key,
                  unsigned int position);
@@ -52,6 +51,16 @@ void hash_insert(pll_split_t bit_vector,
 void hash_remove(bitv_hashtable_t *h,
                  bitv_hash_entry_t ** prev_ptr,
                  bitv_hash_entry_t * e);
+
+void hash_print(bitv_hashtable_t *h);
+
+/* bitvector utilities */
+
+void bitv_normalize(pll_split_t bitv, unsigned int bit_count);
+
+int bitv_is_normalized(const pll_split_t bitv);
+
+unsigned int bitv_length(unsigned int bit_count);
 
 /* string */
 

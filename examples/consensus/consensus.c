@@ -35,6 +35,8 @@ static void print_newick(pll_unode_t * tree);
 
 int main (int argc, char * argv[])
 {
+  unsigned int tree_count, min_support;
+
   if (argc != 3)
     fatal (" syntax: %s [trees file] [support]", argv[0]);
 
@@ -43,7 +45,8 @@ int main (int argc, char * argv[])
   pll_unode_t * constree =
     pllmod_utree_consensus(argv[1],
                           support,
-                          0);
+                          &tree_count,
+                          &min_support);
   if (!constree)
     fatal("Error %d: %s\n", pll_errno, pll_errmsg);
 
@@ -68,9 +71,20 @@ static void fatal (const char * format, ...)
   exit (EXIT_FAILURE);
 }
 
+typedef struct consensus_data
+{
+  pll_split_t split;
+  int degree;
+  unsigned int tip_count;
+  unsigned int split_len;
+  unsigned int bit_count;
+  double support;
+} consensus_data_t;
+
 static void print_newick_recurse(pll_unode_t * node)
 {
   pll_unode_t * child;
+
   if (pllmod_utree_is_tip(node))
   {
     printf("%s", node->label);
@@ -89,6 +103,11 @@ static void print_newick_recurse(pll_unode_t * node)
     child = child->next;
   }
   printf(")");
+  if (node->data)
+  {
+    consensus_data_t * cdata = (consensus_data_t *) node->data;
+    printf("[%.3f]", cdata->support);
+  }
 }
 
 static void print_newick(pll_unode_t * tree)

@@ -70,6 +70,8 @@
 #define PLLMOD_TREE_REDUCE_MAX     1
 #define PLLMOD_TREE_REDUCE_MIN     2
 
+#define HASH_KEY_UNDEF ((unsigned int) -1)
+
 typedef unsigned int pll_split_base_t;
 typedef pll_split_base_t * pll_split_t;
 
@@ -100,6 +102,8 @@ typedef struct
   unsigned int table_size;
   bitv_hash_entry_t **table;
   unsigned int entry_count;
+  unsigned int bit_count;     /* number of bits per entry */
+  unsigned int bitv_len;      /* bitv length */
 } bitv_hashtable_t;
 
 typedef struct string_hash_entry
@@ -394,14 +398,14 @@ PLL_EXPORT int pllmod_utree_compatible_splits(pll_split_t s1,
                                               pll_split_t s2,
                                               unsigned int split_len);
 
-PLL_EXPORT pll_unode_t * pllmod_utree_from_splits(const pll_split_t * splits,
-                                                  unsigned int split_count,
+PLL_EXPORT pll_unode_t * pllmod_utree_from_splits(const pll_split_system_t * split_system,
                                                   unsigned int tip_count,
                                                   char **tip_labels);
 
 PLL_EXPORT pll_unode_t * pllmod_utree_consensus(const char * trees_filename,
                                                 double threshold,
-                                                int extended);
+                                                unsigned int * tree_count,
+                                                unsigned int * min_support);
 
 /* Additional utilities */
 /* functions at pll_tree.c */
