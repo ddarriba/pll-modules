@@ -6,9 +6,6 @@
 typedef struct consensus_data
 {
   pll_split_t split;
-  int degree;
-  unsigned int tip_count;
-  unsigned int split_len;
   unsigned int bit_count;
   double support;
 } consensus_data_t;
@@ -42,8 +39,7 @@ static int get_split_id(pll_split_t split,
 static pll_unode_t * create_consensus_node(pll_unode_t * parent,
                                            pll_split_t split,
                                            double support,
-                                           unsigned int split_len,
-                                           unsigned int tip_count);
+                                           unsigned int split_len);
 static pll_unode_t * find_splitnode_recurse(pll_split_t split,
                                             pll_unode_t * root,
                                             unsigned int split_len);
@@ -55,7 +51,9 @@ static void recursive_assign_indices(pll_unode_t * node,
                                      unsigned int * inner_node_index);
 static void reset_template_indices(pll_unode_t * node,
                                    unsigned int tip_count);
-static void build_tips_recurse(pll_unode_t * tree, char **tip_labels);
+static void build_tips_recurse(pll_unode_t * tree,
+                               char **tip_labels,
+                               unsigned int split_len);
 
 
 static int cb_destroy_data(pll_unode_t * node, void * d)
@@ -125,8 +123,8 @@ PLL_EXPORT pll_unode_t * pllmod_utree_from_splits(const pll_split_system_t * spl
     rootsplit2 = clone_split(rootsplit1, split_len);
     reverse_split(rootsplit1, tip_count);
 
-    tree = create_consensus_node(NULL, rootsplit1, 1.0, split_len, tip_count);
-    tree->back = create_consensus_node(NULL, rootsplit2, 1.0, split_len, tip_count);
+    tree = create_consensus_node(NULL, rootsplit1, 1.0, split_len);
+    tree->back = create_consensus_node(NULL, rootsplit2, 1.0, split_len);
     tree->back->back = tree;
 
     for (i=1; i<tip_count; ++i)
@@ -137,9 +135,8 @@ PLL_EXPORT pll_unode_t * pllmod_utree_from_splits(const pll_split_system_t * spl
       next_split[split_id] = (1 << (i % split_size));
       pll_unode_t * next_n = create_consensus_node(tree,
                                                    next_split,
-                                                   1.5,
-                                                   split_len,
-                                                   tip_count);
+                                                   1.0,
+                                                   split_len);
       assert(next_n);
     }
 
@@ -177,8 +174,8 @@ PLL_EXPORT pll_unode_t * pllmod_utree_from_splits(const pll_split_system_t * spl
     reverse_split(rootsplit2, tip_count);
 
     /* build tree out of the first split */
-    tree = create_consensus_node(NULL, rootsplit1, support_values[0], split_len, tip_count);
-    tree->back = create_consensus_node(NULL, rootsplit2, support_values[0], split_len, tip_count);
+    tree = create_consensus_node(NULL, rootsplit1, support_values[0], split_len);
+    tree->back = create_consensus_node(NULL, rootsplit2, support_values[0], split_len);
     tree->back->back = tree;
 
     return_tree = tree;
@@ -214,7 +211,7 @@ PLL_EXPORT pll_unode_t * pllmod_utree_from_splits(const pll_split_system_t * spl
       assert(next_parent);
 
       /* create new node for the split*/
-      create_consensus_node(next_parent, next_split, support_values[i], split_len, tip_count);
+      create_consensus_node(next_parent, next_split, support_values[i], split_len);
     }
 
     /* clean */
@@ -223,9 +220,9 @@ PLL_EXPORT pll_unode_t * pllmod_utree_from_splits(const pll_split_system_t * spl
     free(all_splits);
   }
 
-  build_tips_recurse(tree, tip_labels);
+  build_tips_recurse(tree, tip_labels, split_len);
   if (tree->back)
-    build_tips_recurse(tree->back, tip_labels);
+    build_tips_recurse(tree->back, tip_labels, split_len);
 
   reset_template_indices(tree, tip_count);
 
@@ -699,24 +696,19 @@ static int get_split_id(pll_split_t split,
   return id;
 }
 
-static void build_tips_recurse(pll_unode_t * tree, char ** tip_labels)
+static void build_tips_recurse(pll_unode_t * tree,
+                               char ** tip_labels,
+                               unsigned int split_len)
 {
   consensus_data_t * data = (consensus_data_t *) tree->data;
   pll_unode_t * next_root;
-  int i;
 
-  next_root = tree;
-  for (i=1; i<data->degree; ++i)
-  {
-    next_root = next_root->next;
-    build_tips_recurse(next_root->back, tip_labels);
-  }
-
-  if (data->degree == 1)
+  next_root = tree->next;
+  if (next_root == tree)
   {
     /* create tips */
     int tip_id = get_split_id(data->split,
-                              data->split_len);
+                              split_len);
 
     assert (tip_id != -1);
 
@@ -732,6 +724,15 @@ static void build_tips_recurse(pll_unode_t * tree, char ** tip_labels)
     tree->node_index = (unsigned int) tip_id;
     tree->next = NULL;
   }
+  else
+  {
+    while (next_root != tree)
+    {
+      /* recurse next branch */
+      build_tips_recurse(next_root->back, tip_labels, split_len);
+      next_root = next_root->next;
+    }
+  }
 }
 
 static pll_unode_t * find_splitnode_recurse(pll_split_t split,
@@ -740,21 +741,20 @@ static pll_unode_t * find_splitnode_recurse(pll_split_t split,
 {
   pll_unode_t * next_root, * ret_node;
   consensus_data_t * data = (consensus_data_t *) root->data;
-  int i;
 
   if (is_subsplit(split, data->split, split_len))
   {
     /* check children */
-    next_root = root;
-    for (i=1; i<data->degree; ++i)
+    next_root = root->next;
+    while(next_root != root)
     {
-      next_root = next_root->next;
       if ((ret_node = find_splitnode_recurse(split,
                                  next_root->back,
                                  split_len)) != NULL)
       {
         return ret_node;
       }
+      next_root = next_root->next;
     }
     return root;
   }
@@ -766,6 +766,7 @@ static pll_unode_t * find_splitnode_recurse(pll_split_t split,
 
 static void connect_consensus_node(pll_unode_t * parent,
                                    pll_unode_t * child,
+                                   unsigned int split_len,
                                    int auto_rearrange)
 {
   consensus_data_t * data_p, * data_c, * data_aux;
@@ -773,18 +774,16 @@ static void connect_consensus_node(pll_unode_t * parent,
   data_p = (consensus_data_t *) parent->data;
   data_c = (consensus_data_t *) child->data;
 
-  assert(is_subsplit(data_c->split, data_p->split, data_p->split_len));
+  assert(is_subsplit(data_c->split, data_p->split, split_len));
   if (child->back)
   {
     new_node = child->back;
 
     /* disconnect from parent */
     aux_node = new_node;
-    consensus_data_t * data_cp = (consensus_data_t *) new_node->data;
-    assert(data_cp->degree > 1);
+    assert(new_node->next != new_node);
     while(aux_node->next != child->back) aux_node = aux_node->next;
 
-    --data_cp->degree;
     aux_node->next = new_node->next;
     new_node->next = 0;
   }
@@ -800,16 +799,13 @@ static void connect_consensus_node(pll_unode_t * parent,
     {
       aux_node2 = aux_node->next;
       data_aux = (consensus_data_t *) aux_node->back->data;
-      if (is_subsplit(data_aux->split, data_c->split, data_c->split_len))
+      if (is_subsplit(data_aux->split, data_c->split, split_len))
       {
-        connect_consensus_node(child, aux_node->back, 0);
+        connect_consensus_node(child, aux_node->back, split_len, 0);
       }
       aux_node = aux_node2;
     }
   }
-
-  /* increase degree */
-  ++data_p->degree;
 
   /* connect new node */
   new_node->data = data_p;
@@ -825,16 +821,12 @@ static void connect_consensus_node(pll_unode_t * parent,
 static pll_unode_t * create_consensus_node(pll_unode_t * parent,
                                            pll_split_t split,
                                            double support,
-                                           unsigned int split_len,
-                                           unsigned int tip_count)
+                                           unsigned int split_len)
 {
   pll_unode_t * new_node = (pll_unode_t *) malloc (sizeof(pll_unode_t));
   consensus_data_t * data = (consensus_data_t *)
                                     malloc (sizeof(consensus_data_t));
   data->split     = split;
-  data->degree    = 1;
-  data->tip_count = tip_count;
-  data->split_len = split_len;
   data->support   = support;
 
   new_node->data  = data;
@@ -846,7 +838,7 @@ static pll_unode_t * create_consensus_node(pll_unode_t * parent,
 
   if (parent)
   {
-    connect_consensus_node(parent, new_node, 1);
+    connect_consensus_node(parent, new_node, split_len, 1);
   }
 
   return new_node;

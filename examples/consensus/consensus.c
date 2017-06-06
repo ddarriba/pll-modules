@@ -74,9 +74,6 @@ static void fatal (const char * format, ...)
 typedef struct consensus_data
 {
   pll_split_t split;
-  int degree;
-  unsigned int tip_count;
-  unsigned int split_len;
   unsigned int bit_count;
   double support;
 } consensus_data_t;
