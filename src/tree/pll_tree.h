@@ -78,9 +78,9 @@ typedef pll_split_base_t * pll_split_t;
 typedef struct split_system_t
 {
   pll_split_t * splits;
-  unsigned int * support;
+  double * support;
   unsigned int split_count;
-  unsigned int max_support;
+  double max_support;
 } pll_split_system_t;
 
 typedef unsigned int hash_key_t;
@@ -91,7 +91,7 @@ typedef struct bitv_hash_entry
   pll_split_t bit_vector;
   unsigned int *tree_vector;
   unsigned int tip_count;
-  int support;
+  double support;
   unsigned int bip_number;
 
   struct bitv_hash_entry *next;
@@ -105,6 +105,22 @@ typedef struct
   unsigned int bit_count;     /* number of bits per entry */
   unsigned int bitv_len;      /* bitv length */
 } bitv_hashtable_t;
+
+typedef struct consensus_data_t
+{
+  pll_split_t split;
+  unsigned int bit_count;
+  double support;
+} pll_consensus_data_t;
+
+
+typedef struct consensus_utree_t
+{
+  pll_unode_t * tree;
+  pll_consensus_data_t * branch_data;
+  unsigned int tip_count;
+  unsigned int branch_count;
+} pll_consensus_utree_t;
 
 typedef struct string_hash_entry
 {
@@ -381,6 +397,7 @@ pllmod_utree_split_hashtable_insert(bitv_hashtable_t * splits_hash,
                                     pll_split_t * splits,
                                     unsigned int tip_count,
                                     unsigned int split_count,
+                                    const double * support,
                                     int update_only);
 
 PLL_EXPORT bitv_hash_entry_t *
@@ -398,14 +415,29 @@ PLL_EXPORT int pllmod_utree_compatible_splits(pll_split_t s1,
                                               pll_split_t s2,
                                               unsigned int split_len);
 
-PLL_EXPORT pll_unode_t * pllmod_utree_from_splits(const pll_split_system_t * split_system,
-                                                  unsigned int tip_count,
-                                                  char **tip_labels);
+PLL_EXPORT pll_consensus_utree_t * pllmod_utree_from_splits(
+                                        const pll_split_system_t * split_system,
+                                        unsigned int tip_count,
+                                        char * const * tip_labels);
 
-PLL_EXPORT pll_unode_t * pllmod_utree_consensus(const char * trees_filename,
+PLL_EXPORT pll_split_system_t * pllmod_utree_split_consensus(
+                                                bitv_hashtable_t * splits_hash,
+                                                unsigned int tip_count,
                                                 double threshold,
-                                                unsigned int * tree_count,
-                                                unsigned int * min_support);
+                                                unsigned int split_len);
+
+PLL_EXPORT pll_consensus_utree_t * pllmod_utree_weight_consensus(
+                                                    pll_utree_t * const * trees,
+                                                    const double * weights,
+                                                    double threshold,
+                                                    unsigned int tree_count);
+
+PLL_EXPORT pll_consensus_utree_t * pllmod_utree_consensus(
+                                                    const char * trees_filename,
+                                                    double threshold,
+                                                    unsigned int * tree_count);
+
+PLL_EXPORT void pllmod_utree_consensus_destroy(pll_consensus_utree_t * tree);
 
 /* Additional utilities */
 /* functions at pll_tree.c */

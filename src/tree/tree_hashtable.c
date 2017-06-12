@@ -119,13 +119,13 @@ void hash_destroy(bitv_hashtable_t *h)
   free(h);
 }
 
-bitv_hash_entry_t *entry_init(void)
+bitv_hash_entry_t *entry_init(double support)
 {
   bitv_hash_entry_t *e = (bitv_hash_entry_t*)malloc(sizeof(bitv_hash_entry_t));
 
   e->bit_vector     = (pll_split_t)NULL;
   e->tree_vector    = (unsigned int*)NULL;
-  e->support        = 1;
+  e->support        = support;
   e->bip_number     = 0;
   e->next       = (bitv_hash_entry_t*)NULL;
 
@@ -156,6 +156,7 @@ hash_key_t hash_get_key(pll_split_t s, int len)
 int hash_update(pll_split_t bit_vector,
                 bitv_hashtable_t *h,
                 hash_key_t key,
+                double support,
                 unsigned int position)
 {
   if (key == HASH_KEY_UNDEF)
@@ -180,7 +181,7 @@ int hash_update(pll_split_t bit_vector,
 
       if(i == h->bitv_len)
       {
-        e->support = e->support + 1;
+        e->support = e->support + support;
         return PLL_SUCCESS;
       }
 
@@ -197,6 +198,7 @@ void hash_insert(pll_split_t bit_vector,
                  bitv_hashtable_t *h,
                  unsigned int bip_number,
                  hash_key_t key,
+                 double support,
                  unsigned int position)
 {
   bitv_hash_entry_t *e;
@@ -210,11 +212,11 @@ void hash_insert(pll_split_t bit_vector,
   if(h->table[position] != NULL)
     {
       /* search for this split in hashtable, and increment its support if found */
-      if (hash_update(bit_vector, h, key, position))
+      if (hash_update(bit_vector, h, key, support, position))
         return;
 
       /* add new split to the hashtable */
-      e = entry_init();
+      e = entry_init(support);
       e->key = key;
       e->bip_number = bip_number;
 
@@ -226,7 +228,7 @@ void hash_insert(pll_split_t bit_vector,
     }
   else
   {
-    e = entry_init();
+    e = entry_init(support);
     e->key = key;
     e->bip_number = bip_number;
     e->bit_vector = (pll_split_t) calloc(h->bitv_len, sizeof(pll_split_base_t));
@@ -257,7 +259,7 @@ void hash_print(bitv_hashtable_t *h)
     while (e != NULL)
     {
       pllmod_utree_split_show(e->bit_vector, h->bit_count);
-      printf(" %d\n", e->support);
+      printf(" %f\n", e->support);
       e = e->next;
     }
   }

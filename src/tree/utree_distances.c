@@ -426,6 +426,7 @@ PLL_EXPORT pll_split_t * pllmod_utree_split_create(pll_unode_t * tree,
  * @param splits_hash    hashtable to update, NULL: create new hashtable
  * @param tip_count      number of tips
  * @param split_count    number of splits in 'splits'
+ * @param support        support values for the split
  * @param update_only    0: insert new values as needed,
  *                       1: only increment support for existing splits
  *
@@ -436,6 +437,7 @@ pllmod_utree_split_hashtable_insert(bitv_hashtable_t * splits_hash,
                                     pll_split_t * splits,
                                     unsigned int tip_count,
                                     unsigned int split_count,
+                                    const double * support,
                                     int update_only)
 {
   unsigned int i;
@@ -461,6 +463,7 @@ pllmod_utree_split_hashtable_insert(bitv_hashtable_t * splits_hash,
       hash_update(splits[i],
                   splits_hash,
                   HASH_KEY_UNDEF,
+                  support[i],
                   0);
     }
     else
@@ -469,6 +472,7 @@ pllmod_utree_split_hashtable_insert(bitv_hashtable_t * splits_hash,
                   splits_hash,
                   i,
                   HASH_KEY_UNDEF,
+                  support[i],
                   0);
     }
   }

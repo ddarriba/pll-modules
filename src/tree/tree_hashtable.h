@@ -33,19 +33,21 @@ void hash_destroy_entry(bitv_hash_entry_t *e);
 
 void hash_destroy(bitv_hashtable_t *h);
 
-bitv_hash_entry_t *entry_init(void);
+bitv_hash_entry_t *entry_init(double support);
 
 hash_key_t hash_get_key(pll_split_t s, int len);
 
 int hash_update(pll_split_t bit_vector,
                  bitv_hashtable_t *h,
                  hash_key_t key,
+                 double support,
                  unsigned int position);
 
 void hash_insert(pll_split_t bit_vector,
                  bitv_hashtable_t *h,
                  unsigned int bip_number,
                  hash_key_t key,
+                 double support,
                  unsigned int position);
 
 void hash_remove(bitv_hashtable_t *h,
