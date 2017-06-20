@@ -3,6 +3,7 @@
 
 #include "tree_hashtable.h"
 
+#define EPSILON 1e-12
 
 static int cb_set_indices(pll_unode_t * node, void *data);
 static pll_split_t * read_splits(FILE * file,
@@ -123,7 +124,7 @@ PLL_EXPORT pll_consensus_utree_t * pllmod_utree_from_splits(
     reverse_split(rootsplit1, tip_count);
 
     tree = create_consensus_node(NULL, rootsplit1, 1.0, split_len);
-    tree->back = create_consensus_node(NULL, rootsplit2, 0.0, split_len);
+    tree->back = create_consensus_node(NULL, rootsplit2, 1.0, split_len);
     tree->back->back = tree;
 
     for (i=1; i<tip_count; ++i)
@@ -248,7 +249,7 @@ PLL_EXPORT pll_split_system_t * pllmod_utree_split_consensus(
   if (threshold > .5)
     thr_support = min_support;
   else
-    thr_support = .5 + 1e-7; /* 1/2 + epsilon */
+    thr_support = .5 + EPSILON;
 
   split_system = (pll_split_system_t *) calloc(1, sizeof(pll_split_system_t));
   split_system->splits = (pll_split_t *) calloc(max_splits,
@@ -352,7 +353,7 @@ PLL_EXPORT pll_consensus_utree_t * pllmod_utree_weight_consensus(
     }
     sum_weights += weights[i];
   }
-  if (fabs(1.0 - sum_weights) > 1e-7)
+  if (fabs(1.0 - sum_weights) > EPSILON)
   {
     pllmod_set_error(
       PLLMOD_TREE_ERROR_INVALID_TREE,
@@ -916,6 +917,7 @@ static void build_tips_recurse(pll_unode_t * tree,
   next_root = tree->next;
   if (next_root == tree)
   {
+    assert(data);
     /* create tips */
     int tip_id = get_split_id(data->split,
                               split_len);
