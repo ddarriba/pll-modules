@@ -81,18 +81,24 @@ int main (int argc, char * argv[])
   {
     shuffle(splits, n_splits);
 
-    pll_unode_t * constree = pllmod_utree_from_splits(splits,
-                                                      n_splits,
-                                                      tip_count,
-                                                      labels);
-    pll_utree_t * consensus = pll_utree_wraptree(constree, tip_count);
+    pll_split_system_t split_system;
+    split_system.splits = splits;
+    split_system.support = 0;
+    split_system.split_count = n_splits;
+    split_system.max_support = 1.0;
+
+    pll_consensus_utree_t * constree = pllmod_utree_from_splits(&split_system,
+                                                                tip_count,
+                                                                labels);
+
+    pll_utree_t * consensus = pll_utree_wraptree(constree->tree, tip_count);
     if (!pllmod_utree_consistency_set(consensus, parsed_tree))
        fatal("Cannot set trees consistent!");
 
-    pll_utree_show_ascii(constree, PLL_UTREE_SHOW_CLV_INDEX | PLL_UTREE_SHOW_LABEL);
-    print_newick(constree);
+    pll_utree_show_ascii(constree->tree, PLL_UTREE_SHOW_CLV_INDEX | PLL_UTREE_SHOW_LABEL);
+    print_newick(constree->tree);
 
-    pll_split_t * splits2 = pllmod_utree_split_create(constree,
+    pll_split_t * splits2 = pllmod_utree_split_create(constree->tree,
                                                       tip_count,
                                                       &n_splits,
                                                       NULL);
@@ -115,6 +121,7 @@ int main (int argc, char * argv[])
       fatal("Error: Initial and reconstructed trees differ!");
 
     /* in-loop cleanup */
+    pllmod_utree_consensus_destroy(constree);
     pll_utree_destroy (consensus, NULL);
     pllmod_utree_split_destroy(splits2);
   }

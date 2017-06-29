@@ -163,10 +163,12 @@ PLL_EXPORT pll_consensus_utree_t * pllmod_utree_from_splits(
     }
 
     /* compute support for other splits */
-    for (i=0; i<split_system->split_count; ++i)
-    {
-      support_values[i] = 1.0 * split_system->support[i] / split_system->max_support;
-    }
+    if (split_system->support)
+      for (i=0; i<split_system->split_count; ++i)
+        support_values[i] = 1.0 * split_system->support[i] / split_system->max_support;
+    else
+      for (i=0; i<split_system->split_count; ++i)
+        support_values[i] = 1.0 * split_system->max_support;
 
     /* create initial tree with 2 connected nodes of degree 1 */
     rootsplit1 = clone_split(all_splits[0], split_len);
@@ -1172,7 +1174,11 @@ static void reset_template_indices(pll_unode_t * node,
     sibling = sibling->next;
   }
 
-  sibling = sibling->next;
+  node->node_index   = inner_node_index++;
+  node->clv_index    = inner_clv_index;
+  node->scaler_index = inner_scaler_index;
+  
+  sibling = node->next;
   while(sibling != node)
   {
     sibling->node_index = inner_node_index;
