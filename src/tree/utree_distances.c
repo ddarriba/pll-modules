@@ -199,9 +199,6 @@ PLL_EXPORT unsigned int pllmod_utree_rf_distance(pll_unode_t * t1,
   pll_split_t * s1 = pllmod_utree_split_create(t1, tip_count, &split_count, NULL);
   pll_split_t * s2 = pllmod_utree_split_create(t2, tip_count, &split_count, NULL);
 
-  pllmod_utree_split_normalize_and_sort(s1, tip_count, split_count, 1);
-  pllmod_utree_split_normalize_and_sort(s2, tip_count, split_count, 1);
-
   /* compute distance */
   rf_distance = pllmod_utree_split_rf_distance(s1, s2, tip_count);
 
@@ -411,8 +408,7 @@ PLL_EXPORT pll_split_t * pllmod_utree_split_create(pll_unode_t * tree,
     free(split_data.id_to_split);
 
   /* normalize the splits such that first position is set */
-  for (i=0; i<split_count;++i)
-    bitv_normalize(split_list[i], tip_count);
+  pllmod_utree_split_normalize_and_sort(split_list, tip_count, split_count, 1);
 
   if (_split_count)
     *_split_count = split_count;
