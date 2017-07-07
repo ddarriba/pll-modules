@@ -37,15 +37,21 @@ static inline void merge_split(pll_split_t to,
                          const pll_split_t from,
                          unsigned int split_len);
 static int _cmp_splits (const void * a, const void * b);
+static int _cmp_split_node_pair (const void * a, const void * b);
 static int compare_splits (pll_split_t s1,
                            pll_split_t s2,
                            unsigned int split_len);
 static unsigned int get_utree_splitmap_id(pll_unode_t * node,
                                           unsigned int tip_count);
 
+struct split_node_pair {
+  pll_split_t split;
+  pll_unode_t * node;
+};
+
 struct cb_split_params
 {
-  pll_split_t * splits;
+  struct split_node_pair * split_nodes;
   unsigned int tip_count;
   unsigned int split_size;
   unsigned int split_len;
@@ -189,15 +195,14 @@ PLL_EXPORT unsigned int pllmod_utree_rf_distance(pll_unode_t * t1,
                                                  pll_unode_t * t2,
                                                  unsigned int tip_count)
 {
-  unsigned int split_count;
   unsigned int rf_distance;
 
   /* reset pll_error */
   pll_errno = 0;
 
   /* split both trees */
-  pll_split_t * s1 = pllmod_utree_split_create(t1, tip_count, &split_count, NULL);
-  pll_split_t * s2 = pllmod_utree_split_create(t2, tip_count, &split_count, NULL);
+  pll_split_t * s1 = pllmod_utree_split_create(t1, tip_count, NULL);
+  pll_split_t * s2 = pllmod_utree_split_create(t2, tip_count, NULL);
 
   /* compute distance */
   rf_distance = pllmod_utree_split_rf_distance(s1, s2, tip_count);
@@ -333,16 +338,19 @@ PLL_EXPORT void pllmod_utree_split_show(pll_split_t split, unsigned int tip_coun
 
 /*
  * Note: This function returns the splits according to the node indices at the tips!
+ *
+ * split_to_node_map can be NULL
  */
 PLL_EXPORT pll_split_t * pllmod_utree_split_create(pll_unode_t * tree,
                                                    unsigned int tip_count,
-                                                   unsigned int * _split_count,
-                                                   int ** node_to_split_map)
+                                                   pll_unode_t ** split_to_node_map)
 {
   unsigned int i;
   unsigned int split_count, split_len, split_size;
-  pll_split_t * split_list;
-  pll_split_t splits;
+  pll_split_t * split_list;   /* array with ordered split pointers */
+  pll_split_t splits;         /* contiguous array of splits, as size is known */
+  struct split_node_pair * split_nodes;
+  pll_split_t first_split;
 
   /* as many non-trivial splits as inner branches */
   split_count   = tip_count - 3;
@@ -350,7 +358,6 @@ PLL_EXPORT pll_split_t * pllmod_utree_split_create(pll_unode_t * tree,
   split_len  = (tip_count / split_size) + (tip_count % (sizeof(pll_split_base_t) * 8) > 0);
 
   split_list = (pll_split_t *) malloc(split_count * sizeof(pll_split_t));
-
   if (!split_list)
   {
     pllmod_set_error(PLL_ERROR_MEM_ALLOC,
@@ -358,25 +365,38 @@ PLL_EXPORT pll_split_t * pllmod_utree_split_create(pll_unode_t * tree,
     return NULL;
   }
 
-  splits = (pll_split_t) calloc(split_count * split_len, sizeof(pll_split_base_t));
+  split_nodes = (struct split_node_pair *) malloc(split_count * sizeof(struct split_node_pair));
+  if (!split_nodes)
+  {
+    pllmod_set_error(PLL_ERROR_MEM_ALLOC,
+                     "Cannot allocate memory for split-node pairs\n");
+    free (split_list);
+    return NULL;
+  }
 
+  splits = (pll_split_t) calloc(split_count * split_len, sizeof(pll_split_base_t));
   if (!splits)
   {
     pllmod_set_error(PLL_ERROR_MEM_ALLOC,
                      "Cannot allocate memory for splits\n");
     free (split_list);
+    free (split_nodes);
     return NULL;
   }
 
   for (i=0; i<split_count; ++i)
+  {
+    split_nodes[i].split = splits + i*split_len;
     split_list[i] = splits + i*split_len;
+  }
 
   struct cb_split_params split_data;
+  split_data.split_nodes = split_nodes;
   split_data.split_len   = split_len;
   split_data.split_size  = split_size;
-  split_data.splits      = split_list;
   split_data.tip_count   = tip_count;
   split_data.split_count = 0;
+
   /* reserve positions for node and subnode ids */
   split_data.id_to_split = (int *) malloc(sizeof(int) * 3 * (tip_count - 2));
 
@@ -402,16 +422,63 @@ PLL_EXPORT pll_split_t * pllmod_utree_split_create(pll_unode_t * tree,
 
   assert(split_data.split_count == split_count);
 
-  if (node_to_split_map)
-    *node_to_split_map = split_data.id_to_split;
+  for (i=0; i<split_count; ++i)
+  {
+
+  }
+
+  free(split_data.id_to_split);
+
+  for (i=0; i<split_count; ++i)
+    bitv_normalize(split_list[i], tip_count);
+
+  /* sort map and split list together */
+  first_split = split_nodes[0].split;
+  qsort(split_nodes, split_count, sizeof(struct split_node_pair), _cmp_split_node_pair);
+
+  /* if first item has changed, swap them such that the array can be deallocated */
+  if (first_split != split_nodes[0].split)
+  {
+    /* find first split */
+    for (i=1; split_nodes[i].split != first_split && i < split_count; ++i);
+    assert(i < split_count);
+
+    /* swap */
+    void * aux_mem = malloc(sizeof(pll_split_base_t) * split_len);
+    if (!aux_mem)
+    {
+      pllmod_set_error(PLL_ERROR_MEM_ALLOC,
+                       "Cannot allocate memory for auxiliary array\n");
+      return NULL;
+    }
+
+    memcpy(aux_mem, first_split,  sizeof(pll_split_base_t) * split_len);
+    memcpy(first_split, split_nodes[0].split,     sizeof(pll_split_base_t) * split_len);
+    memcpy(split_nodes[0].split, aux_mem, sizeof(pll_split_base_t) * split_len);
+    free(aux_mem);
+    split_nodes[i].split = split_nodes[0].split;
+    split_nodes[0].split = first_split;
+  }
+
+  for (i=0; i<split_count; ++i)
+    split_list[i] = split_nodes[i].split;
+
+  /* update output arrays */
+  if (split_to_node_map)
+  {
+    for (i=0; i<split_count; ++i)
+    {
+      split_list[i] = split_nodes[i].split;
+      split_to_node_map[i] = split_nodes[i].node;
+    }
+  }
   else
-    free(split_data.id_to_split);
+  {
+    for (i=0; i<split_count; ++i)
+      split_list[i] = split_nodes[i].split;
+  }
 
-  /* normalize the splits such that first position is set */
-  pllmod_utree_split_normalize_and_sort(split_list, tip_count, split_count, 1);
-
-  if (_split_count)
-    *_split_count = split_count;
+  free(split_nodes);
 
   return split_list;
 }
@@ -557,8 +624,10 @@ static int cb_get_splits(pll_unode_t * node, void *data)
     split_data->id_to_split[my_map_id] = (int) my_split_id;
     split_data->id_to_split[back_map_id] = (int) my_split_id;
 
+    split_data->split_nodes[my_split_id].node = node;
+
     /* get current split to fill */
-    current_split = split_data->splits[my_split_id];
+    current_split = split_data->split_nodes[my_split_id].split;
     /* increase number of splits */
     split_data->split_count++;
 
@@ -568,7 +637,7 @@ static int cb_get_splits(pll_unode_t * node, void *data)
       child_split_id = (unsigned int)
         split_data->id_to_split[get_utree_splitmap_id(node->next, tip_count)];
 
-      memcpy(current_split, split_data->splits[child_split_id],
+      memcpy(current_split, split_data->split_nodes[child_split_id].split,
              sizeof(pll_split_base_t) * split_len);
     }
     else
@@ -586,7 +655,7 @@ static int cb_get_splits(pll_unode_t * node, void *data)
       child_split_id = (unsigned int)
         split_data->id_to_split[get_utree_splitmap_id(
             node->next->next, tip_count)];
-      merge_split(current_split, split_data->splits[child_split_id], split_len);
+      merge_split(current_split, split_data->split_nodes[child_split_id].split, split_len);
     }
     else
     {
@@ -637,6 +706,13 @@ static int _cmp_splits (const void * a, const void * b)
   return (int) ((*s1)[i]>(*s2)[i]?1:-1);
 }
 
+static int _cmp_split_node_pair (const void * a, const void * b)
+{
+  const struct split_node_pair * s1 = (const struct split_node_pair *) a;
+  const struct split_node_pair * s2 = (const struct split_node_pair *) b;
+
+  return (_cmp_splits(&s1->split, &s2->split));
+}
 /*
   The position of the node in the map of branches to splits is computed
   according to the node id.

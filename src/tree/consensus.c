@@ -393,11 +393,11 @@ PLL_EXPORT pll_consensus_utree_t * pllmod_utree_weight_consensus(
       return NULL;
     }
 
+    n_splits = tip_count - 3;
     tree_splits = pllmod_utree_split_create(current_tree->nodes[
                                                 current_tree->tip_count +
                                                 current_tree->inner_count - 1],
                                              tip_count,
-                                             &n_splits,
                                              NULL);
 
     /* insert normalized splits */
@@ -537,13 +537,13 @@ PLL_EXPORT pll_consensus_utree_t * pllmod_utree_consensus(
 
   pll_errno = 0;
   current_tree_index = 1;
+  n_splits = tip_count - 3;
 
   tree_splits = pllmod_utree_split_create(reference_tree->nodes[
                                               reference_tree->tip_count +
                                               reference_tree->inner_count - 1],
-                                           tip_count,
-                                           &n_splits,
-                                           NULL);
+                                          tip_count,
+                                          NULL);
 
   while (tree_splits)
   {
@@ -1177,7 +1177,7 @@ static void reset_template_indices(pll_unode_t * node,
   node->node_index   = inner_node_index++;
   node->clv_index    = inner_clv_index;
   node->scaler_index = inner_scaler_index;
-  
+
   sibling = node->next;
   while(sibling != node)
   {

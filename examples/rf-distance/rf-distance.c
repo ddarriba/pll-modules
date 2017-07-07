@@ -23,6 +23,9 @@
 #include <assert.h>
 #include <stdarg.h>
 
+/* set to 1 for printing splits */
+#define PRINT_SPLITS 0
+
 /* static functions */
 static void fatal (const char * format, ...);
 
@@ -59,34 +62,43 @@ int main (int argc, char * argv[])
   /* next, we compute the RF distance in 2 different ways: */
 
   /* 1. creating the split sets manually */
-  unsigned int n_splits;
+  unsigned int n_splits = tip_count - 3;
   pll_split_t * splits1 = pllmod_utree_split_create(tree1->nodes[tip_count],
                                                     tip_count,
-                                                    &n_splits,
                                                     NULL);
-  assert(n_splits == tip_count - 3);
 
-  unsigned int i;
-  for (i=0; i<n_splits; ++i)
+#if(PRINT_SPLITS)
   {
-    pllmod_utree_split_show(splits1[i], tip_count);
+    unsigned int i;
+    for (i=0; i<n_splits; ++i)
+    {
+      pllmod_utree_split_show(splits1[i], tip_count);
+      printf("\n");
+    }
     printf("\n");
   }
-  printf("\n");
+#endif
 
+  /* now we compute the splits, but also the nodes corresponding to each split */
+  pll_unode_t ** splits_to_node = (pll_unode_t **) malloc(n_splits * sizeof(pll_unode_t *));
   pll_split_t * splits2 = pllmod_utree_split_create(tree2->nodes[tip_count],
                                                     tip_count,
-                                                    &n_splits,
-                                                    NULL);
-  assert(n_splits == tip_count - 3);
+                                                    splits_to_node);
 
+#if(PRINT_SPLITS)
   {
+    unsigned int i;
     for (i=0; i<n_splits; ++i)
     {
       pllmod_utree_split_show(splits2[i], tip_count);
-      printf("\n");
+      printf(" node: Pmatrix:%d Nodes:%d<->%d\n",
+                                splits_to_node[i]->pmatrix_index,
+                                splits_to_node[i]->node_index,
+                                splits_to_node[i]->back->node_index);
     }
   }
+#endif
+
   rf_dist = pllmod_utree_split_rf_distance(splits1, splits2, tip_count);
   printf("RF [manual]\n");
   printf("distance = %d\n", rf_dist);
@@ -94,6 +106,7 @@ int main (int argc, char * argv[])
 
   pllmod_utree_split_destroy(splits1);
   pllmod_utree_split_destroy(splits2);
+  free(splits_to_node);
 
   /* 2. directly from the tree structures */
 

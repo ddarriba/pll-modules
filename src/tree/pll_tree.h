@@ -375,8 +375,7 @@ PLL_EXPORT unsigned int pllmod_utree_split_rf_distance(pll_split_t * s1,
 
 PLL_EXPORT pll_split_t * pllmod_utree_split_create(pll_unode_t * tree,
                                                    unsigned int tip_count,
-                                                   unsigned int * n_splits,
-                                                   int ** node_to_split_map);
+                                                   pll_unode_t ** split_to_node_map);
 
 PLL_EXPORT void pllmod_utree_split_normalize_and_sort(pll_split_t * s,
                                                       unsigned int tip_count,
