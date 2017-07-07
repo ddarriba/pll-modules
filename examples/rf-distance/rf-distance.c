@@ -18,7 +18,8 @@
  Exelixis Lab, Heidelberg Instutute for Theoretical Studies
  Schloss-Wolfsbrunnenweg 35, D-69118 Heidelberg, Germany
  */
-#include "pll_tree.h"
+#include <libpll/pll_tree.h>
+
 #include <assert.h>
 #include <stdarg.h>
 
@@ -32,23 +33,23 @@ int main (int argc, char * argv[])
   /* tree properties */
   pll_utree_t * tree1 = NULL,
               * tree2 = NULL;
-  unsigned int tip_count,
-               tip_count_alt;
+  unsigned int tip_count;
 
   if (argc != 3)
     fatal (" syntax: %s [newick] [newick]", argv[0]);
 
   /* parse the input trees */
-  tree1 = pll_utree_parse_newick (argv[1], &tip_count);
-  tree2 = pll_utree_parse_newick (argv[2], &tip_count_alt);
+  tree1 = pll_utree_parse_newick (argv[1]);
+  tree2 = pll_utree_parse_newick (argv[2]);
+  tip_count = tree1->tip_count;
 
-  if (tip_count != tip_count_alt)
+  if (tip_count != tree2->tip_count)
     fatal("Trees have different number of tips!");
 
-  if (!pllmod_utree_consistency_set(tree1, tree2, tip_count))
+  if (!pllmod_utree_consistency_set(tree1, tree2))
     fatal("Cannot set trees consistent!");
 
-  if (!pllmod_utree_consistency_check(tree1, tree2, tip_count))
+  if (!pllmod_utree_consistency_check(tree1, tree2))
     fatal("Tip node IDs are not consistent!");
 
   /* uncomment lines below for displaying the trees in ASCII format */
@@ -59,14 +60,33 @@ int main (int argc, char * argv[])
 
   /* 1. creating the split sets manually */
   unsigned int n_splits;
-  pll_split_t * splits1 = pllmod_utree_split_create(tree1,
+  pll_split_t * splits1 = pllmod_utree_split_create(tree1->nodes[tip_count],
                                                     tip_count,
-                                                    &n_splits);
+                                                    &n_splits,
+                                                    NULL);
+  assert(n_splits == tip_count - 3);
 
-  pll_split_t * splits2 = pllmod_utree_split_create(tree2,
+  unsigned int i;
+  for (i=0; i<n_splits; ++i)
+  {
+    pllmod_utree_split_show(splits1[i], tip_count);
+    printf("\n");
+  }
+  printf("\n");
+
+  pll_split_t * splits2 = pllmod_utree_split_create(tree2->nodes[tip_count],
                                                     tip_count,
-                                                    &n_splits);
+                                                    &n_splits,
+                                                    NULL);
+  assert(n_splits == tip_count - 3);
 
+  {
+    for (i=0; i<n_splits; ++i)
+    {
+      pllmod_utree_split_show(splits2[i], tip_count);
+      printf("\n");
+    }
+  }
   rf_dist = pllmod_utree_split_rf_distance(splits1, splits2, tip_count);
   printf("RF [manual]\n");
   printf("distance = %d\n", rf_dist);
@@ -77,8 +97,8 @@ int main (int argc, char * argv[])
 
   /* 2. directly from the tree structures */
 
-  rf_dist = pllmod_utree_rf_distance(tree1,
-                                     tree2,
+  rf_dist = pllmod_utree_rf_distance(tree1->nodes[tip_count],
+                                     tree2->nodes[tip_count],
                                      tip_count);
 
   printf("RF [auto]\n");
@@ -86,8 +106,8 @@ int main (int argc, char * argv[])
   printf("relative = %.2f%%\n", 100.0*rf_dist/(2*(tip_count-3)));
 
   /* clean */
-  pll_utree_destroy (tree1);
-  pll_utree_destroy (tree2);
+  pll_utree_destroy (tree1, NULL);
+  pll_utree_destroy (tree2, NULL);
 
   return (0);
 }
