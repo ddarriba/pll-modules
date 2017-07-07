@@ -66,16 +66,10 @@ int main (int argc, char * argv[])
   for (i=0; i<tip_count; ++i)
     labels[tipnodes[i]->node_index] = tipnodes[i]->label;
 
-  unsigned int n_splits;
+  unsigned int n_splits = tip_count - 3;
   pll_split_t * splits = pllmod_utree_split_create(tree,
                                                    tip_count,
-                                                   &n_splits,
                                                    NULL);
-
-  pllmod_utree_split_normalize_and_sort(splits,
-                                        tip_count,
-                                        n_splits,
-                                        1);
 
   for (iter=0; iter<n_iters; ++iter)
   {
@@ -100,7 +94,6 @@ int main (int argc, char * argv[])
 
     pll_split_t * splits2 = pllmod_utree_split_create(constree->tree,
                                                       tip_count,
-                                                      &n_splits,
                                                       NULL);
 
     pllmod_utree_split_normalize_and_sort(splits2,
@@ -122,7 +115,8 @@ int main (int argc, char * argv[])
 
     /* in-loop cleanup */
     pllmod_utree_consensus_destroy(constree);
-    pll_utree_destroy (consensus, NULL);
+    free (consensus->nodes);
+    free (consensus);
     pllmod_utree_split_destroy(splits2);
   }
 
