@@ -43,6 +43,8 @@
 #define CHECK_PERBRANCH_IMPR 1
 #endif
 
+#define BETTER_LL_TRESHOLD 1e-13
+
 /*
  * Note: Compile with flag _ULTRACHECK for checking pre/postconditions
  *       way more thoroughly. This may slow down the execution.
@@ -1626,9 +1628,9 @@ PLL_EXPORT double pllmod_opt_optimize_branch_lengths_local_multi (
         (unsigned int) smoothings - iters, loglikelihood, new_loglikelihood);
 
 #if(CHECK_PERBRANCH_IMPR)
-    assert(new_loglikelihood - loglikelihood > new_loglikelihood * 1e-14);
+    assert(new_loglikelihood - loglikelihood > new_loglikelihood * BETTER_LL_TRESHOLD);
 #else
-  if (!(new_loglikelihood - loglikelihood > new_loglikelihood * 1e-14))
+  if (!(new_loglikelihood - loglikelihood > new_loglikelihood * BETTER_LL_TRESHOLD))
   {
     pllmod_set_error(PLLMOD_OPT_ERROR_NEWTON_WORSE_LK,
                      "BL opt converged to a worse likelihood score by %f units",
