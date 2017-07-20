@@ -18,20 +18,36 @@
 #    Schloss-Wolfsbrunnenweg 35, D-69118 Heidelberg, Germany
 
 CC = gcc
-CFLAGS = -O3 -Wall 
+CFLAGS = -g -O3 -Wall -std=c99
 CLIBS = -lpll -lm -lpll_optimize -lpll_tree -lpll_binary
+
+ifdef LIBPLL_INC
+  CFLAGS += -I$(LIBPLL_INC)
+  ifdef LIBPLL_LIB
+    CFLAGS += -L$(LIBPLL_LIB)
+  else
+    CFLAGS += -L$(LIBPLL_INC)
+  endif
+else
+  CFLAGS += -I../install/include/libpll -L../install/lib
+endif
 
 MODULES = binary optimize tree
 
 CFILES = src/binary/binary-sequential.c \
          src/binary/binary-random.c \
-         src/binary/binary-ascbias.c \
+         src/binary/binary-skeleton.c \
          src/optimize/blopt-minimal.c \
          src/optimize/blopt-5states.c \
          src/tree/random-tree.c \
+         src/tree/parsimony-tree.c \
          src/tree/treemove-nni.c \
          src/tree/treemove-spr.c \
-         src/tree/treemove-tbr.c
+         src/tree/rtreemove-spr.c \
+         src/tree/treemove-tbr.c \
+         src/tree/serialize.c \
+		 src/tree/split-reconstruct.c
+
 OBJFILES = $(patsubst src/%.c, obj/%, $(CFILES))
 
 OBJCOMMON = src/common.o
@@ -43,7 +59,7 @@ DEPFILES = worms16s.fas \
            small.fas small.tree small.rooted.tree \
            246x4465.fas 246x4465.tree \
            ribosomal_l5_pf00673.fas \
-           medium.fas medium.tree
+           medium.fas medium.tree medium.rooted.tree
 REQFILES = $(patsubst %, $(DATADIR)/%, $(DEPFILES))
 ASSETS = https://raw.githubusercontent.com/xflouris/assets/master/libpll
 

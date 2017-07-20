@@ -61,14 +61,14 @@ int main(int argc, char * argv[])
                                    RATE_CATS, /* Rate categories */
                                    0,         /* Scale buffers */
                                    attributes);
-  
+
   double branch_lengths[3] = { 0.105361, 0.166920, 0.166920 };
   double frequencies[5] = { 0.2, 0.2, 0.2, 0.2, 0.2 };
   unsigned int matrix_indices[3] = { 0, 1, 2 };
   double subst_params[10] = {1.452176, 0.937951, 0.462880, 0.617729, 1.745312, 0.937951, 0.462880, 0.617729, 1.745312, 1.000000};
 
 
-  pll_compute_gamma_cats(alpha, RATE_CATS, rates);
+  pll_compute_gamma_cats(alpha, RATE_CATS, rates, PLL_GAMMA_RATES_MEAN);
 
   /* set */
   pll_set_frequencies(partition, 0, frequencies);
@@ -120,7 +120,7 @@ int main(int argc, char * argv[])
 
   printf("Initial Log-L: %.10f\n", logl);
 
-  pll_utree_t * tree = (pll_utree_t *) malloc (6 * sizeof(pll_utree_t));
+  pll_unode_t * tree = (pll_unode_t *) malloc (6 * sizeof(pll_unode_t));
   for (i=0; i<6; ++i) tree[i].scaler_index = PLL_SCALE_BUFFER_NONE;
   tree[0].next = tree[1].next = tree[2].next = NULL;
   tree[3].next = tree + 4; tree[4].next = tree + 5; tree[5].next = tree + 3;
@@ -140,13 +140,15 @@ int main(int argc, char * argv[])
   tree[2].label = "TIP 3";
   tree[3].label = tree[4].label = tree[5].label = NULL;
 
-  newick = pll_utree_export_newick(tree);
+  newick = pll_utree_export_newick(tree, NULL);
   printf("Tree (reference): %s\n", newick);
   free(newick);
 
-  test_logl = pll_optimize_branch_lengths_local (partition,
+  test_logl = pllmod_opt_optimize_branch_lengths_local (partition,
                                      tree[2].back,
-                                     params_indices,    /* params index */
+                                     params_indices,
+                                     1e-4, /* min branch length */
+                                     1e+3, /* max branch length */
                                      1e-4, /* tolerance    */
                                      1,    /* smoothings   */
                                      1,    /* radius       */
@@ -163,7 +165,7 @@ int main(int argc, char * argv[])
    printf("-Log-L returned by BL-opt:       %.10f\n", test_logl);
    printf(" Log-L recomputed after BL-opt: %.10f\n", logl);
 
-   newick = pll_utree_export_newick(tree);
+   newick = pll_utree_export_newick(tree, NULL);
    printf("Tree (optimized): %s\n", newick);
    free(newick);
 

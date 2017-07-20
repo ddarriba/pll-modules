@@ -18,9 +18,17 @@
  Exelixis Lab, Heidelberg Instutute for Theoretical Studies
  Schloss-Wolfsbrunnenweg 35, D-69118 Heidelberg, Germany
  */
-#include "binary_io_operations.h"
 
-static void file_io_error (FILE * bin_file, long int setp, const char * msg);
+ /**
+  * @file bionary_io_operations.c
+  *
+  * @brief Auxiliary functions for I/O module
+  *
+  * @author Diego Darriba
+  */
+
+#include "binary_io_operations.h"
+#include "../pllmod_common.h"
 
 int bin_fwrite(void * data, size_t size, size_t count, FILE * file)
 {
@@ -74,7 +82,8 @@ int binary_update_header(FILE * bin_file,
    file_io_error(bin_file, 0, "update position to head");
    return PLL_FAILURE;
  }
- if (!bin_fread(&bin_header, sizeof(pll_binary_header_t), 1, bin_file))
+
+  if (!bin_fread(&bin_header, sizeof(pll_binary_header_t), 1, bin_file))
  {
    file_io_error(bin_file, cur_position, "update binary header [r]");
    return PLL_FAILURE;
@@ -94,7 +103,7 @@ int binary_update_header(FILE * bin_file,
    return PLL_FAILURE;
  }
 
- if (header && (header->attributes & PLL_BINARY_ATTRIB_UPDATE_MAP))
+  if (header && (header->attributes & PLLMOD_BIN_ATTRIB_UPDATE_MAP))
  {
    /* update map */
    assert(next_block < bin_header.max_blocks);
@@ -120,6 +129,7 @@ int binary_update_header(FILE * bin_file,
    file_io_error(bin_file, cur_position, "update position to block");
    return PLL_FAILURE;
  }
+
  return PLL_SUCCESS;
 }
 
@@ -127,12 +137,12 @@ long int binary_get_offset(FILE *bin_file, int block_id)
 {
   pll_block_map_t * map;
   unsigned int i, n_blocks;
-  long int offset = PLL_BINARY_INVALID_OFFSET;
+  long int offset = PLLMOD_BIN_INVALID_OFFSET;
 
-  map = pll_binary_get_map(bin_file, &n_blocks);
+  map = pllmod_binary_get_map(bin_file, &n_blocks);
 
   if (!map)
-    return PLL_BINARY_INVALID_OFFSET;
+    return PLLMOD_BIN_INVALID_OFFSET;
 
   /* search id */
   for (i=0; i<n_blocks; ++i)
@@ -153,6 +163,8 @@ int binary_partition_desc_apply (FILE * bin_file,
                              unsigned int attributes,
                              int (*bin_func)(void *, size_t, size_t, FILE *))
 {
+  UNUSED(attributes);
+
   /* partition descriptor */
   bin_func (&partition->tips, sizeof(unsigned int), 1, bin_file);
   bin_func (&partition->clv_buffers, sizeof(unsigned int), 1, bin_file);
@@ -217,7 +229,7 @@ int binary_partition_body_apply (FILE * bin_file,
   bin_func (partition->rate_weights, sizeof(double), rate_cats, bin_file);
   bin_func (partition->prop_invar, sizeof(double), rate_matrices, bin_file);
 
-  if (attributes & PLL_BINARY_ATTRIB_PARTITION_DUMP_CLV)
+  if (attributes & PLLMOD_BIN_ATTRIB_PARTITION_DUMP_CLV)
   {
     unsigned int first_clv_index = 0;
 
@@ -226,12 +238,16 @@ int binary_partition_body_apply (FILE * bin_file,
     {
       for (i = 0; i < tips; ++i)
       {
-        bin_func (partition->tipchars[i], sizeof(unsigned char), sites_alloc, bin_file);
+        bin_func (partition->tipchars[i],
+                  sizeof(unsigned char),
+                  sites_alloc,
+                  bin_file);
       }
       bin_func (partition->charmap, sizeof(char), PLL_ASCII_SIZE, bin_file);
       first_clv_index = tips;
 
-      unsigned int l2_maxstates = (unsigned int)ceil(log2(partition->maxstates));
+      unsigned int l2_maxstates = (unsigned int) ceil(log2(
+                                                       partition->maxstates));
 
       /* allocate space for the precomputed tip-tip likelihood vector */
       size_t alloc_size = (1 << (2 * l2_maxstates)) *
@@ -251,7 +267,7 @@ int binary_partition_body_apply (FILE * bin_file,
                 bin_file);
   }
 
-  if (attributes & PLL_BINARY_ATTRIB_PARTITION_DUMP_WGT)
+  if (attributes & PLLMOD_BIN_ATTRIB_PARTITION_DUMP_WGT)
   {
     /* dump pattern weights */
     bin_func (partition->pattern_weights, sizeof(unsigned int), sites_alloc,
@@ -290,17 +306,19 @@ int binary_clv_apply (FILE * bin_file,
                       size_t clv_size,
                       int (*bin_func)(void *, size_t, size_t, FILE *))
 {
+  UNUSED(attributes);
+
   if (clv_index > (partition->tips + partition->clv_buffers))
   {
-    pll_errno = PLL_ERROR_INVALID_INDEX;
-    snprintf(pll_errmsg, 200, "Invalid CLV index");
+    pllmod_set_error(PLLMOD_BIN_ERROR_INVALID_INDEX,
+                     "Invalid CLV index");
     return PLL_FAILURE;
   }
 
   if (!bin_func(partition->clv[clv_index], sizeof(double), clv_size, bin_file))
   {
-    pll_errno = PLL_ERROR_LOADSTORE;
-    snprintf(pll_errmsg, 200, "Error loading/storing CLV");
+    pllmod_set_error(PLLMOD_BIN_ERROR_LOADSTORE,
+                     "Error loading/storing CLV");
     return PLL_FAILURE;
   }
 
@@ -308,14 +326,14 @@ int binary_clv_apply (FILE * bin_file,
 }
 
 int binary_node_apply (FILE * bin_file,
-                       pll_utree_t * node,
+                       pll_unode_t * node,
                        int write,
                        int (*bin_func)(void *, size_t, size_t, FILE *))
 {
   char * label = 0;
   unsigned long label_len = 0;
 
-  bin_func(node, sizeof(pll_utree_t), 1, bin_file);
+  bin_func(node, sizeof(pll_unode_t), 1, bin_file);
   if (write && node->label)
     label_len = strlen(node->label);
   bin_func(&label_len, sizeof(unsigned long), 1, bin_file);
@@ -339,15 +357,15 @@ int binary_node_apply (FILE * bin_file,
 
 /* static functions */
 
-static void file_io_error (FILE * bin_file, long int setp, const char * msg)
+void file_io_error (FILE * bin_file, long int setp, const char * msg)
 {
-  assert(setp >= PLL_BINARY_INVALID_OFFSET);
+  assert(setp >= PLLMOD_BIN_INVALID_OFFSET);
 
   /* if offset is valid, we apply it */
-  if (setp != PLL_BINARY_INVALID_OFFSET)
+  if (setp != PLLMOD_BIN_INVALID_OFFSET)
     fseek(bin_file, setp, SEEK_SET);
 
   /* update error data */
-  snprintf(pll_errmsg, 200, "Binary file I/O error: %s", msg);
-  pll_errno = PLL_ERROR_LOADSTORE;
+  pllmod_set_error(PLLMOD_BIN_ERROR_LOADSTORE,
+                   "Binary file I/O error: %s", msg);
 }

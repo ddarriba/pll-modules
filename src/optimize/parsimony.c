@@ -105,29 +105,29 @@ static void make_permutation_fast(int *perm, int n, long rng_seed)
     }
 }
 
-static pll_utree_t * build_simple_tree (pll_partition_t *partition, int *ntips)
+static pll_unode_t * build_simple_tree (pll_partition_t *partition, int *ntips)
 {
-  pll_utree_t  *tree, *newinner, *newtip;
+  pll_unode_t  *tree, *newinner, *newtip;
   int  i;
 
   *ntips = 3;
-  tree = (pll_utree_t *) malloc (sizeof(pll_utree_t));
+  tree = (pll_unode_t *) malloc (sizeof(pll_unode_t));
   newinner = pll_utree_create_node(0, 0, 0, 0);
 
   tree->next = NULL;
   pll_utree_conect_nodes(tree, newinner, 0);
-  newtip = (pll_utree_t *) malloc (sizeof(pll_utree_t));
+  newtip = (pll_unode_t *) malloc (sizeof(pll_unode_t));
   pll_utree_conect_nodes(newinner->next, newtip, 0);
-  newtip = (pll_utree_t *) malloc (sizeof(pll_utree_t));
+  newtip = (pll_unode_t *) malloc (sizeof(pll_unode_t));
   pll_utree_conect_nodes(newinner->next->next, newtip, 0);
 
   insertParsimony(tr, pr, s, p);
   return tree;
 }
 
-void pll_utree_make_parsimony_fast(pll_utree_t *tree, pll_partition_t *partition, long rng_seed)
+void pll_utree_make_parsimony_fast(pll_unode_t *tree, pll_partition_t *partition, long rng_seed)
 {
-  pll_utree_t
+  pll_unode_t
     *p,
     *f;
 

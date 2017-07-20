@@ -18,13 +18,14 @@
 #    Schloss-Wolfsbrunnenweg 35, D-69118 Heidelberg, Germany
 
 CC = i686-w64-mingw32-gcc
-CFLAGS = -g -O3 -Wall 
+CFLAGS = -g -O3 -Wall -std=c99
 CLIBS = -lpll -lm -lpll_optimize -lpll_tree -lpll_binary
 
 MODULES = binary optimize tree
 
 CFILES = src/binary/binary-sequential.c \
          src/binary/binary-random.c \
+         src/binary/binary-skeleton.c \
          src/optimize/blopt-minimal.c \
          src/optimize/blopt-5states.c \
          src/tree/random-tree.c \

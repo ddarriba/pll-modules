@@ -39,12 +39,12 @@
 #define BLOCK_ID_CLV       3000
 #define BLOCK_ID_CUSTOM    4000
 
-static int cb_traversal(pll_utree_t * node)
+static int cb_traversal(pll_unode_t * node)
 {
   return 1;
 }
 
-static pll_partition_t * parse_msa(unsigned int attributes, pll_utree_t * tree, unsigned int tip_nodes_count)
+static pll_partition_t * parse_msa(unsigned int attributes, pll_utree_t * tree)
 {
   unsigned int i;
   unsigned int tip_clv_index;
@@ -57,15 +57,11 @@ static pll_partition_t * parse_msa(unsigned int attributes, pll_utree_t * tree, 
   pll_fasta_t * fp;
   pll_partition_t * partition;
 
-  pll_utree_t ** tipnodes;
+  pll_unode_t ** tipnodes = tree->nodes;
+  unsigned int tip_nodes_count = tree->tip_count;
 
   headers = (char **)calloc(tip_nodes_count, sizeof(char *));
   seqdata = (char **)calloc(tip_nodes_count, sizeof(char *));
-
-  /*  obtain an array of pointers to tip nodes */
-  tipnodes = (pll_utree_t  **)calloc(tip_nodes_count,
-                                                    sizeof(pll_utree_t *));
-  pll_utree_query_tipnodes(tree, tipnodes);
 
   /* create a libc hash table of size tip_nodes_count */
   hcreate(tip_nodes_count);
@@ -153,8 +149,6 @@ static pll_partition_t * parse_msa(unsigned int attributes, pll_utree_t * tree, 
   free(seqdata);
   free(headers);
 
-  free(tipnodes);
-
   return partition;
 }
 
@@ -180,11 +174,11 @@ int main (int argc, char * argv[])
   unsigned int matrix_count, ops_count;
   unsigned int tip_nodes_count, inner_nodes_count, nodes_count, branch_count;
   pll_partition_t * partition;
-  pll_utree_t * tree;
+  pll_unode_t * tree;
   double logl, save_logl;
   int i;
 
-  pll_utree_t ** travbuffer;
+  pll_unode_t ** travbuffer;
   double * branch_lengths;
   unsigned int * matrix_indices;
   pll_operation_t * operations;
@@ -198,7 +192,10 @@ int main (int argc, char * argv[])
                lk_child_clv_index, lk_child_scaler_index,
                lk_pmatrix_index;
 
-  tree = pll_utree_parse_newick(TREE_FILENAME, &tip_nodes_count);
+  pll_utree_t * parsed_tree = pll_utree_parse_newick(TREE_FILENAME);
+  tip_nodes_count = parsed_tree->tip_count;
+  tree = parsed_tree->nodes[2*tip_nodes_count - 3];
+
   if (!tree)
   {
     printf ("Error %d parsing tree: %s\n", pll_errno, pll_errmsg);
@@ -214,19 +211,19 @@ int main (int argc, char * argv[])
   printf("Total number of nodes in tree: %d\n", nodes_count);
   printf("Number of branches in tree: %d\n", branch_count);
 
-  partition = parse_msa (attributes, tree, tip_nodes_count);
+  partition = parse_msa (attributes, parsed_tree);
   if (!partition)
   {
     printf ("Error creating partition\n");
     return 1;
   }
 
-  pll_compute_gamma_cats(ALPHA, N_RATE_CATS, rate_cats);
+  pll_compute_gamma_cats(ALPHA, N_RATE_CATS, rate_cats, PLL_GAMMA_RATES_MEAN);
   pll_set_frequencies(partition, 0, frequencies);
   pll_set_subst_params(partition, 0, subst_params);
   pll_set_category_rates(partition, rate_cats);
 
-  travbuffer = (pll_utree_t **)malloc(nodes_count * sizeof(pll_utree_t *));
+  travbuffer = (pll_unode_t **)malloc(nodes_count * sizeof(pll_unode_t *));
   branch_lengths = (double *)malloc(branch_count * sizeof(double));
   matrix_indices = (unsigned int *)malloc(branch_count * sizeof(int));
   operations = (pll_operation_t *)malloc(inner_nodes_count *
@@ -234,9 +231,10 @@ int main (int argc, char * argv[])
 
   unsigned int traversal_size;
 
-  pll_utree_t * node = tree;
+  pll_unode_t * node = tree;
 
   if (!pll_utree_traverse(node,
+                          PLL_TREE_TRAVERSE_POSTORDER,
                           cb_traversal,
                           travbuffer,
                           &traversal_size))
@@ -292,9 +290,9 @@ int main (int argc, char * argv[])
   const char * bin_fname = "test.bin";
 
   printf("** create binary file\n");
-  bin_file = pll_binary_create(bin_fname,
+  bin_file = pllmod_binary_create(bin_fname,
                                &bin_header,
-                               PLL_BINARY_ACCESS_RANDOM,
+                               PLLMOD_BIN_ACCESS_RANDOM,
                                10); /* allocate for up to 10 blocks */
 
   if (!bin_file)
@@ -306,23 +304,23 @@ int main (int argc, char * argv[])
 
   /* We save the structures in an arbitrary order */
 
-  /* IMPORTANT! Attribute PLL_BINARY_ATTRIB_UPDATE_MAP must be set! */
-  if (!pll_binary_partition_dump(bin_file,
+  /* IMPORTANT! Attribute PLLMOD_BIN_ATTRIB_UPDATE_MAP must be set! */
+  if (!pllmod_binary_partition_dump(bin_file,
                             BLOCK_ID_PARTITION,
                             partition,
-                            PLL_BINARY_ATTRIB_PARTITION_DUMP_CLV |
-                            PLL_BINARY_ATTRIB_PARTITION_DUMP_WGT |
-                            PLL_BINARY_ATTRIB_UPDATE_MAP))
+                            PLLMOD_BIN_ATTRIB_PARTITION_DUMP_CLV |
+                            PLLMOD_BIN_ATTRIB_PARTITION_DUMP_WGT |
+                            PLLMOD_BIN_ATTRIB_UPDATE_MAP))
   {
     printf("Error dumping partition\n");
   }
 
   /* dump tree */
-  if (!pll_binary_utree_dump(bin_file,
+  if (!pllmod_binary_utree_dump(bin_file,
                        BLOCK_ID_TREE,
                        tree,
                        tip_nodes_count,
-                       PLL_BINARY_ATTRIB_UPDATE_MAP))
+                       PLLMOD_BIN_ATTRIB_UPDATE_MAP))
   {
     printf("Error dumping tree\n");
   }
@@ -340,11 +338,11 @@ int main (int argc, char * argv[])
     int clv_index;
     clv_index = partition->tips + i;
     assert (clv_index < (partition->tips + partition->clv_buffers));
-    pll_binary_clv_dump(bin_file,
+    pllmod_binary_clv_dump(bin_file,
                         BLOCK_ID_CLV + i,
                         partition,
                         clv_index,
-                        PLL_BINARY_ATTRIB_UPDATE_MAP);
+                        PLLMOD_BIN_ATTRIB_UPDATE_MAP);
     memcpy(saved_clvs_ptr,
            partition->clv[clv_index],
            sizeof(double) * clv_size);
@@ -353,13 +351,13 @@ int main (int argc, char * argv[])
 
   printf("** close binary file\n");
 
-  pll_binary_close(bin_file);
+  pllmod_binary_close(bin_file);
 
   // pll_utree_show_ascii(tree, (1<<5)-1);
 
   /* clean */
   pll_partition_destroy(partition);
-  pll_utree_destroy(tree);
+  pll_utree_destroy(parsed_tree, NULL);
 
   printf("\n\n");
 
@@ -367,13 +365,13 @@ int main (int argc, char * argv[])
   /* reload */
   printf("** reload data\n");
   pll_binary_header_t input_header;
-  unsigned int bin_attributes;
+  unsigned int bin_attributes = 0;
   pll_block_map_t * block_map;
   unsigned int n_blocks;
 
-  bin_file = pll_binary_open(bin_fname, &input_header);
+  bin_file = pllmod_binary_open(bin_fname, &input_header);
 
-  block_map = pll_binary_get_map(bin_file, &n_blocks);
+  block_map = pllmod_binary_get_map(bin_file, &n_blocks);
 
   printf("There are %d blocks in the map\n", n_blocks);
   int partition_offset = 0;
@@ -391,8 +389,8 @@ int main (int argc, char * argv[])
   }
 
   /* For the offset we can use the actual offset (from the block_map),
-     or PLL_BINARY_ACCESS_SEEK */
-  partition = pll_binary_partition_load(bin_file,
+     or PLLMOD_BIN_ACCESS_SEEK */
+  partition = pllmod_binary_partition_load(bin_file,
                                         BLOCK_ID_PARTITION,
                                         NULL, /* in order to create a new partition */
                                         &bin_attributes,
@@ -413,12 +411,12 @@ int main (int argc, char * argv[])
     /* reset involved clvs */
     memset(partition->clv[clv_index], 0, sizeof(double) * clv_size);
 
-    if (!pll_binary_clv_load(bin_file,
+    if (!pllmod_binary_clv_load(bin_file,
                         BLOCK_ID_CLV + i,
                         partition,
                         clv_index,
                         &bin_attributes,
-                        PLL_BINARY_ACCESS_SEEK))
+                        PLLMOD_BIN_ACCESS_SEEK))
     {
       printf("Error loading CLV %d\n", clv_index);
       printf("%d : %s\n", pll_errno, pll_errmsg);
@@ -462,16 +460,17 @@ int main (int argc, char * argv[])
      fatal("Error: Saved and loaded logL do not agree!!\n");
 
   /* new we try with ACCESS_SEEK instead of the value taken from the map */
-  tree = pll_binary_utree_load(bin_file,
+  tree = pllmod_binary_utree_load(bin_file,
                                BLOCK_ID_TREE,
                                &bin_attributes,
-                               PLL_BINARY_ACCESS_SEEK);
+                               PLLMOD_BIN_ACCESS_SEEK);
   if (!tree)
     fatal("Error loading tree!\n");
 
-pll_binary_close(bin_file);
+pllmod_binary_close(bin_file);
 
   if (!pll_utree_traverse(tree,
+                          PLL_TREE_TRAVERSE_POSTORDER,
                           cb_traversal,
                           travbuffer,
                           &traversal_size))
@@ -513,7 +512,7 @@ pll_binary_close(bin_file);
 
   /* clean */
   pll_partition_destroy(partition);
-  pll_utree_destroy(tree);
+  pll_utree_graph_destroy(tree, NULL);
 
   free(block_map);
   free(travbuffer);

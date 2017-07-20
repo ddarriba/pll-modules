@@ -21,36 +21,6 @@ typedef struct
   int clv_valid;
 } node_info_t;
 
-static void set_missing_branch_length_recursive (pll_utree_t * tree,
-                                                 double length)
-{
-  if (tree)
-  {
-    /* set branch length to default if not set */
-    if (!tree->length)
-      tree->length = length;
-
-    if (tree->next)
-    {
-      if (!tree->next->length)
-        tree->next->length = length;
-
-      if (!tree->next->next->length)
-        tree->next->next->length = length;
-
-      set_missing_branch_length_recursive (tree->next->back, length);
-      set_missing_branch_length_recursive (tree->next->next->back, length);
-    }
-  }
-}
-
-/* branch lengths not present in the newick file get a value of 0.000001 */
-static void set_missing_branch_length (pll_utree_t * tree, double length)
-{
-  set_missing_branch_length_recursive (tree, length);
-  set_missing_branch_length_recursive (tree->back, length);
-}
-
 int main (int argc, char * argv[])
 {
   unsigned int i;
@@ -60,7 +30,7 @@ int main (int argc, char * argv[])
   double * branch_lengths;
   pll_partition_t * partition;
   pll_operation_t * operations;
-  pll_utree_t ** travbuffer;
+  pll_unode_t ** travbuffer;
 
   unsigned int attributes = get_attributes(argc, argv);
   unsigned int params_indices[RATE_CATS] = {0,0,0,0};
@@ -74,11 +44,11 @@ int main (int argc, char * argv[])
   /* parse the unrooted binary tree in newick format, and store the number
    of tip nodes in tip_nodes_count */
   printf("Parsing tree: %s\n", TREEFILE);
-  pll_utree_t * tree = pll_utree_parse_newick (TREEFILE, &tip_nodes_count);
-  if (!tree)
+  pll_utree_t * parsed_tree = pll_utree_parse_newick (TREEFILE);
+  pll_unode_t * tree = 0;
+  if (!parsed_tree)
     fatal ("Error parsing %s", TREEFILE);
-
-  set_missing_branch_length (tree, 0.000001);
+  tip_nodes_count = parsed_tree->tip_count;
 
   /* compute and show node count information */
   inner_nodes_count = tip_nodes_count - 2;
@@ -91,12 +61,8 @@ int main (int argc, char * argv[])
   printf ("  Number of branches in tree: %d\n", branch_count);
 
   /*  obtain an array of pointers to tip and inner nodes */
-  pll_utree_t ** tipnodes = (pll_utree_t **) calloc (tip_nodes_count,
-                                                     sizeof(pll_utree_t *));
-  pll_utree_t ** innernodes = (pll_utree_t **) calloc (inner_nodes_count,
-                                                       sizeof(pll_utree_t *));
-  pll_utree_query_tipnodes (tree, tipnodes);
-  pll_utree_query_innernodes (tree, innernodes);
+  pll_unode_t ** tipnodes = parsed_tree->nodes;
+  pll_unode_t ** innernodes = parsed_tree->nodes + tip_nodes_count;
 
   /* place the virtual root at a random inner node */
   tree = innernodes[rand() % inner_nodes_count];
@@ -200,7 +166,6 @@ int main (int argc, char * argv[])
 
   /* we no longer need these two arrays (keys and values of hash table... */
   free (data);
-  free (tipnodes);
 
   /* ...neither the sequences and the headers as they are already
    present in the form of probabilities in the tip CLVs */
@@ -223,7 +188,7 @@ int main (int argc, char * argv[])
   /* compute the discretized category rates from a gamma distribution
      with alpha shape 1 and store them in rate_cats  */
   double rate_cats[RATE_CATS] = { 0 };
-  pll_compute_gamma_cats (1, RATE_CATS, rate_cats);
+  pll_compute_gamma_cats (1, RATE_CATS, rate_cats, PLL_GAMMA_RATES_MEAN);
   pll_set_category_rates (partition, rate_cats);
 
   printf ("Model paramters:\n");
@@ -242,7 +207,7 @@ int main (int argc, char * argv[])
 
   /* allocate a buffer for storing pointers to nodes of the tree in postorder
    traversal */
-  travbuffer = (pll_utree_t **) malloc (nodes_count * sizeof(pll_utree_t *));
+  travbuffer = (pll_unode_t **) malloc (nodes_count * sizeof(pll_unode_t *));
 
   branch_lengths = (double *) malloc (branch_count * sizeof(double));
   matrix_indices = (unsigned int *) malloc (
@@ -252,7 +217,10 @@ int main (int argc, char * argv[])
 
   /* perform a postorder traversal of the unrooted tree */
   unsigned int traversal_size;
-  if (!pll_utree_traverse (tree, cb_full_traversal, travbuffer,
+  if (!pll_utree_traverse (tree,
+                           PLL_TREE_TRAVERSE_POSTORDER,
+                           cb_full_traversal,
+                           travbuffer,
                            &traversal_size))
     fatal ("Function pll_utree_traverse() requires inner nodes as parameters");
 
@@ -297,10 +265,10 @@ int main (int argc, char * argv[])
 
   unsigned int distance = 3;
   unsigned int n_nodes_at_dist;
-  pll_utree_t ** nodes_at_dist = (pll_utree_t **) malloc (
-      sizeof(pll_utree_t *) * pow (2, distance));
+  pll_unode_t ** nodes_at_dist = (pll_unode_t **) malloc (
+      sizeof(pll_unode_t *) * pow (2, distance));
   pll_tree_edge_t reconnect;
-  pll_utree_t * bisect_edge;
+  pll_unode_t * bisect_edge;
 
   printf("\n\n");
   printf("Obtaining random bisection edge\n");
@@ -316,13 +284,13 @@ int main (int argc, char * argv[])
       continue;
 
     /* find nodes at a certain distance */
-    pll_utree_nodes_at_node_dist (bisect_edge, nodes_at_dist, &n_nodes_at_dist,
-                                  distance, 1);
+    pllmod_utree_nodes_at_node_dist (bisect_edge, nodes_at_dist, &n_nodes_at_dist,
+                                  distance, distance);
     if (!n_nodes_at_dist)
       continue;
     reconnect.edge.utree.parent = nodes_at_dist[rand () % n_nodes_at_dist];
-    pll_utree_nodes_at_node_dist (bisect_edge->back, nodes_at_dist,
-                                  &n_nodes_at_dist, distance, 1);
+    pllmod_utree_nodes_at_node_dist (bisect_edge->back, nodes_at_dist,
+                                  &n_nodes_at_dist, distance, distance);
     if (!n_nodes_at_dist)
           continue;
     else
@@ -341,7 +309,7 @@ int main (int argc, char * argv[])
           reconnect.edge.utree.child->back->label);
   reconnect.length = 0.555;
 
-  if (!pll_utree_TBR (bisect_edge, &reconnect, 0))
+  if (!pllmod_utree_tbr (bisect_edge, &reconnect, 0))
     fatal ("TBR move cannot be applied");
 
   tree = reconnect.edge.utree.parent;
@@ -353,12 +321,15 @@ int main (int argc, char * argv[])
   /* validate tree integrity */
   printf ("Integrity check %s... ", tree->label);
   fflush(stdout);
-  if (!pll_utree_check_integrity (tree))
+  if (!pll_utree_check_integrity (parsed_tree))
     fatal ("Tree is not consistent");
   printf ("OK\n");
 
   /* traversing the new tree */
-  if (!pll_utree_traverse (tree, cb_full_traversal, travbuffer,
+  if (!pll_utree_traverse (tree,
+                           PLL_TREE_TRAVERSE_POSTORDER,
+                           cb_full_traversal,
+                           travbuffer,
                            &traversal_size))
     fatal ("Function pll_utree_traverse() requires inner nodes as parameters");
 
@@ -367,11 +338,11 @@ int main (int argc, char * argv[])
                                &ops_count);
   show_tree (reconnect.edge.utree.child, SHOW_ASCII_TREE);
 
-  logl = pll_utree_compute_lk(partition,
-                       tree,
-                       params_indices,
-                       1,
-                       1);
+  logl = pllmod_utree_compute_lk(partition,
+                          tree,
+                          params_indices,
+                          1,
+                          1);
 
   /* compute marginal likelihoods */
   printf("\nMarginal likelihoods:\n");
@@ -406,7 +377,6 @@ int main (int argc, char * argv[])
   /* deallocate traversal buffer, branch lengths array, matrix indices
    array and operations */
   printf ("\nDestroy buffers\n");
-  free (innernodes);
   free (travbuffer);
   free (branch_lengths);
   free (matrix_indices);
@@ -414,7 +384,7 @@ int main (int argc, char * argv[])
 
   printf ("Destroy tree\n");
   /* we will no longer need the tree structure */
-  pll_utree_destroy (tree);
+  pll_utree_destroy (parsed_tree, NULL);
 
   return (EXIT_SUCCESS);
 }

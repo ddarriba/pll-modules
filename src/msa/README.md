@@ -4,21 +4,31 @@
 
 ## Introduction
 
-Module for MSA management. Exportable functions in this module start with the prefix `pll_msa_`.
+Module for MSA management. Exportable functions in this module start with the prefix `pllmod_msa_`.
 
 ## Compilation instructions
 
-The module can be compiled using the included Makefile:
-
-`make`
-
-Microsoft Windows compatibility was tested with a cross-compiler and seems to
-work out-of-the-box using [MingW](http://www.mingw.org/).
+Read the compilation instructions at the main README file
 
 ## Code
 
 The code is written in C.
 
-    File              | Description
-----------------------|----------------
-**pll_msa.c**         | Functions for analyzing MSA embedded in `pll_partition_t` structure.
+|    File              | Description                   |
+|----------------------|-------------------------------|
+|**pll_msa.c**         | Functions for analyzing MSAs. |
+
+## Type definitions
+
+* struct `pllmod_msa_stats_t`
+
+## Functions
+
+* `double * pllmod_msa_empirical_frequencies`
+* `double * pllmod_msa_empirical_subst_rates`
+* `double pllmod_msa_empirical_invariant_sites`
+* `pllmod_msa_stats_t * pllmod_msa_compute_stats`
+* `void pllmod_msa_destroy_stats`
+* `pll_msa_t * pllmod_msa_filter`
+* `pll_msa_t ** pllmod_msa_split`
+* `int pllmod_msa_save_phylip`

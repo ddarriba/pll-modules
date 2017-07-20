@@ -85,7 +85,10 @@ int main (int argc, char * argv[])
    /* fix RNG seed to arbitrary number */
    srand(42);
 
-   pll_utree_t * tree = pll_utree_create_random(n_taxa, (const char **)header);
+   pll_utree_t * random_tree = pllmod_utree_create_random(n_taxa,
+                                                   (const char **)header);
+   pll_unode_t * tree = random_tree->nodes[2*n_taxa - 3];
+
    for (i=0; i<n_taxa; ++i)
      free(header[i]);
 
@@ -97,7 +100,7 @@ int main (int argc, char * argv[])
     double * branch_lengths;
     pll_partition_t * partition;
     pll_operation_t * operations;
-    pll_utree_t ** travbuffer;
+    pll_unode_t ** travbuffer;
 
     tip_nodes_count = n_taxa;
     inner_nodes_count = n_taxa - 2;
@@ -149,10 +152,10 @@ int main (int argc, char * argv[])
     /* compute the discretized category rates from a gamma distribution
        with alpha shape 1 and store them in rate_cats  */
     double rate_cats[N_CAT_GAMMA] = { 0 };
-    pll_compute_gamma_cats (1, N_CAT_GAMMA, rate_cats);
+    pll_compute_gamma_cats (1, N_CAT_GAMMA, rate_cats, PLL_GAMMA_RATES_MEAN);
     pll_set_category_rates (partition, rate_cats);
 
-    travbuffer = (pll_utree_t **) malloc (nodes_count * sizeof(pll_utree_t *));
+    travbuffer = (pll_unode_t **) malloc (nodes_count * sizeof(pll_unode_t *));
 
     branch_lengths = (double *) malloc (branch_count * sizeof(double));
     matrix_indices = (unsigned int *) malloc (
@@ -162,7 +165,10 @@ int main (int argc, char * argv[])
 
     /* perform a postorder traversal of the unrooted tree */
     unsigned int traversal_size;
-    if (!pll_utree_traverse (tree, cb_full_traversal, travbuffer,
+    if (!pll_utree_traverse (tree,
+                             PLL_TREE_TRAVERSE_POSTORDER,
+                             cb_full_traversal,
+                             travbuffer,
                              &traversal_size))
       fatal ("Function pll_utree_traverse() requires inner nodes as parameters");
 
@@ -214,6 +220,6 @@ int main (int argc, char * argv[])
    free (operations);
 
    pll_partition_destroy (partition);
-   pll_utree_destroy(tree);
+   pll_utree_destroy(random_tree, NULL);
    return PLL_SUCCESS;
 }

@@ -42,13 +42,13 @@ int main(int argc, char * argv[])
                                    4,       /* Rate categories */
                                    0,       /* Scale buffers */
                                    attributes);
-  
+
   double branch_lengths[3] = { 0.105361, 0.166920, 0.166920 };
   double frequencies[4] = { 0.25, 0.25, 0.25, 0.25 };
   unsigned int matrix_indices[3] = { 0, 1, 2 };
   double subst_params[6] = {1.452176, 0.937951, 0.462880, 0.617729, 1.745312, 1.000000};
   double rate_cats[4];
-  pll_compute_gamma_cats(alpha, 4, rate_cats);
+  pll_compute_gamma_cats(alpha, 4, rate_cats, PLL_GAMMA_RATES_MEAN);
 
   /* set */
   pll_set_frequencies(partition, 0, frequencies);
@@ -85,9 +85,9 @@ int main(int argc, char * argv[])
                        0.0000002445,0.0000001169,0.0165200071,0.0000006303,0.0000002578,0.0000001236,0.0161407319,0.0000006936,
                        0.0000006741,0.0000006317,0.0001509298,0.0000005609,0.0000007244,0.0000006695,0.0001579430,0.0000006157,
                        0.0000007612,0.0000006968,0.0001627960,0.0000006564,0.0000008184,0.0000007388,0.0001699152,0.0000007205};
-    pll_set_tip_clv(partition, 0, tip1);
-    pll_set_tip_clv(partition, 1, tip2);
-    pll_set_tip_clv(partition, 2, tip3);
+    pll_set_tip_clv(partition, 0, tip1, PLL_FALSE);
+    pll_set_tip_clv(partition, 1, tip2, PLL_FALSE);
+    pll_set_tip_clv(partition, 2, tip3, PLL_FALSE);
   }
 
   pll_update_prob_matrices(partition, params_indices, matrix_indices, branch_lengths, 3);
@@ -121,7 +121,7 @@ int main(int argc, char * argv[])
 
   printf("Initial Log-L: %.10f\n", logl);
 
-  pll_utree_t * tree = (pll_utree_t *) malloc (6 * sizeof(pll_utree_t));
+  pll_unode_t * tree = (pll_unode_t *) malloc (6 * sizeof(pll_unode_t));
   for (i=0; i<6; ++i) tree[i].scaler_index = PLL_SCALE_BUFFER_NONE;
   tree[0].next = tree[1].next = tree[2].next = NULL;
   tree[3].next = tree + 4; tree[4].next = tree + 5; tree[5].next = tree + 3;
@@ -141,17 +141,24 @@ int main(int argc, char * argv[])
   tree[2].label = "INNER";
   tree[3].label = tree[4].label = tree[5].label = NULL;
 
-  char * newick = pll_utree_export_newick(tree);
+  char * newick = pll_utree_export_newick(tree, NULL);
   printf("Tree (reference): %s\n", newick);
   free(newick);
 
-  double test_logl = pll_optimize_branch_lengths_local (partition,
+  assert(!pll_errno);
+  double test_logl = pllmod_opt_optimize_branch_lengths_local (partition,
                                      tree[2].back,
-                                     params_indices,    /* params index */
-                                     1e-4, /* tolerance    */
+                                     params_indices,
+                                     1e-4, /* min branch length */
+                                     1e+3, /* max branch length */
+                                     1e-2, /* tolerance    */
                                      1,    /* smoothings   */
                                      1,    /* radius       */
                                      1);   /* keep update  */
+   if(pll_errno)
+   {
+     fatal("Error %d optimizing branches: %s\n", pll_errno, pll_errmsg);
+   }
 
    logl = pll_compute_edge_loglikelihood(partition,
                                          3,PLL_SCALE_BUFFER_NONE, /* parent clv/scaler */
@@ -164,7 +171,7 @@ int main(int argc, char * argv[])
    printf("-Log-L returned by BL-opt:       %.10f\n", test_logl);
    printf(" Log-L recomputed after BL-opt: %.10f\n", logl);
 
-   newick = pll_utree_export_newick(tree);
+   newick = pll_utree_export_newick(tree, NULL);
    printf("Tree (optimized): %s\n", newick);
    free(newick);
 

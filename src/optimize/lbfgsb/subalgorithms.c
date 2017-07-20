@@ -593,13 +593,13 @@ L999:
 /*       This subroutine computes r=-Z'B(xcp-xk)-Z'g by using */
 /*         wa(2m+1)=W'(xcp-x) from subroutine cauchy. */
 int cmprlb(int *n, int *m, double *x,
-	double *g, double *ws, double *wy, double *sy, 
-	double *wt, double *z__, double *r__, double *wa, 
-	int *index, double *theta, int *col, int *head, 
+	double *g, double *ws, double *wy, double *sy,
+	double *wt, double *z__, double *r__, double *wa,
+	int *index, double *theta, int *col, int *head,
 	int *nfree, logical *cnstnd, int *info)
 {
     /* System generated locals */
-    int ws_dim1, ws_offset, wy_dim1, wy_offset, sy_dim1, sy_offset, 
+    int ws_dim1, ws_offset, wy_dim1, wy_offset, sy_dim1, sy_offset,
 	    wt_dim1, wt_offset, i__1, i__2;
 
     int i, j, k;
@@ -655,7 +655,7 @@ int cmprlb(int *n, int *m, double *x,
 	    i__2 = *nfree;
 	    for (i = 1; i <= i__2; ++i) {
 		k = index[i];
-		r__[i] = r__[i] + wy[k + pointr * wy_dim1] * a1 + ws[k + 
+		r__[i] = r__[i] + wy[k + pointr * wy_dim1] * a1 + ws[k +
 			pointr * ws_dim1] * a2;
 /* L32: */
 	    }
@@ -670,12 +670,12 @@ int cmprlb(int *n, int *m, double *x,
 /* ======================= The end of cmprlb ============================= */
 int formk(int *n, int *nsub, int *ind, int *
 	nenter, int *ileave, int *indx2, int *iupdat, logical *
-	updatd, double *wn, double *wn1, int *m, double *ws, 
-	double *wy, double *sy, double *theta, int *col, 
+	updatd, double *wn, double *wn1, int *m, double *ws,
+	double *wy, double *sy, double *theta, int *col,
 	int *head, int *info)
 {
     /* System generated locals */
-    int wn_dim1, wn_offset, wn1_dim1, wn1_offset, ws_dim1, ws_offset, 
+    int wn_dim1, wn_offset, wn1_dim1, wn1_offset, ws_dim1, ws_offset,
 	    wy_dim1, wy_offset, sy_dim1, sy_offset, i__1, i__2, i__3;
 
     /* Local variables */
@@ -971,10 +971,10 @@ int formk(int *n, int *nsub, int *ind, int *
 /* L51: */
 	    }
 	    if (is <= jy + *m) {
-		wn1[is + jy * wn1_dim1] = wn1[is + jy * wn1_dim1] + temp1 - 
+		wn1[is + jy * wn1_dim1] = wn1[is + jy * wn1_dim1] + temp1 -
 			temp3;
 	    } else {
-		wn1[is + jy * wn1_dim1] = wn1[is + jy * wn1_dim1] - temp1 + 
+		wn1[is + jy * wn1_dim1] = wn1[is + jy * wn1_dim1] - temp1 +
 			temp3;
 	    }
 	    jpntr = jpntr % *m + 1;
@@ -1033,7 +1033,7 @@ int formk(int *n, int *nsub, int *ind, int *
     for (is = *col + 1; is <= i__1; ++is) {
 	i__2 = col2;
 	for (js = is; js <= i__2; ++js) {
-	    wn[is + js * wn_dim1] += ddot(col, &wn[is * wn_dim1 + 1], &c__1, 
+	    wn[is + js * wn_dim1] += ddot(col, &wn[is * wn_dim1 + 1], &c__1,
 		    &wn[js * wn_dim1 + 1], &c__1);
 /* L74: */
 	}
@@ -1056,7 +1056,7 @@ int formt(int *m, double *wt, double *sy,
 	double *ss, int *col, double *theta, int *info)
 {
     /* System generated locals */
-    int wt_dim1, wt_offset, sy_dim1, sy_offset, ss_dim1, ss_offset, i__1, 
+    int wt_dim1, wt_offset, sy_dim1, sy_offset, ss_dim1, ss_offset, i__1,
 	    i__2, i__3;
 
     /* Local variables */
@@ -1115,7 +1115,7 @@ int formt(int *m, double *wt, double *sy,
 	    ddum = 0.;
 	    i__3 = k1;
 	    for (k = 1; k <= i__3; ++k) {
-		ddum += sy[i__ + k * sy_dim1] * sy[j + k * sy_dim1] / sy[k + 
+		ddum += sy[i__ + k * sy_dim1] * sy[j + k * sy_dim1] / sy[k +
 			k * sy_dim1];
 /* L53: */
 	    }
@@ -1141,8 +1141,8 @@ int formt(int *m, double *wt, double *sy,
 
 
 int freev(int *n, int *nfree, int *index,
-	int *nenter, int *ileave, int *indx2, int *iwhere, 
-	logical *wrk, logical *updatd, logical *cnstnd, int *iprint, 
+	int *nenter, int *ileave, int *indx2, int *iwhere,
+	logical *wrk, logical *updatd, logical *cnstnd, int *iprint,
 	int *iter)
 {
     /* System generated locals */
@@ -1368,13 +1368,13 @@ L30:
 
 
 int matupd(int *n, int *m, double *ws,
-	double *wy, double *sy, double *ss, double *d__, 
-	double *r__, int *itail, int *iupdat, int *col, 
-	int *head, double *theta, double *rr, double *dr, 
+	double *wy, double *sy, double *ss, double *d__,
+	double *r__, int *itail, int *iupdat, int *col,
+	int *head, double *theta, double *rr, double *dr,
 	double *stp, double *dtd)
 {
     /* System generated locals */
-    int ws_dim1, ws_offset, wy_dim1, wy_offset, sy_dim1, sy_offset, 
+    int ws_dim1, ws_offset, wy_dim1, wy_offset, sy_dim1, sy_offset,
 	    ss_dim1, ss_offset, i__1, i__2;
 
     /* Local variables */
@@ -1444,7 +1444,7 @@ int matupd(int *n, int *m, double *ws,
             dcopy(&j, &ss[(j + 1) * ss_dim1 + 2], &c__1, &ss[j * ss_dim1 + 1]
                     , &c__1);
             i__2 = *col - j;
-            dcopy(&i__2, &sy[j + 1 + (j + 1) * sy_dim1], &c__1, &sy[j + j * 
+            dcopy(&i__2, &sy[j + 1 + (j + 1) * sy_dim1], &c__1, &sy[j + j *
                     sy_dim1], &c__1);
             /* L50: */
         }
@@ -1454,7 +1454,7 @@ int matupd(int *n, int *m, double *ws,
     pointr = *head;
     i__1 = *col - 1;
     for (j = 1; j <= i__1; ++j) {
-        sy[*col + j * sy_dim1] = ddot(n, &d__[1], &c__1, &wy[pointr * 
+        sy[*col + j * sy_dim1] = ddot(n, &d__[1], &c__1, &wy[pointr *
                 wy_dim1 + 1], &c__1);
         ss[j + *col * ss_dim1] = ddot(n, &ws[pointr * ws_dim1 + 1], &c__1, &
                 d__[1], &c__1);
@@ -1553,15 +1553,15 @@ int projgr(int *n, double *l, double *u,
 
 
 int subsm(int *n, int *m, int *nsub, int *
-	ind, double *l, double *u, int *nbd, double *x, 
-	double *d__, double *xp, double *ws, double *wy, 
-	double *theta, double *xx, double *gg, int *col, 
+	ind, double *l, double *u, int *nbd, double *x,
+	double *d__, double *xp, double *ws, double *wy,
+	double *theta, double *xx, double *gg, int *col,
 	int *head, int *iword, double *wv, double *wn, 
 	int *iprint, int *info)
 {
 
     /* System generated locals */
-    int ws_dim1, ws_offset, wy_dim1, wy_offset, wn_dim1, wn_offset, i__1, 
+    int ws_dim1, ws_offset, wy_dim1, wy_offset, wn_dim1, wn_offset, i__1,
 	    i__2;
     double d__1, d__2;
 
@@ -1710,17 +1710,6 @@ int subsm(int *n, int *m, int *nsub, int *
 /*                                                              [ 0  I] */
 /*       On exit wn is unchanged. */
 
-/*     iprint is an INTEGER variable that must be set by the user. */
-/*       It controls the frequency and type of output generated: */
-/*        iprint<0    no output is generated; */
-/*        iprint=0    print only one line at the last iteration; */
-/*        0<iprint<99 print also f and |proj g| every iprint iterations; */
-/*        iprint=99   print details of every iteration except n-vectors; */
-/*        iprint=100  print also the changes of active set and final x; */
-/*        iprint>100  print details of every iteration including x and g; */
-/*       When iprint > 0, the file iterate.dat will be created to */
-/*                        summarize the iteration. */
-
 /*     info is an int variable. */
 /*       On entry info is unspecified. */
 /*       On exit info = 0       for normal return, */
@@ -1821,7 +1810,7 @@ int subsm(int *n, int *m, int *nsub, int *
         i__2 = *nsub;
         for (i__ = 1; i__ <= i__2; ++i__) {
             k = ind[i__];
-            d__[i__] = d__[i__] + wy[k + pointr * wy_dim1] * wv[jy] / *theta 
+            d__[i__] = d__[i__] + wy[k + pointr * wy_dim1] * wv[jy] / *theta
                 + ws[k + pointr * ws_dim1] * wv[js];
             /* L30: */
         }
@@ -1959,4 +1948,3 @@ L911:
     DBG("[L-BFGS-B] ----------------- exit SUBSM --------------\n", void);
     return 0;
 } /* subsm */
-
