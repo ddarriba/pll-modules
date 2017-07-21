@@ -228,11 +228,11 @@ int binary_partition_body_apply (FILE * bin_file,
   bin_func (partition->rates, sizeof(double), rate_cats, bin_file);
   bin_func (partition->rate_weights, sizeof(double), rate_cats, bin_file);
   bin_func (partition->prop_invar, sizeof(double), rate_matrices, bin_file);
-    if (partition->attributes & PLL_ATTRIB_SITES_REPEATS)
+    if (partition->attributes & PLL_ATTRIB_SITE_REPEATS)
     {
-      bin_func (partition->repeats->pernode_max_id, sizeof(unsigned int),
+      bin_func (partition->repeats->pernode_ids, sizeof(unsigned int),
           partition->clv_buffers + tips, bin_file);
-      bin_func (partition->repeats->perscale_max_id, sizeof(unsigned int),
+      bin_func (partition->repeats->perscale_ids, sizeof(unsigned int),
           partition->scale_buffers, bin_file);
     }
 
@@ -262,7 +262,7 @@ int binary_partition_body_apply (FILE * bin_file,
       bin_func (partition->ttlookup, sizeof(double), alloc_size, bin_file);
       bin_func (partition->tipmap, sizeof(char), PLL_ASCII_SIZE, bin_file);
     }
-    if (partition->attributes & PLL_ATTRIB_SITES_REPEATS) 
+    if (partition->attributes & PLL_ATTRIB_SITE_REPEATS) 
     {
       /* dump repeats */
       for (i = first_clv_index; i < (partition->clv_buffers + tips); ++i) 
@@ -273,7 +273,7 @@ int binary_partition_body_apply (FILE * bin_file,
           partition->repeats->reallocate_repeats(partition, i,
               (i < tips) ? (unsigned int)PLL_SCALE_BUFFER_NONE : i - tips, clvs_to_alloc); 
         }
-        if (partition->repeats->pernode_max_id[i]) // repeats
+        if (partition->repeats->pernode_ids[i]) // repeats
         {
           bin_func(partition->repeats->pernode_site_id[i], sizeof(unsigned int),
             sites_alloc, bin_file);
@@ -333,7 +333,7 @@ int binary_repeats_apply (FILE * bin_file,
                   int (*bin_func)(void *, size_t, size_t, FILE *))
 {
   UNUSED(attributes);
-  if (!bin_func(partition->repeats->pernode_max_id, sizeof(unsigned int), nodes, bin_file))
+  if (!bin_func(partition->repeats->pernode_ids, sizeof(unsigned int), nodes, bin_file))
   {
     pllmod_set_error(PLLMOD_BIN_ERROR_LOADSTORE,
                      "Error loading/storing repeats");
@@ -363,8 +363,8 @@ int binary_clv_apply (FILE * bin_file,
                      "Error loading/storing CLV");
     return PLL_FAILURE;
   }
-  if ((partition->attributes & PLL_ATTRIB_SITES_REPEATS) 
-      && partition->repeats->pernode_max_id[clv_index]) 
+  if ((partition->attributes & PLL_ATTRIB_SITE_REPEATS) 
+      && partition->repeats->pernode_ids[clv_index]) 
   {
     unsigned int uncompressed_sites = partition->sites + 
       (partition->asc_bias_alloc ? partition->states : 0);

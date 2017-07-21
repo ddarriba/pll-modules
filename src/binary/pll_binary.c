@@ -384,20 +384,20 @@ PLL_EXPORT pll_partition_t * pllmod_binary_partition_load(FILE * bin_file,
       // manually set the tips so that the rest of the code callocs correctly
       local_partition->tips = aux_partition.tips;
       
-      if (local_partition->attributes & PLL_ATTRIB_SITES_REPEATS) 
+      if (local_partition->attributes & PLL_ATTRIB_SITE_REPEATS) 
       {
-        free(local_partition->repeats->pernode_max_id);
+        free(local_partition->repeats->pernode_ids);
         free(local_partition->repeats->pernode_allocated_clvs);
-        free(local_partition->repeats->perscale_max_id);
+        free(local_partition->repeats->perscale_ids);
         free(local_partition->repeats->pernode_site_id[0]);
         free(local_partition->repeats->pernode_id_site[0]);
         free(local_partition->repeats->pernode_site_id);
         free(local_partition->repeats->pernode_id_site);
-        local_partition->repeats->pernode_max_id = calloc(local_partition->clv_buffers 
+        local_partition->repeats->pernode_ids = calloc(local_partition->clv_buffers 
             + local_partition->tips, sizeof(unsigned int));
         local_partition->repeats->pernode_allocated_clvs = calloc(local_partition->clv_buffers 
             + local_partition->tips, sizeof(unsigned int));
-        local_partition->repeats->perscale_max_id = calloc(local_partition->scale_buffers,
+        local_partition->repeats->perscale_ids = calloc(local_partition->scale_buffers,
             sizeof(unsigned int));
         local_partition->repeats->pernode_site_id = calloc(local_partition->clv_buffers 
             + local_partition->tips, sizeof(unsigned int *));
@@ -519,7 +519,7 @@ PLL_EXPORT int pllmod_binary_repeats_dump(FILE * bin_file,
                                       unsigned int attributes)
 {
   assert(partition);
-  if (!(partition->attributes & PLL_ATTRIB_SITES_REPEATS)) 
+  if (!(partition->attributes & PLL_ATTRIB_SITE_REPEATS)) 
   {
     return PLL_SUCCESS;
   }
@@ -575,7 +575,7 @@ PLL_EXPORT int pllmod_binary_repeats_load(FILE * bin_file,
                                       unsigned int * attributes,
                                       long int offset)
 {
-  if (!(partition->attributes & PLL_ATTRIB_SITES_REPEATS)) 
+  if (!(partition->attributes & PLL_ATTRIB_SITE_REPEATS)) 
   {
     return PLL_SUCCESS;
   }
@@ -651,8 +651,8 @@ PLL_EXPORT int pllmod_binary_pernoderepeats_dump(FILE * bin_file,
 {
   int retval;
   pll_block_header_t block_header;
-  unsigned int sites = partition->attributes & PLL_ATTRIB_SITES_REPEATS ?
-    partition->repeats->pernode_max_id[clv_index] : partition->sites;
+  unsigned int sites = partition->attributes & PLL_ATTRIB_SITE_REPEATS ?
+    partition->repeats->pernode_ids[clv_index] : partition->sites;
   unsigned int sites_alloc = partition->asc_bias_alloc ?
                  sites + partition->states :
                  sites;
@@ -743,8 +743,8 @@ PLL_EXPORT int pllmod_binary_clv_dump(FILE * bin_file,
   block_header.block_len  = clv_size * sizeof(double);
   block_header.alignment  = 0;
   
-  if ((partition->attributes & PLL_ATTRIB_SITES_REPEATS) 
-      && partition->repeats->pernode_max_id[clv_index]) 
+  if ((partition->attributes & PLL_ATTRIB_SITE_REPEATS) 
+      && partition->repeats->pernode_ids[clv_index]) 
   {
     unsigned int uncompressed_sites = partition->sites + 
       (partition->asc_bias_alloc ? partition->states : 0);
@@ -837,8 +837,8 @@ PLL_EXPORT int pllmod_binary_clv_load(FILE * bin_file,
   
   unsigned int block_len = clv_size * sizeof(double);
 
-  if ((partition->attributes & PLL_ATTRIB_SITES_REPEATS) 
-      && partition->repeats->pernode_max_id[clv_index]) 
+  if ((partition->attributes & PLL_ATTRIB_SITE_REPEATS) 
+      && partition->repeats->pernode_ids[clv_index]) 
   {
     unsigned int uncompressed_sites = partition->sites + 
       (partition->asc_bias_alloc ? partition->states : 0);
