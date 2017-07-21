@@ -31,6 +31,7 @@
 #include "pll_binary.h"
 #include "binary_io_operations.h"
 #include "../pllmod_common.h"
+#include <stdio.h>
 
 static unsigned int get_current_alignment( unsigned int attributes );
 static int cb_full_traversal(pll_unode_t * node);
@@ -345,7 +346,6 @@ PLL_EXPORT pll_partition_t * pllmod_binary_partition_load(FILE * bin_file,
     unsigned int clv_buffers = load_skeleton ? 1 : aux_partition.clv_buffers;
     unsigned int tips = load_skeleton ? 0 : aux_partition.tips;
     unsigned int scale_buffers = load_skeleton ? 1 : aux_partition.scale_buffers;
-
     local_partition = pll_partition_create(
         tips,
         clv_buffers,
@@ -372,7 +372,6 @@ PLL_EXPORT pll_partition_t * pllmod_binary_partition_load(FILE * bin_file,
       local_partition->clv = (double**) calloc(local_partition->clv_buffers +
                                                local_partition->tips,
                                                sizeof(double*));
-
       if (local_partition->scale_buffer)
         for (i = 0; i < local_partition->scale_buffers; ++i)
       free(local_partition->scale_buffer[i]);
@@ -384,6 +383,27 @@ PLL_EXPORT pll_partition_t * pllmod_binary_partition_load(FILE * bin_file,
 
       // manually set the tips so that the rest of the code callocs correctly
       local_partition->tips = aux_partition.tips;
+      
+      if (local_partition->attributes & PLL_ATTRIB_SITES_REPEATS) 
+      {
+        free(local_partition->repeats->pernode_max_id);
+        free(local_partition->repeats->pernode_allocated_clvs);
+        free(local_partition->repeats->perscale_max_id);
+        free(local_partition->repeats->pernode_site_id[0]);
+        free(local_partition->repeats->pernode_id_site[0]);
+        free(local_partition->repeats->pernode_site_id);
+        free(local_partition->repeats->pernode_id_site);
+        local_partition->repeats->pernode_max_id = calloc(local_partition->clv_buffers 
+            + local_partition->tips, sizeof(unsigned int));
+        local_partition->repeats->pernode_allocated_clvs = calloc(local_partition->clv_buffers 
+            + local_partition->tips, sizeof(unsigned int));
+        local_partition->repeats->perscale_max_id = calloc(local_partition->scale_buffers,
+            sizeof(unsigned int));
+        local_partition->repeats->pernode_site_id = calloc(local_partition->clv_buffers 
+            + local_partition->tips, sizeof(unsigned int *));
+        local_partition->repeats->pernode_id_site = calloc(local_partition->clv_buffers 
+            + local_partition->tips, sizeof(unsigned int *));
+      }
     }
 
     /* initialize extra variables */
@@ -483,18 +503,147 @@ PLL_EXPORT pll_partition_t * pllmod_binary_partition_load(FILE * bin_file,
 }
 
 /**
- *  Save a CLV to the binary file
+ *  Save repeats to the binary file
  *
  *  @param[in] bin_file binary file
  *  @param[in] block_id id of the block for random access, or local id
  *  @param[in] partition the partition containing the saved CLV
- *  @param[in] clv_index the index of the CLV
  *  @param[in] attributes the dumped attributes
  *
  *  @return PLL_SUCCESS if the data was correctly saved
  *          PLL_FAILURE otherwise (check pll_errmsg for details)
  */
-PLL_EXPORT int pllmod_binary_clv_dump(FILE * bin_file,
+PLL_EXPORT int pllmod_binary_repeats_dump(FILE * bin_file,
+                                      int block_id,
+                                      pll_partition_t * partition,
+                                      unsigned int attributes)
+{
+  assert(partition);
+  if (!(partition->attributes & PLL_ATTRIB_SITES_REPEATS)) 
+  {
+    return PLL_SUCCESS;
+  }
+  assert(partition->repeats);
+  int retval;
+  pll_block_header_t block_header;
+
+  size_t nodes = partition->tips + partition->clv_buffers;
+  /* fill block header */
+  block_header.block_id   = block_id;
+  block_header.type       = PLLMOD_BIN_BLOCK_REPEATS;
+  block_header.attributes = attributes;
+  block_header.block_len  = nodes * sizeof(unsigned int);
+  block_header.alignment  = 0;
+
+  /* update main header */
+  if(!binary_update_header(bin_file, &block_header))
+  {
+    return PLL_FAILURE;
+  }
+
+  /* dump block header */
+  if (!binary_block_header_apply(bin_file, &block_header, &bin_fwrite))
+    return PLL_FAILURE;
+
+  /* dump data */
+  retval = binary_repeats_apply (bin_file,
+                             partition,
+                             attributes,
+                             nodes,
+                             &bin_fwrite);
+  return retval;
+}
+
+/**
+ *  Load a CLV from the binary file
+ *
+ *  @param[in] bin_file binary file
+ *  @param[in] block_id id of the block for random access
+ *  @param[in,out] partition the partition where the CLV will be stored
+ *  @param[out] attributes the loaded attributes
+ *  @param offset offset to the data block, if known
+ *                0, if access is sequential
+ *                PLLMOD_BIN_ACCESS_SEEK, for searching in the file header
+ *
+ *  @return PLL_SUCCESS if the data was correctly loaded
+ *          PLL_FAILURE otherwise (check pll_errmsg for details)
+ */
+
+PLL_EXPORT int pllmod_binary_repeats_load(FILE * bin_file,
+                                      int block_id,
+                                      pll_partition_t * partition,
+                                      unsigned int * attributes,
+                                      long int offset)
+{
+  if (!(partition->attributes & PLL_ATTRIB_SITES_REPEATS)) 
+  {
+    return PLL_SUCCESS;
+  }
+  int retval;
+  pll_block_header_t block_header;
+  assert(partition);
+  assert(offset >= 0 || offset == PLLMOD_BIN_ACCESS_SEEK);
+  assert(partition->repeats);
+
+  if (offset != 0)
+  {
+    if (offset == PLLMOD_BIN_ACCESS_SEEK)
+    {
+      /* find offset */
+      offset = binary_get_offset (bin_file, block_id);
+      if (offset == PLLMOD_BIN_INVALID_OFFSET)
+      {
+        pllmod_set_error(PLLMOD_BIN_ERROR_MISSING_BLOCK,
+                      "Cannot retrieve offset for block %d", block_id);
+        return PLL_FAILURE;
+      }
+    }
+    /* apply offset */
+    fseek (bin_file, offset, SEEK_SET);
+  }
+
+  /* read and validate header */
+  if (!binary_block_header_apply(bin_file, &block_header, &bin_fread))
+    return PLL_FAILURE;
+
+  if (block_header.type != PLLMOD_BIN_BLOCK_REPEATS)
+  {
+    pllmod_set_error(PLLMOD_BIN_ERROR_BLOCK_MISMATCH,
+                  "Block type is %d and should be %d",
+                  block_header.type, PLLMOD_BIN_BLOCK_REPEATS);
+    return PLL_FAILURE;
+  }
+
+  size_t nodes = partition->tips + partition->clv_buffers;
+  if (block_header.block_len != (nodes * sizeof(unsigned int)))
+  {
+      pllmod_set_error(PLLMOD_BIN_ERROR_BLOCK_LENGTH,
+                    "Wrong block length");
+      return PLL_FAILURE;
+  }
+  *attributes = block_header.attributes;
+  retval = binary_repeats_apply (bin_file,
+                         partition,
+                         *attributes,
+                         nodes,
+                         &bin_fread);
+  return retval;
+}
+
+
+/**
+ *  Save a repeat entry to the binary file
+ *
+ *  @param[in] bin_file binary file
+ *  @param[in] block_id id of the block for random access, or local id
+ *  @param[in] partition the partition containing the saved repeats
+ *  @param[in] clv_index the index of the repeat entry
+ *  @param[in] attributes the dumped attributes
+ *
+ *  @return PLL_SUCCESS if the data was correctly saved
+ *          PLL_FAILURE otherwise (check pll_errmsg for details)
+ */
+PLL_EXPORT int pllmod_binary_pernoderepeats_dump(FILE * bin_file,
                                       int block_id,
                                       pll_partition_t * partition,
                                       unsigned int clv_index,
@@ -502,13 +651,14 @@ PLL_EXPORT int pllmod_binary_clv_dump(FILE * bin_file,
 {
   int retval;
   pll_block_header_t block_header;
+  unsigned int sites = partition->attributes & PLL_ATTRIB_SITES_REPEATS ?
+    partition->repeats->pernode_max_id[clv_index] : partition->sites;
   unsigned int sites_alloc = partition->asc_bias_alloc ?
-                 partition->sites + partition->states :
-                 partition->sites;
+                 sites + partition->states :
+                 sites;
 
   size_t clv_size = sites_alloc * partition->states_padded *
                       partition->rate_cats;
-
   /* fill block header */
   block_header.block_id   = block_id;
   block_header.type       = PLLMOD_BIN_BLOCK_CLV;
@@ -538,6 +688,94 @@ PLL_EXPORT int pllmod_binary_clv_dump(FILE * bin_file,
 }
 
 /**
+ *  Load a repeat entry from the binary file
+ *
+ *  @param[in] bin_file binary file
+ *  @param[in] block_id id of the block for random access
+ *  @param[in,out] partition the partition where the repeats will be stored
+ *  @param[in] clv_index index of the repeat entry
+ *  @param[out] attributes the loaded attributes
+ *  @param offset offset to the data block, if known
+ *                0, if access is sequential
+ *                PLLMOD_BIN_ACCESS_SEEK, for searching in the file header
+ *
+ *  @return PLL_SUCCESS if the data was correctly loaded
+ *          PLL_FAILURE otherwise (check pll_errmsg for details)
+ */
+
+PLL_EXPORT int pllmod_binary_pernoderepeats_load(FILE * bin_file,
+                                      int block_id,
+                                      pll_partition_t * partition,
+                                      unsigned int clv_index,
+                                      unsigned int * attributes,
+                                      long int offset)
+{
+  
+  return 0;
+}
+
+
+/**
+ *  Save a CLV to the binary file
+ *
+ *  @param[in] bin_file binary file
+ *  @param[in] block_id id of the block for random access, or local id
+ *  @param[in] partition the partition containing the saved CLV
+ *  @param[in] clv_index the index of the CLV
+ *  @param[in] attributes the dumped attributes
+ *
+ *  @return PLL_SUCCESS if the data was correctly saved
+ *          PLL_FAILURE otherwise (check pll_errmsg for details)
+ */
+PLL_EXPORT int pllmod_binary_clv_dump(FILE * bin_file,
+                                      int block_id,
+                                      pll_partition_t * partition,
+                                      unsigned int clv_index,
+                                      unsigned int attributes)
+{
+  int retval;
+  pll_block_header_t block_header;
+  size_t clv_size = pll_get_clv_size(partition, clv_index);
+  /* fill block header */
+  block_header.block_id   = block_id;
+  block_header.type       = PLLMOD_BIN_BLOCK_CLV;
+  block_header.attributes = attributes;
+  block_header.block_len  = clv_size * sizeof(double);
+  block_header.alignment  = 0;
+  
+  if ((partition->attributes & PLL_ATTRIB_SITES_REPEATS) 
+      && partition->repeats->pernode_max_id[clv_index]) 
+  {
+    unsigned int uncompressed_sites = partition->sites + 
+      (partition->asc_bias_alloc ? partition->states : 0);
+    unsigned int compressed_sites = pll_get_sites_number(partition, clv_index);
+    block_header.block_len += (uncompressed_sites + compressed_sites) * sizeof(unsigned int);
+  }
+  /* update main header */
+  if(!binary_update_header(bin_file, &block_header))
+  {
+    return PLL_FAILURE;
+  }
+
+  /* dump block header */
+  if (!binary_block_header_apply(bin_file, &block_header, &bin_fwrite))
+    return PLL_FAILURE;
+
+  /* dump data */
+  retval = binary_clv_apply (bin_file,
+                             partition,
+                             clv_index,
+                             attributes,
+                             clv_size,
+                             &bin_fwrite);
+
+  return retval;
+}
+
+
+
+
+/**
  *  Load a CLV from the binary file
  *
  *  @param[in] bin_file binary file
@@ -565,11 +803,8 @@ PLL_EXPORT int pllmod_binary_clv_load(FILE * bin_file,
 
   assert (partition);
   assert(offset >= 0 || offset == PLLMOD_BIN_ACCESS_SEEK);
-
-  unsigned int sites_alloc = partition->asc_bias_alloc ?
-                 partition->sites + partition->states :
-                 partition->sites;
-
+  
+  size_t clv_size = pll_get_clv_size(partition, clv_index);
   if (offset != 0)
   {
     if (offset == PLLMOD_BIN_ACCESS_SEEK)
@@ -599,11 +834,23 @@ PLL_EXPORT int pllmod_binary_clv_load(FILE * bin_file,
                   block_header.type, PLLMOD_BIN_BLOCK_CLV);
     return PLL_FAILURE;
   }
+  
+  unsigned int block_len = clv_size * sizeof(double);
 
-  size_t clv_size = sites_alloc * partition->states_padded *
-                    partition->rate_cats;
+  if ((partition->attributes & PLL_ATTRIB_SITES_REPEATS) 
+      && partition->repeats->pernode_max_id[clv_index]) 
+  {
+    unsigned int uncompressed_sites = partition->sites + 
+      (partition->asc_bias_alloc ? partition->states : 0);
+    unsigned int compressed_sites = pll_get_sites_number(partition, clv_index);
+    block_len += (uncompressed_sites + compressed_sites) * sizeof(unsigned int);
+    free(partition->repeats->pernode_site_id[clv_index]);
+    free(partition->repeats->pernode_id_site[clv_index]);
+    partition->repeats->pernode_site_id[clv_index] = malloc(uncompressed_sites * sizeof(unsigned int));
+    partition->repeats->pernode_id_site[clv_index] = malloc(compressed_sites * sizeof(unsigned int));
+  }
 
-  if (block_header.block_len != (clv_size * sizeof(double)))
+  if (block_header.block_len != block_len)
   {
       pllmod_set_error(PLLMOD_BIN_ERROR_BLOCK_LENGTH,
                     "Wrong block length");
