@@ -259,7 +259,7 @@ static double algo_optimize_bl_triplet(pll_unode_t * node,
                                        double bl_max,
                                        int smoothings)
 {
-  return -1 * pllmod_opt_optimize_branch_lengths_local_multi(
+  double new_loglh = pllmod_opt_optimize_branch_lengths_local_multi(
                                                   treeinfo->partitions,
                                                   treeinfo->partition_count,
                                                   node,
@@ -275,6 +275,13 @@ static double algo_optimize_bl_triplet(pll_unode_t * node,
                                                   treeinfo->parallel_context,
                                                   treeinfo->parallel_reduce_cb);
 
+  if (new_loglh)
+    return -1 * new_loglh;
+  else
+  {
+    assert(pll_errno);
+    return 0;
+  }
 }
 
 static double algo_optimize_bl_iterative(pllmod_treeinfo_t * treeinfo,
@@ -287,7 +294,7 @@ static double algo_optimize_bl_iterative(pllmod_treeinfo_t * treeinfo,
 
   pllmod_treeinfo_compute_loglh(treeinfo, 0);
 
-  new_loglh = -1 * pllmod_opt_optimize_branch_lengths_local_multi(
+  new_loglh = pllmod_opt_optimize_branch_lengths_local_multi(
                                                   treeinfo->partitions,
                                                   treeinfo->partition_count,
                                                   treeinfo->root,
@@ -302,8 +309,13 @@ static double algo_optimize_bl_iterative(pllmod_treeinfo_t * treeinfo,
                                                   1,    /* keep_update */
                                                   treeinfo->parallel_context,
                                                   treeinfo->parallel_reduce_cb);
-
-  return new_loglh;
+  if (new_loglh)
+    return -1 * new_loglh;
+  else
+  {
+    assert(pll_errno);
+    return 0;
+  }
 }
 
 static int best_reinsert_edge(pllmod_treeinfo_t * treeinfo,
@@ -451,6 +463,13 @@ static int best_reinsert_edge(pllmod_treeinfo_t * treeinfo,
                                        params->bl_max,
                                        params->smoothings);
 
+      if (!loglh)
+      {
+        free(regraft_nodes);
+        free(regraft_dist);
+
+        return PLL_FAILURE;
+      }
     }
     else
     {
