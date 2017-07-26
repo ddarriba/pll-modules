@@ -32,7 +32,7 @@ int pllmod_utree_colend = 0;
 static void preaction()
 {
   pllmod_utree_colstart = pllmod_utree_colend;
-  pllmod_utree_colend = pllmod_utree_colend + pllmod_utree_leng - 1;
+  pllmod_utree_colend = pllmod_utree_colend + pllmod_utree_leng;
 }
 
 static char * xstrndup(const char * s, size_t len)
@@ -98,18 +98,19 @@ static char * append(size_t * dstlen, const char * src, size_t srclen)
 ([^\"\'\\]|\n)+                                  {append(&string_length, pllmod_utree_text, pllmod_utree_leng);}
 }
 
-\:                                               return COLON;
-\;                                               return SEMICOLON;
-\)                                               return CPAR;
-\(                                               return OPAR;
-\,                                               return COMMA;
+\:                                               return ':';
+\;                                               return ';';
+\)                                               return ')';
+\(                                               return '(';
+\,                                               return ',';
 \"                                               {string_length = 0; BEGIN(quot);}
 \'                                               {string_length = 0; BEGIN(apos);}
 \n                                               {pllmod_utree_colstart = pllmod_utree_colend = 0;}
+
 [-+]?[0-9]+                                      {pllmod_utree_lval.d = xstrndup(pllmod_utree_text, pllmod_utree_leng); return NUMBER;}
 [-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?           {pllmod_utree_lval.d = xstrndup(pllmod_utree_text, pllmod_utree_leng); return NUMBER;}
 [^ \'\",\(\):;\[\]\t\n\r][^ \t\n\r\)\(\[\]\,:;]* {pllmod_utree_lval.s = xstrndup(pllmod_utree_text, pllmod_utree_leng); return STRING;}
-[ \t\r]                                        ;
+[ \t\r]                                          ;
 .                                                {snprintf(pll_errmsg, 200, "Syntax error (%c)\n", pllmod_utree_text[0]);
                                                   pll_errno = PLL_ERROR_NEWICK_SYNTAX;
                                                   return PLL_FAILURE;}

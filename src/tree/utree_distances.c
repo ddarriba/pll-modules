@@ -526,7 +526,7 @@ pllmod_utree_split_hashtable_insert(bitv_hashtable_t * splits_hash,
       hash_update(splits[i],
                   splits_hash,
                   HASH_KEY_UNDEF,
-                  support[i],
+                  support ? support[i] : 1.0,
                   0);
     }
     else
@@ -535,7 +535,7 @@ pllmod_utree_split_hashtable_insert(bitv_hashtable_t * splits_hash,
                   splits_hash,
                   i,
                   HASH_KEY_UNDEF,
-                  support[i],
+                  support ? support[i] : 1.0,
                   0);
     }
   }
