@@ -1,5 +1,5 @@
 /*
-    Copyright (C) 2015 Tomas Flouri
+    Copyright (C) 2017 Tomas Flouri, Diego Darriba
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as
@@ -18,8 +18,11 @@
     Heidelberg Institute for Theoretical Studies,
     Schloss-Wolfsbrunnenweg 35, D-69118 Heidelberg, Germany
 */
+
 %{
 #include "tree_hashtable.h"
+
+#define UNUSED(expr) do { (void)(expr); } while (0)
 
 extern int pllmod_utree_lex();
 extern FILE * pllmod_utree_in;
@@ -65,31 +68,33 @@ static void pllmod_utree_error(struct parse_params_t * paramas,
 {
   char * s;
   char * d;
+  void * nulval;
 }
 
 %error-verbose
+
 %parse-param {void * params_ptr}
 %destructor { } subtree
 
-%token OPAR
-%token CPAR
-%token COMMA
-%token COLON SEMICOLON
+
 %token<s> STRING
 %token<d> NUMBER
 %type<s> label optional_label
 %type<d> number optional_length
+%type<nulval> inputstr
+%type<nulval> subtree
 
 %start inputstr
 %%
 
-inputstr: OPAR subtree COMMA subtree COMMA subtree CPAR optional_label optional_length SEMICOLON
+inputstr: '(' subtree ',' subtree ',' subtree ')' optional_label optional_length ';'
 {
-
+  UNUSED($$);UNUSED($2);UNUSED($4);UNUSED($6); /* ignore result */
 };
 
-subtree: OPAR subtree COMMA subtree CPAR optional_label optional_length
+subtree: '(' subtree ',' subtree ')' optional_label optional_length
 {
+  UNUSED($$);UNUSED($2);UNUSED($4);
   struct parse_params_t * params = (struct parse_params_t *) params_ptr;
 
   assert(params->split_stack->split_count >= 2);
@@ -108,6 +113,7 @@ subtree: OPAR subtree COMMA subtree CPAR optional_label optional_length
 }
        | label optional_length
 {
+  UNUSED($$);
   struct parse_params_t * params = (struct parse_params_t *) params_ptr;
 
   // find tip index
@@ -131,7 +137,7 @@ subtree: OPAR subtree COMMA subtree CPAR optional_label optional_length
 
 
 optional_label:  { $$ = NULL;} | label  {$$ = $1;};
-optional_length: { $$ = NULL;} | COLON number {$$ = $2;};
+optional_length: { $$ = NULL;} | ':' number {$$ = $2;};
 label: STRING    { $$=$1;} | NUMBER {$$=$1;};
 number: NUMBER   { $$=$1;};
 
