@@ -192,8 +192,21 @@ PLL_EXPORT double pllmod_algo_opt_subst_rates (pll_partition_t * partition,
       x[i] = subst_rates[i];
     }
 
-    if (x[i] < min_rate || x[i] > max_rate)
-      x[i] = (max_rate + min_rate)/2;
+    if (!x[i])
+    {
+      /* initialize to interval center */
+      x[i] = (min_rate + max_rate) / 2.0;
+    }
+    if (x[i] < min_rate)
+    {
+      /* set to lower bound */
+      x[i] = min_rate;
+    }
+    else if (x[i] > max_rate)
+    {
+      /* set to upper bound */
+      x[i] = max_rate;
+    }
   }
 
   cur_logl = pllmod_opt_minimize_lbfgsb(x, lb, ub, bt,
