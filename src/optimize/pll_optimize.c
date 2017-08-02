@@ -1042,14 +1042,16 @@ PLL_EXPORT double pllmod_opt_optimize_branch_lengths_local (
       break;
     }
 
-    /* iterate on second edge */
-    params.tree = tree->back;
-    if (!recomp_iterative (&params, radius-1, &new_loglikelihood, keep_update))
+    if (radius) 
     {
-      loglikelihood = PLL_FAILURE;
-      break;
+      /* iterate on second edge */
+      params.tree = tree->back;
+      if (!recomp_iterative (&params, radius-1, &new_loglikelihood, keep_update))
+      {
+        loglikelihood = PLL_FAILURE;
+        break;
+      }
     }
-
     /* compute likelihood after optimization */
     new_loglikelihood = pll_compute_edge_loglikelihood (partition,
                                                         tree->back->clv_index,
@@ -1605,10 +1607,13 @@ PLL_EXPORT double pllmod_opt_optimize_branch_lengths_local_multi (
     if (!recomp_iterative_multi (&params, radius, &new_loglikelihood, keep_update))
       goto cleanup;
 
-    /* iterate on second edge */
-    params.tree = tree->back;
-    if (!recomp_iterative_multi (&params, radius-1, &new_loglikelihood, keep_update))
-      goto cleanup;
+    if (radius) 
+    {
+      /* iterate on second edge */
+      params.tree = tree->back;
+      if (!recomp_iterative_multi (&params, radius-1, &new_loglikelihood, keep_update))
+        goto cleanup;
+    }
 
     /* compute likelihood after optimization */
     new_loglikelihood = pllmod_opt_compute_edge_loglikelihood_multi (
