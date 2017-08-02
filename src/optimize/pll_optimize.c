@@ -981,13 +981,20 @@ PLL_EXPORT double pllmod_opt_optimize_branch_lengths_local (
   double loglikelihood = 0.0, new_loglikelihood;
   unsigned int sites_alloc;
 
-  pllmod_reset_error();
-
   /*
    * preconditions:
    *    (1) CLVs must be updated towards 'tree'
    *    (2) Pmatrix indices must be **unique** for each branch
    */
+
+  pllmod_reset_error();
+
+  if (radius < PLLMOD_OPT_BRLEN_OPTIMIZE_ALL)
+  {
+    pllmod_set_error(PLLMOD_OPT_ERROR_NEWTON_BAD_RADIUS,
+                     "Invalid radius for branch length optimization");
+    return (double)PLL_FAILURE;
+  }
 
   /* get the initial likelihood score */
   loglikelihood = pll_compute_edge_loglikelihood (partition,
@@ -1042,7 +1049,7 @@ PLL_EXPORT double pllmod_opt_optimize_branch_lengths_local (
       break;
     }
 
-    if (radius) 
+    if (radius)
     {
       /* iterate on second edge */
       params.tree = tree->back;
@@ -1120,14 +1127,14 @@ PLL_EXPORT double pllmod_opt_optimize_branch_lengths_iterative (
 {
   double loglikelihood;
   loglikelihood = pllmod_opt_optimize_branch_lengths_local (partition,
-                                                     tree,
-                                                     params_indices,
-                                                     branch_length_min,
-                                                     branch_length_max,
-                                                     tolerance,
-                                                     smoothings,
-                                                     -1,
-                                                     keep_update);
+                                                 tree,
+                                                 params_indices,
+                                                 branch_length_min,
+                                                 branch_length_max,
+                                                 tolerance,
+                                                 smoothings,
+                                                 PLLMOD_OPT_BRLEN_OPTIMIZE_ALL,
+                                                 keep_update);
   return loglikelihood;
 } /* pllmod_opt_optimize_branch_lengths_iterative */
 
@@ -1522,11 +1529,20 @@ PLL_EXPORT double pllmod_opt_optimize_branch_lengths_local_multi (
   size_t p;
   double result = (double) PLL_FAILURE;
 
+  pllmod_reset_error();
+
   /**
    * preconditions:
    *    (1) CLVs must be updated towards 'tree'
    *    (2) Pmatrix indices must be **unique** for each branch
    */
+
+  if (radius < PLLMOD_OPT_BRLEN_OPTIMIZE_ALL)
+  {
+    pllmod_set_error(PLLMOD_OPT_ERROR_NEWTON_BAD_RADIUS,
+                     "Invalid radius for branch length optimization");
+    return (double)PLL_FAILURE;
+  }
 
   /* get the initial likelihood score */
   loglikelihood = pllmod_opt_compute_edge_loglikelihood_multi (
@@ -1607,7 +1623,7 @@ PLL_EXPORT double pllmod_opt_optimize_branch_lengths_local_multi (
     if (!recomp_iterative_multi (&params, radius, &new_loglikelihood, keep_update))
       goto cleanup;
 
-    if (radius) 
+    if (radius)
     {
       /* iterate on second edge */
       params.tree = tree->back;

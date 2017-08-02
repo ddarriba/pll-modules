@@ -86,7 +86,11 @@
 #define PLLMOD_OPT_ERROR_NEWTON_LIMIT        2220
 #define PLLMOD_OPT_ERROR_NEWTON_UNKNOWN      2230
 #define PLLMOD_OPT_ERROR_NEWTON_WORSE_LK     2240
+#define PLLMOD_OPT_ERROR_NEWTON_BAD_RADIUS   2250
 #define PLLMOD_OPT_ERROR_BRENT_INIT          2310
+
+/* special options */
+#define PLLMOD_OPT_BRLEN_OPTIMIZE_ALL  -1
 
 /* Structure with information necessary for evaluating the likelihood */
 
