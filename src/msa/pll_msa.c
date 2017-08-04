@@ -98,9 +98,16 @@ PLL_EXPORT double * pllmod_msa_empirical_frequencies(pll_partition_t * partition
   {
     for (i = 0; i < tips; ++i)
     {
-      for (n = 0, j = 0; j < sites * states_padded * rate_cats;
-                                         j += (states_padded * rate_cats), ++n)
+      unsigned int *site_to_id = 0;
+      if (partition->attributes & PLL_ATTRIB_SITE_REPEATS 
+        && partition->repeats->pernode_ids[i]) {
+        site_to_id = partition->repeats->pernode_site_id[i];
+      }
+
+      for (n = 0; n < sites; ++n)
       {
+        j = site_to_id ? site_to_id[n] : n;
+        j *= (states_padded * rate_cats);
         double sum_site = 0.0;
         for (k = 0; k < states; ++k)
           sum_site += partition->clv[i][j + k];

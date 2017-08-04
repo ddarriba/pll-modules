@@ -339,6 +339,12 @@ int binary_repeats_apply (FILE * bin_file,
                      "Error loading/storing repeats");
     return PLL_FAILURE;
   }
+  if (!bin_func(partition->repeats->pernode_allocated_clvs, sizeof(unsigned int), nodes, bin_file))
+  {
+    pllmod_set_error(PLLMOD_BIN_ERROR_LOADSTORE,
+                     "Error loading/storing repeats");
+    return PLL_FAILURE;
+  }
   return PLL_SUCCESS;
 }
 
