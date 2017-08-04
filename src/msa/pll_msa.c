@@ -409,8 +409,10 @@ static int find_duplicate_strings(char ** const strings,
   unsigned long j;
 
   for (i = 0; i < string_count; ++i)
+  {
     for (j = 0; j < (string_len ? string_len : strlen(strings[i])); ++j)
       hash[i] = hash[i] + (j+1) * (unsigned long) strings[i][j];
+  }
 
   int coll = 0;
 
@@ -534,7 +536,11 @@ PLL_EXPORT pllmod_msa_stats_t * pllmod_msa_compute_stats(const pll_msa_t * msa,
                                         &stats->dup_taxa_pairs,
                                         &stats->dup_taxa_pairs_count);
     if (!retval)
+    {
+      pllmod_set_error(PLL_ERROR_MEM_ALLOC,
+                       "Error finding duplicated taxa");
       goto error_exit;
+    }
   }
 
   /* search for duplicate sequences */
@@ -544,7 +550,11 @@ PLL_EXPORT pllmod_msa_stats_t * pllmod_msa_compute_stats(const pll_msa_t * msa,
                                         &stats->dup_seqs_pairs,
                                         &stats->dup_seqs_pairs_count);
     if (!retval)
+    {
+      pllmod_set_error(PLL_ERROR_MEM_ALLOC,
+                       "Error finding duplicated sequences");
       goto error_exit;
+    }
   }
 
   /* compute empirical substitution rates */
@@ -557,6 +567,8 @@ PLL_EXPORT pllmod_msa_stats_t * pllmod_msa_compute_stats(const pll_msa_t * msa,
 
     if (!pair_rates || !stats->subst_rates ||  !col_state_freq)
     {
+      pllmod_set_error(PLL_ERROR_MEM_ALLOC,
+                       "Cannot allocate memory for MSA statistics");
       goto error_exit;
     }
 
@@ -585,6 +597,7 @@ PLL_EXPORT pllmod_msa_stats_t * pllmod_msa_compute_stats(const pll_msa_t * msa,
 
     free(col_state_freq);
     free(pair_rates);
+    col_state_freq = pair_rates = NULL;
   }
 
   /* if we were asked to find duplicates only, no need to loop over sites */
@@ -597,7 +610,11 @@ PLL_EXPORT pllmod_msa_stats_t * pllmod_msa_compute_stats(const pll_msa_t * msa,
     stats->freqs = (double *) calloc(states, sizeof(double));
 
     if (!stats->freqs)
+    {
+      pllmod_set_error(PLL_ERROR_MEM_ALLOC,
+                       "Cannot allocate memory for empirical frequencies");
       goto error_exit;
+    }
   }
 
   if (stats_mask & PLLMOD_MSA_STATS_GAP_COLS)
@@ -615,7 +632,11 @@ PLL_EXPORT pllmod_msa_stats_t * pllmod_msa_compute_stats(const pll_msa_t * msa,
     inv_state = (unsigned int *) calloc(msa_length, sizeof(unsigned int));
     stats->inv_cols = (unsigned long *) calloc(msa_length, sizeof(unsigned long));
     if (!inv_state || !stats->inv_cols)
+    {
+      pllmod_set_error(PLL_ERROR_MEM_ALLOC,
+                       "Cannot allocate memory for computing invariant sites");
       goto error_exit;
+    }
   }
 
   /* check memory allocation */
@@ -624,6 +645,8 @@ PLL_EXPORT pllmod_msa_stats_t * pllmod_msa_compute_stats(const pll_msa_t * msa,
       ((stats_mask & PLLMOD_MSA_STATS_GAP_SEQS) && !seq_gap_weight)
       )
   {
+    pllmod_set_error(PLL_ERROR_MEM_ALLOC,
+                     "Cannot allocate memory for MSA statistics");
     goto error_exit;
   }
 
@@ -636,6 +659,23 @@ PLL_EXPORT pllmod_msa_stats_t * pllmod_msa_compute_stats(const pll_msa_t * msa,
       const unsigned int site_states = __builtin_popcount(state);
       const int is_gap = site_states == states ? 1 : 0;
       const unsigned int w = weights ? weights[j] : 1;
+
+      if (!state)
+      {
+        if (seqchars[j] == -1)
+        {
+          /* most likely sequence was already encoded and the original character
+             is unknown at this point */
+          pllmod_set_error(PLL_ERROR_MSA_MAP_INVALID,
+                           "Unknown state in sequence %d", i+1);
+        }
+        else
+        {
+          pllmod_set_error(PLL_ERROR_MSA_MAP_INVALID,
+                           "Unknown state %c in sequence %d", seqchars[j], i+1);
+        }
+        goto error_exit;
+      }
 
       /* compute sum of weights (=alignment length before pattern compression)*/
       if (i == 0)
@@ -651,7 +691,7 @@ PLL_EXPORT pllmod_msa_stats_t * pllmod_msa_compute_stats(const pll_msa_t * msa,
       {
         if (is_gap)
           col_gap_weight[j] += 1;
-        if (i == msa_count-1 && col_gap_weight[j] == msa_count * w)
+        if (i == msa_count-1 && col_gap_weight[j] == msa_count)
            stats->gap_cols_count++;
       }
 
@@ -715,42 +755,55 @@ PLL_EXPORT pllmod_msa_stats_t * pllmod_msa_compute_stats(const pll_msa_t * msa,
     stats->gap_prop = ((double) total_gap_count) / total_chars;
 
   /* detect gap-only columns */
-  if ((stats_mask & PLLMOD_MSA_STATS_GAP_COLS) && stats->gap_cols_count > 0)
+  if ((stats_mask & PLLMOD_MSA_STATS_GAP_COLS))
   {
-    stats->gap_cols = (unsigned long *) calloc(stats->gap_cols_count,
-                                               sizeof(unsigned long));
-
-    if (!stats->gap_cols)
-      goto error_exit;
-
-    unsigned long c = 0;
-    for (j = 0; j < msa_length; ++j)
+    if (stats->gap_cols_count > 0)
     {
-      const unsigned int w = weights ? weights[j] : 1;
-      if (col_gap_weight[j] == msa_count * w)
-        stats->gap_cols[c++] = j;
+      stats->gap_cols = (unsigned long *) calloc(stats->gap_cols_count,
+                                                 sizeof(unsigned long));
+
+      if (!stats->gap_cols)
+      {
+        pllmod_set_error(PLL_ERROR_MEM_ALLOC,
+                       "Cannot allocate memory for gap columns");
+        goto error_exit;
+      }
+
+      unsigned long c = 0;
+      for (j = 0; j < msa_length; ++j)
+      {
+        if (col_gap_weight[j] == msa_count)
+          stats->gap_cols[c++] = j;
+      }
+      assert(c == stats->gap_cols_count);
     }
-    assert(c == stats->gap_cols_count);
     free(col_gap_weight);
     col_gap_weight = NULL;
   }
 
   /* detect gap-only sequences */
-  if ((stats_mask & PLLMOD_MSA_STATS_GAP_SEQS) && stats->gap_seqs_count > 0)
+  if ((stats_mask & PLLMOD_MSA_STATS_GAP_SEQS))
   {
-    stats->gap_seqs = (unsigned long *) calloc(stats->gap_seqs_count,
-                                               sizeof(unsigned long));
-
-    if (!stats->gap_seqs)
-      goto error_exit;
-
-    unsigned long c = 0;
-    for (i = 0; i < msa_count; ++i)
+    if (stats->gap_seqs_count > 0)
     {
-      if (seq_gap_weight[i] == sum_weights)
-        stats->gap_seqs[c++] = i;
+      stats->gap_seqs = (unsigned long *) calloc(stats->gap_seqs_count,
+                                                 sizeof(unsigned long));
+
+      if (!stats->gap_seqs)
+      {
+        pllmod_set_error(PLL_ERROR_MEM_ALLOC,
+                         "Cannot allocate memory for gap sequences");
+        goto error_exit;
+      }
+
+      unsigned long c = 0;
+      for (i = 0; i < msa_count; ++i)
+      {
+        if (seq_gap_weight[i] == sum_weights)
+          stats->gap_seqs[c++] = i;
+      }
+      assert(c == stats->gap_seqs_count);
     }
-    assert(c == stats->gap_seqs_count);
     free(seq_gap_weight);
     seq_gap_weight = NULL;
   }
@@ -769,8 +822,7 @@ error_exit:
   if (pair_rates)
     free(pair_rates);
   pllmod_msa_destroy_stats(stats);
-  pllmod_set_error(PLL_ERROR_MEM_ALLOC,
-                   "Cannot allocate memory for MSA statistics");
+
   return NULL;
 }
 
