@@ -672,7 +672,10 @@ PLL_EXPORT pllmod_msa_stats_t * pllmod_msa_compute_stats(const pll_msa_t * msa,
         else
         {
           pllmod_set_error(PLL_ERROR_MSA_MAP_INVALID,
-                           "Unknown state %c in sequence %d", seqchars[j], i+1);
+                           "Unknown state %c at sequence %d position %d",
+                           seqchars[j],
+                           i+1,
+                           j+1);
         }
         goto error_exit;
       }
