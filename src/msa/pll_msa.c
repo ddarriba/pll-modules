@@ -35,6 +35,11 @@
 
 #include "../pllmod_common.h"
 
+/* definition missing in PLL master */
+#ifndef PLL_ERROR_MSA_MAP_INVALID
+#define PLL_ERROR_MSA_MAP_INVALID          132
+#endif
+
 PLL_EXPORT double * pllmod_msa_empirical_frequencies(pll_partition_t * partition)
 {
   unsigned int i, j, k, n;
