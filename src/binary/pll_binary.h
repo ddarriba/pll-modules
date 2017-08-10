@@ -30,6 +30,7 @@
 #define PLLMOD_BIN_BLOCK_CLV        1
 #define PLLMOD_BIN_BLOCK_TREE       2
 #define PLLMOD_BIN_BLOCK_CUSTOM     3
+#define PLLMOD_BIN_BLOCK_REPEATS    4
 
 #define PLLMOD_BIN_ACCESS_SEQUENTIAL  0
 #define PLLMOD_BIN_ACCESS_RANDOM      1
@@ -117,6 +118,30 @@ PLL_EXPORT pll_partition_t * pllmod_binary_partition_load(FILE * bin_file,
                                                     pll_partition_t * partition,
                                                     unsigned int * attributes,
                                                     long int offset);
+
+PLL_EXPORT int pllmod_binary_repeats_dump(FILE * bin_file,
+                                      int block_id,
+                                      pll_partition_t * partition,
+                                      unsigned int attributes);
+
+PLL_EXPORT int pllmod_binary_repeats_load(FILE * bin_file,
+                                      int block_id,
+                                      pll_partition_t * partition,
+                                      unsigned int * attributes,
+                                      long int offset);
+
+PLL_EXPORT int pllmod_binary_pernoderepeats_dump(FILE * bin_file,
+                                      int block_id,
+                                      pll_partition_t * partition,
+                                      unsigned int clv_index,
+                                      unsigned int attributes);
+
+PLL_EXPORT int pllmod_binary_pernoderepeats_load(FILE * bin_file,
+                                      int block_id,
+                                      pll_partition_t * partition,
+                                      unsigned int clv_index,
+                                      unsigned int * attributes,
+                                      long int offset);
 
 PLL_EXPORT int pllmod_binary_clv_dump(FILE * bin_file,
                                       int block_id,

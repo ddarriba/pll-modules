@@ -51,6 +51,12 @@ int binary_partition_desc_apply (FILE * bin_file,
                              unsigned int attributes,
                              int (*bin_func)(void *, size_t, size_t, FILE *));
 
+int binary_repeats_apply (FILE * bin_file,
+                  pll_partition_t * partition,
+                  unsigned int attributes,
+                  size_t nodes,
+                  int (*bin_func)(void *, size_t, size_t, FILE *));
+
 int binary_clv_apply (FILE * bin_file,
                   pll_partition_t * partition,
                   unsigned int clv_index,
