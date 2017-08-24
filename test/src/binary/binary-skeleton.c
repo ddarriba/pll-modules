@@ -38,8 +38,8 @@
 unsigned int get_sites_number_scaler(const pll_partition_t * partition,
                                                 unsigned int scaler_index)
 {
-    unsigned int sites = partition->attributes & PLL_ATTRIB_SITES_REPEATS ?
-            partition->repeats->perscale_max_id[scaler_index] : 0;
+    unsigned int sites = partition->attributes & PLL_ATTRIB_SITE_REPEATS ?
+            partition->repeats->perscale_ids[scaler_index] : 0;
       sites = sites ? sites : partition->sites;
       return sites;
 }
@@ -533,7 +533,7 @@ int main (int argc, char * argv[])
   {
     unsigned int attribs;
     size_t clv_size = pll_get_clv_size(partition, clv_index);
-    if (partition->attributes & PLL_ATTRIB_SITES_REPEATS) 
+    if (partition->attributes & PLL_ATTRIB_SITE_REPEATS)
     {
       partition->repeats->reallocate_repeats(partition, clv_index, PLL_SCALE_BUFFER_NONE, 
           pll_get_sites_number(partition, clv_index));
