@@ -1118,10 +1118,10 @@ double pllmod_algo_opt_rates_weights_treeinfo (pllmod_treeinfo_t * treeinfo,
     max_free_params = (size_t) tmp;
   }
 
-  x  = (double **) malloc(sizeof(double*) * part_count);
-  lb = (double **) malloc(sizeof(double*) * part_count);
-  ub = (double **) malloc(sizeof(double*) * part_count);
-  bt = (int **)    malloc(sizeof(int*)    * part_count);
+  x  = (double **) calloc(sizeof(double*),  part_count);
+  lb = (double **) calloc(sizeof(double*),  part_count);
+  ub = (double **) calloc(sizeof(double*),  part_count);
+  bt = (int **)    calloc(sizeof(int*),     part_count);
   num_free_params = (unsigned int *) malloc(sizeof(unsigned int) * (part_count));
 
   /* those values are the same for all partitions */
@@ -1143,12 +1143,6 @@ double pllmod_algo_opt_rates_weights_treeinfo (pllmod_treeinfo_t * treeinfo,
       ub[part] = ub[0];
       bt[part] = bt[0];
     }
-    else
-    {
-      x[part] = lb[part] = ub[part] = NULL;
-      bt[part] = NULL;
-    }
-
     part++;
   }
 
