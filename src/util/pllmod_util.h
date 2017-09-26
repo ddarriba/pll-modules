@@ -60,6 +60,14 @@ typedef struct mixture_model
   int mix_type;                    /* component rates: fixed, gamma or free  */
 } pllmod_mixture_model_t;
 
+/* Model alias name definition */
+typedef struct model_alias
+{
+  char * alias;                   /* model alias name */
+  char * primary_name;            /* primary name used in the model definition */
+} pllmod_subst_model_alias_t;
+
+
 /* general model management functions */
 PLL_EXPORT unsigned int pllmod_util_subst_rate_count(unsigned int states);
 PLL_EXPORT double * pllmod_util_get_equal_freqs(unsigned int states);

@@ -106,11 +106,35 @@ static const pllmod_subst_model_t dna_model_list[DNA_MODELS_COUNT] =
     {"GTR",    4,    NULL,              NULL,            dna_sym_rate_free,  dna_sym_freq_free  }
 };
 
+static const pllmod_subst_model_alias_t dna_model_aliases[] =
+{
+	{"TrNef", "TN93ef"},
+	{"TrN", "TN93"},
+	{"TPM1", "K81"},
+	{"TPM1uf", "K81uf"}
+};
+
+const int ALIAS_COUNT =
+		sizeof(dna_model_aliases) / sizeof(pllmod_subst_model_alias_t);
+
 static int get_model_index(const char * model_name)
 {
   int i;
+  const char * resolved_name = model_name;
+
+  /* resolve model aliases first (e.g., TPM1 -> K81) */
+  for (i = 0; i < ALIAS_COUNT; ++i)
+  {
+	if (strcasecmp(model_name, dna_model_aliases[i].alias) == 0)
+	{
+		resolved_name = dna_model_aliases[i].primary_name;
+		break;
+	}
+  }
+
+  /* search for the model */
   for (i = 0; i < DNA_MODELS_COUNT; ++i)
-    if (strcasecmp(model_name, dna_model_list[i].name) == 0)
+    if (strcasecmp(resolved_name, dna_model_list[i].name) == 0)
       return i;
 
   /* model not found*/

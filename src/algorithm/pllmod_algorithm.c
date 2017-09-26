@@ -1145,6 +1145,7 @@ double pllmod_algo_opt_rates_weights_treeinfo (pllmod_treeinfo_t * treeinfo,
     }
     part++;
   }
+  assert(part == part_count);
 
   struct treeinfo_opt_params opt_params;
   opt_params.treeinfo       = treeinfo;
