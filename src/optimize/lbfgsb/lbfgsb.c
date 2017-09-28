@@ -623,8 +623,8 @@ int mainlb (int *n, int *m, double *x, double *l, double *u, int *nbd,
     }
     if (info != 0)
     {
-      DBG("[L-BFGS-B]  Nonpositive definiteness in Cholesky factorization in formk;\n", void);
-      DBG("[L-BFGS-B]    refresh the lbfgs memory and restart the iteration.\n", void);
+      DBG("[L-BFGS-B]  Nonpositive definiteness in Cholesky factorization in formk;\n");
+      DBG("[L-BFGS-B]    refresh the lbfgs memory and restart the iteration.\n");
       info = 0;
       col = 0;
       head = 1;
@@ -652,9 +652,8 @@ int mainlb (int *n, int *m, double *x, double *l, double *u, int *nbd,
     {
       /* singular triangular system detected; */
       /* refresh the lbfgs memory and restart the iteration. */
-      DBG("[L-BFGS-B]  Singular triangular system detected;\n", void);
-      DBG("[L-BFGS-B]  refresh the lbfgs memory and restart the iteration.\n",
-          void);
+      DBG("[L-BFGS-B]  Singular triangular system detected;\n");
+      DBG("[L-BFGS-B]  refresh the lbfgs memory and restart the iteration.\n");
       info = 0;
       col = 0;
       head = 1;
@@ -702,8 +701,8 @@ int mainlb (int *n, int *m, double *x, double *l, double *u, int *nbd,
     else
     {
       /* refresh the lbfgs memory and restart the iteration. */
-      DBG("[L-BFGS-B]  Bad direction in the line search;\n", void);
-      DBG("[L-BFGS-B]    refresh the lbfgs memory and restart the iteration.\n", void);
+      DBG("[L-BFGS-B]  Bad direction in the line search;\n");
+      DBG("[L-BFGS-B]    refresh the lbfgs memory and restart the iteration.\n");
       if (info == 0)
       {
         --nfgv;
@@ -810,8 +809,8 @@ int mainlb (int *n, int *m, double *x, double *l, double *u, int *nbd,
   {
     /* nonpositive definiteness in Cholesky factorization; */
     /* refresh the lbfgs memory and restart the iteration. */
-    DBG("[L-BFGS-B]  Nonpositive definiteness in Cholesky factorization in formt;\n", void);
-    DBG("[L-BFGS-B]    refresh the lbfgs memory and restart the iteration.\n", void);
+    DBG("[L-BFGS-B]  Nonpositive definiteness in Cholesky factorization in formt;\n");
+    DBG("[L-BFGS-B]    refresh the lbfgs memory and restart the iteration.\n");
     info = 0;
     col = 0;
     head = 1;

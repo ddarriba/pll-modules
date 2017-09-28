@@ -774,9 +774,6 @@ static int recomp_iterative (pll_newton_tree_params_t * params,
                               int keep_update)
 {
   pll_unode_t *tr_p, *tr_q, *tr_z;
-#if(CHECK_PERBRANCH_IMPR)
-  double eval_loglikelihood;
-#endif
   double xmin,    /* min branch length */
          xguess,  /* initial guess */
          xmax,    /* max branch length */
@@ -1292,6 +1289,10 @@ static int recomp_iterative_multi (pll_newton_tree_params_multi_t * params,
   tr_q = params->tree->next;
   tr_z = tr_q ? tr_q->next : NULL;
 
+#ifdef DEBUG
+  double orig_brlen = tr_p->length;
+#endif
+
   /* check branch length integrity */
   assert(d_equals(tr_p->length, tr_p->back->length));
 
@@ -1344,7 +1345,7 @@ static int recomp_iterative_multi (pll_newton_tree_params_multi_t * params,
   if (pll_errno)
     return PLL_FAILURE;
 
-  assert(xres >= xmin);
+  assert(xres >= xmin && xres <= xmax);
 
   if (keep_update && fabs(tr_p->length - xres) > 1e-10)
   {
@@ -1424,8 +1425,27 @@ static int recomp_iterative_multi (pll_newton_tree_params_multi_t * params,
     tr_p->back->length = tr_p->length;
   }
 
-  DBG(" Optimized branch %3d - %3d (%.12f)\n",
-      tr_p->clv_index, tr_p->back->clv_index, tr_p->length);
+#ifdef DEBUG
+  {
+    DBG(" Optimized branch %3d - %3d (%.12f -> %.12f)\n",
+        tr_p->clv_index, tr_p->back->clv_index, orig_brlen, tr_p->length);
+
+    double new_loglh = pllmod_opt_compute_edge_loglikelihood_multi(
+                                                      params->partitions,
+                                                      params->partition_count,
+                                                      tr_p->clv_index,
+                                                      tr_p->scaler_index,
+                                                      tr_p->back->clv_index,
+                                                      tr_p->back->scaler_index,
+                                                      tr_p->pmatrix_index,
+                                                      params->params_indices,
+                                                      NULL,
+                                                      params->parallel_context,
+                                                      params->parallel_reduce_cb);
+
+    DBG(" New loglH: %.12f\n", new_loglh);
+  }
+#endif
 
   /* update children */
   if (radius && tr_q && tr_z)
