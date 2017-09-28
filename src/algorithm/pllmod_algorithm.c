@@ -789,7 +789,7 @@ double pllmod_algo_opt_subst_rates_treeinfo (pllmod_treeinfo_t * treeinfo,
 
   /* nothing to optimize */
   if (!part_count)
-    return pllmod_treeinfo_compute_loglh(treeinfo, 0);
+    return -1 * pllmod_treeinfo_compute_loglh(treeinfo, 0);
 
   x  = (double **) malloc(sizeof(double*) * (part_count));
   lb = (double **) malloc(sizeof(double*) * (part_count));
@@ -876,8 +876,10 @@ double pllmod_algo_opt_subst_rates_treeinfo (pllmod_treeinfo_t * treeinfo,
         x[part][k] = subst_rates[k];
       }
 
-      if (x[part][k] < min_rate || x[part][k] > max_rate)
-        x[part][k] = (max_rate + min_rate)/2;
+      if (x[part][k] < min_rate)
+        x[part][k] = min_rate;
+      else if (x[part][k] > max_rate)
+        x[part][k] = max_rate;
     }
 
     part++;
@@ -1156,7 +1158,7 @@ double pllmod_algo_opt_rates_weights_treeinfo (pllmod_treeinfo_t * treeinfo,
 
   /* 2 step BFGS */
 
-  cur_logl = 0;
+  cur_logl = -1 * pllmod_treeinfo_compute_loglh(treeinfo, 0);
   do
   {
     prev_logl = cur_logl;
@@ -1196,6 +1198,8 @@ double pllmod_algo_opt_rates_weights_treeinfo (pllmod_treeinfo_t * treeinfo,
                                                 (void *) &opt_params,
                                                 target_func_multidim_treeinfo);
 
+    DBG("pllmod_algo_opt_rates_weights_treeinfo: AFTER WEIGHTS: logLH = %.15lf\n", cur_logl);
+
     /* optimize mixture rates */
 
     part = 0;
@@ -1231,8 +1235,10 @@ double pllmod_algo_opt_rates_weights_treeinfo (pllmod_treeinfo_t * treeinfo,
                                                 factor, tolerance,
                                                 (void *) &opt_params,
                                                 target_func_multidim_treeinfo);
+
+    DBG("pllmod_algo_opt_rates_weights_treeinfo: AFTER RATES: logLH = %.15lf\n", cur_logl);
   }
-  while (!prev_logl || prev_logl - cur_logl > tolerance);
+  while (prev_logl - cur_logl > tolerance);
 
   /* now re-normalize rates and scale the branches accordingly */
   for (i = 0; i < treeinfo->partition_count; ++i)

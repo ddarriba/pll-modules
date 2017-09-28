@@ -126,9 +126,12 @@ static pllmod_rollback_list_t * algo_rollback_list_create(size_t slots)
 
 static void algo_rollback_list_destroy(pllmod_rollback_list_t * rollback_list)
 {
-  if(rollback_list->list)
-    free(rollback_list->list);
-  free(rollback_list);
+  if (rollback_list)
+  {
+    if(rollback_list->list)
+      free(rollback_list->list);
+    free(rollback_list);
+  }
 }
 
 static pll_tree_rollback_t * algo_rollback_list_prev(
@@ -194,9 +197,12 @@ static pllmod_bestnode_list_t * algo_bestnode_list_create(size_t slots)
 
 static void algo_bestnode_list_destroy(pllmod_bestnode_list_t * bestnode_list)
 {
-  if (bestnode_list->list)
-    free(bestnode_list->list);
-  free(bestnode_list);
+ if (bestnode_list)
+ {
+   if (bestnode_list->list)
+     free(bestnode_list->list);
+   free(bestnode_list);
+ }
 }
 
 static void algo_bestnode_list_copy_entry(node_entry_t * dst,
@@ -318,10 +324,18 @@ static double algo_optimize_bl_iterative(pllmod_treeinfo_t * treeinfo,
   }
 }
 
+static void algo_unode_fix_length(pll_unode_t * node, double bl_min, double bl_max)
+{
+  if (node->length < bl_min)
+    pllmod_utree_set_length(node, bl_min);
+  else if (node->length > bl_max)
+    pllmod_utree_set_length(node, bl_max);
+}
+
 static int best_reinsert_edge(pllmod_treeinfo_t * treeinfo,
-                                        node_entry_t * entry,
-                                        cutoff_info_t * cutoff_info,
-                                        const pllmod_search_params_t * params)
+                              node_entry_t * entry,
+                              cutoff_info_t * cutoff_info,
+                              const pllmod_search_params_t * params)
 {
   assert(treeinfo && entry && params);
 
@@ -364,6 +378,8 @@ static int best_reinsert_edge(pllmod_treeinfo_t * treeinfo,
     assert(pll_errno & PLLMOD_TREE_ERROR_SPR_MASK);
     return PLL_FAILURE;
   }
+
+  algo_unode_fix_length(orig_prune_edge, params->bl_min, params->bl_max);
 
   pllmod_treeinfo_set_root(treeinfo, orig_prune_edge);
 
@@ -446,10 +462,8 @@ static int best_reinsert_edge(pllmod_treeinfo_t * treeinfo,
     b3 = p_edge->next->next->length;
 
     /* make sure branches are within limits */
-    if (p_edge->next->length < params->bl_min)
-      pllmod_utree_set_length(p_edge->next, params->bl_min);
-    if (p_edge->next->next->length < params->bl_min)
-      pllmod_utree_set_length(p_edge->next->next, params->bl_min);
+    algo_unode_fix_length(p_edge->next, params->bl_min, params->bl_max);
+    algo_unode_fix_length(p_edge->next->next, params->bl_min, params->bl_max);
 
     if (params->thorough)
     {
@@ -596,8 +610,11 @@ static double reinsert_nodes(pllmod_treeinfo_t * treeinfo, pll_unode_t ** nodes,
     if (spr_entry.lh - best_lh > 1e-6)
     {
       /* re-apply best SPR move for the node */
+      pll_unode_t * orig_prune_edge = p_edge->next->back;
       int retval = pllmod_utree_spr(p_edge, best_r_edge, rollback);
       assert(retval == PLL_SUCCESS);
+
+      algo_unode_fix_length(orig_prune_edge, params->bl_min, params->bl_max);
 
       /* increment rollback slot counter to save SPR history */
       rollback = algo_rollback_list_next(rollback_list);
@@ -612,10 +629,8 @@ static double reinsert_nodes(pllmod_treeinfo_t * treeinfo, pll_unode_t ** nodes,
       else
       {
         /* make sure branches are within limits */
-        if (p_edge->next->length < params->bl_min)
-          pllmod_utree_set_length(p_edge->next, params->bl_min);
-        if (p_edge->next->next->length < params->bl_min)
-          pllmod_utree_set_length(p_edge->next->next, params->bl_min);
+        algo_unode_fix_length(p_edge->next, params->bl_min, params->bl_max);
+        algo_unode_fix_length(p_edge->next->next, params->bl_min, params->bl_max);
       }
 
       assert(spr_entry.lh > best_lh);
@@ -666,15 +681,15 @@ PLL_EXPORT double pllmod_algo_spr_round(pllmod_treeinfo_t * treeinfo,
   int retval;
 
   int allnodes_count;
-  pll_unode_t ** allnodes;
+  pll_unode_t ** allnodes = NULL;
 
   size_t rollback_slots;
   size_t toplist_slots;
-  pllmod_rollback_list_t * rollback_list;
-  pllmod_bestnode_list_t * bestnode_list;
+  pllmod_rollback_list_t * rollback_list = NULL;
+  pllmod_bestnode_list_t * bestnode_list = NULL;
   pll_tree_rollback_t * rollback;
   size_t rollback_counter;
-  pll_tree_rollback_t * rollback2;
+  pll_tree_rollback_t * rollback2 = NULL;
   int toplist_index;
 
   node_entry_t * spr_entry;
@@ -703,8 +718,7 @@ PLL_EXPORT double pllmod_algo_spr_round(pllmod_treeinfo_t * treeinfo,
   if (!rollback_list)
   {
     /* return and spread error */
-    assert(pll_errno);
-    return 0;
+    goto error_exit;
   }
 
   /* allocate best node slots */
@@ -713,8 +727,7 @@ PLL_EXPORT double pllmod_algo_spr_round(pllmod_treeinfo_t * treeinfo,
   if (!bestnode_list)
   {
     /* return and spread error */
-    assert(pll_errno);
-    return 0;
+    goto error_exit;
   }
 
   if (cutoff_info)
@@ -734,7 +747,7 @@ PLL_EXPORT double pllmod_algo_spr_round(pllmod_treeinfo_t * treeinfo,
   {
     pllmod_set_error(PLL_ERROR_MEM_ALLOC,
                      "Cannot allocate memory nodes list\n");
-    return 0;
+    goto error_exit;
   }
 
   assert(algo_query_allnodes(treeinfo->root, allnodes) == allnodes_count);
@@ -749,8 +762,7 @@ PLL_EXPORT double pllmod_algo_spr_round(pllmod_treeinfo_t * treeinfo,
   if (!loglh)
   {
     /* return and spread error */
-    assert(pll_errno);
-    return 0;
+    goto error_exit;
   }
 
   /* in FAST mode, we re-insert a subset of best-scoring subtrees with BLO
@@ -776,12 +788,12 @@ PLL_EXPORT double pllmod_algo_spr_round(pllmod_treeinfo_t * treeinfo,
     if (!loglh)
     {
       /* return and spread error */
-      assert(pll_errno);
-      return 0;
+      goto error_exit;
     }
   }
 
   free(allnodes);
+  allnodes = NULL;
 
   best_lh = algo_optimize_bl_iterative(treeinfo,
                                        epsilon,
@@ -807,7 +819,7 @@ PLL_EXPORT double pllmod_algo_spr_round(pllmod_treeinfo_t * treeinfo,
   {
     pllmod_set_error(PLL_ERROR_MEM_ALLOC,
                      "Cannot allocate memory for additional rollback list\n");
-    return 0;
+    goto error_exit;
   }
   int undo_SPR = 0;
 
@@ -829,6 +841,9 @@ PLL_EXPORT double pllmod_algo_spr_round(pllmod_treeinfo_t * treeinfo,
             rollback_list->current);
         break;
       }
+
+      DBG("  Rollback BL: %.12lf %.12lf %.12lf %.12lf\n\n", rollback->SPR.prune_bl,
+          rollback->SPR.prune_left_bl, rollback->SPR.prune_right_bl, rollback->SPR.regraft_bl);
 
       DBG("  Undoing SPR %lu (slot %d)... ", rollback_counter,
           rollback_list->current);
@@ -876,6 +891,9 @@ PLL_EXPORT double pllmod_algo_spr_round(pllmod_treeinfo_t * treeinfo,
       treeinfo->root = pll_utree_graph_clone(treeinfo->root);
 #endif
 
+      /* make sure that original prune branch length does not exceed maximum */
+      algo_unode_fix_length(rollback2->SPR.regraft_edge, params.bl_min, params.bl_max);
+
       /* restore optimized branch lengths */
       pllmod_utree_set_length(p_edge, spr_entry->b1);
       pllmod_utree_set_length(p_edge->next, spr_entry->b2);
@@ -891,6 +909,12 @@ PLL_EXPORT double pllmod_algo_spr_round(pllmod_treeinfo_t * treeinfo,
                                   params.bl_min,
                                   params.bl_max,
                                   params.smoothings/4);
+
+    if (!loglh)
+    {
+      /* return and spread error */
+      goto error_exit;
+    }
 
     DBG("  new LH after BLO: %f\n", loglh);
     assert(loglh > -INFINITY);
@@ -920,7 +944,6 @@ PLL_EXPORT double pllmod_algo_spr_round(pllmod_treeinfo_t * treeinfo,
     }
   }
 
-
   if (best_tree)
   {
     pll_utree_graph_destroy(treeinfo->root, NULL);
@@ -944,4 +967,17 @@ PLL_EXPORT double pllmod_algo_spr_round(pllmod_treeinfo_t * treeinfo,
   assert(fabs(loglh - best_lh) < 1e-6);
 
   return loglh;
+
+error_exit:
+  /* cleanup */
+  if (allnodes)
+    free(allnodes);
+  if (rollback2)
+    free(rollback2);
+  algo_bestnode_list_destroy(bestnode_list);
+  algo_rollback_list_destroy(rollback_list);
+
+  /* make sure libpll error code is set and exit */
+  assert(pll_errno);
+  return 0;
 }
