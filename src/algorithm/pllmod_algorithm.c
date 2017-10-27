@@ -522,7 +522,13 @@ static void fill_weights (double *weights,
       double r = weights[i] / weights[*highest_weight_index];
       lb[cur_index] = PLLMOD_ALGO_MIN_WEIGHT_RATIO;
       ub[cur_index] = PLLMOD_ALGO_MAX_WEIGHT_RATIO;
-      x[cur_index] = (r >= lb[cur_index] && r <= ub[cur_index]) ? r : 1.0;
+      if (r < lb[cur_index])
+        x[cur_index] = lb[cur_index];
+      else if (r > ub[cur_index])
+        x[cur_index] = ub[cur_index];
+      else
+        x[cur_index] = r;
+
       cur_index++;
     }
   }
@@ -684,7 +690,10 @@ double pllmod_algo_opt_onedim_treeinfo_custom(pllmod_treeinfo_t * treeinfo,
                                               );
 
     if (ret != PLL_SUCCESS)
+    {
+      assert(pll_errno);
       return -INFINITY;
+    }
   }
 
   double cur_logl = pllmod_treeinfo_compute_loglh(treeinfo, 0);
@@ -1159,6 +1168,7 @@ double pllmod_algo_opt_rates_weights_treeinfo (pllmod_treeinfo_t * treeinfo,
   /* 2 step BFGS */
 
   cur_logl = -1 * pllmod_treeinfo_compute_loglh(treeinfo, 0);
+  DBG("pllmod_algo_opt_rates_weights_treeinfo: START: logLH = %.15lf\n", cur_logl);
   do
   {
     prev_logl = cur_logl;

@@ -25,7 +25,7 @@
 #include "pll_tree.h"
 #include "pllmod_util.h"
 
-#define PLLMOD_ALGO_MIN_WEIGHT_RATIO   0.1
+#define PLLMOD_ALGO_MIN_WEIGHT_RATIO  0.01
 #define PLLMOD_ALGO_MAX_WEIGHT_RATIO    10
 #define PLLMOD_ALGO_BFGS_FACTR         1e9
 
