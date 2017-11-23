@@ -43,6 +43,8 @@ static int compare_splits (pll_split_t s1,
                            unsigned int split_len);
 static unsigned int get_utree_splitmap_id(pll_unode_t * node,
                                           unsigned int tip_count);
+static int split_is_valid_and_normalized(const pll_split_t bitv,
+                                         unsigned int tip_count);
 
 struct split_node_pair {
   pll_split_t split;
@@ -461,7 +463,10 @@ PLL_EXPORT pll_split_t * pllmod_utree_split_create(pll_unode_t * tree,
   }
 
   for (i=0; i<split_count; ++i)
+  {
     split_list[i] = split_nodes[i].split;
+    assert(split_is_valid_and_normalized(split_list[i], tip_count));
+  }
 
   /* update output arrays */
   if (split_to_node_map)
@@ -724,3 +729,35 @@ static unsigned int get_utree_splitmap_id(pll_unode_t * node,
   assert(node_id >= tip_count);
   return node_id - tip_count;
 }
+
+
+/*
+ * Returns 1 if the split is valid (not all 0s or all 1s) and normalized;
+ * returns 0 otherwise
+ * */
+static int split_is_valid_and_normalized(const pll_split_t bitv,
+                                         unsigned int tip_count)
+{
+  // this will also automatically check for all-0s case
+  if (!bitv_is_normalized(bitv))
+    return 0;
+
+  // now check that we don't have all 1s
+  unsigned int split_size  = sizeof(pll_split_base_t) * 8;
+  unsigned int split_offset = tip_count % split_size;
+  unsigned int split_len    = bitv_length(tip_count);
+  unsigned int i = 0;
+  unsigned int all1 = ~0;
+  unsigned int mask = all1;
+  for (i=0; i<split_len-1; ++i)
+  {
+    mask &= bitv[i];
+  }
+  if (split_offset)
+    mask &= bitv[split_len-1] | ((1<<split_offset) - 1);
+  else
+    mask &= bitv[split_len-1];
+
+  return (mask == all1) ? 0 : 1;
+}
+

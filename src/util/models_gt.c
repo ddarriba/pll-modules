@@ -32,7 +32,7 @@
 #include "pllmod_util.h"
 #include "../pllmod_common.h"
 
-/*                                      AA CC GG TT AC AG AT CG CT GT          */
+/*                                       AA CC GG TT AC AG AT CG CT GT          */
 static const double gt_rates_equal_sm[] = {  0, 0, 0, 1, 1, 1, 0, 0, 0,    /* AA */
                                                 0, 0, 1, 0, 0, 1, 1, 0,    /* CC */
                                                    0, 0, 1, 0, 1, 0, 1,    /* GG */

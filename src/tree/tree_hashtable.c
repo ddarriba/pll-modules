@@ -281,8 +281,11 @@ void bitv_normalize(pll_split_t bitv, unsigned int bit_count)
       bitv[i] = ~bitv[i];
     }
 
-    unsigned int mask = (1<<split_offset) - 1;
-    bitv[split_len - 1] &= mask;
+    if (split_offset)
+    {
+      unsigned int mask = (1<<split_offset) - 1;
+      bitv[split_len - 1] &= mask;
+    }
   }
 }
 
