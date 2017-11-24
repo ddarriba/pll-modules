@@ -1107,7 +1107,7 @@ static int utree_rollback_nni(pll_tree_rollback_t * rollback_info)
   pllmod_utree_set_length(q->next, rollback_info->NNI.right_left_bl);
   pllmod_utree_set_length(q->next->next, rollback_info->NNI.right_right_bl);
 
-  assert(UNIMPLEMENTED);
+  //assert(UNIMPLEMENTED);
   return PLL_FAILURE;
 }
 
