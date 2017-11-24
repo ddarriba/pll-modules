@@ -332,6 +332,43 @@ static void algo_unode_fix_length(pll_unode_t * node, double bl_min, double bl_m
     pllmod_utree_set_length(node, bl_max);
 }
 
+int algo_update_pmatrix(pllmod_treeinfo_t * treeinfo,
+                        pll_unode_t * edge)
+{
+  unsigned int p;
+  unsigned int updated = 0;
+  unsigned int pmatrix_index = edge->pmatrix_index;
+
+  for (p = 0; p < treeinfo->partition_count; ++p)
+  {
+    /* only selected partitioned will be affected */
+    if (treeinfo->partitions[p])
+    {
+      if (treeinfo->pmatrix_valid[p][pmatrix_index])
+        continue;
+
+      // TODO: extend for unlinked per-partition branch lengths
+      double p_brlen = edge->length;
+      if (treeinfo->brlen_linkage == PLLMOD_TREE_BRLEN_SCALED)
+        p_brlen *= treeinfo->brlen_scalers[p];
+
+      int ret = pll_update_prob_matrices (treeinfo->partitions[p],
+                                          treeinfo->param_indices[p],
+                                          &pmatrix_index,
+                                          &p_brlen,
+                                          1);
+
+      if (!ret)
+        return PLL_FAILURE;
+
+      treeinfo->pmatrix_valid[p][pmatrix_index] = 1;
+      updated++;
+    }
+  }
+
+  return PLL_SUCCESS;
+}
+
 static int best_reinsert_edge(pllmod_treeinfo_t * treeinfo,
                               node_entry_t * entry,
                               cutoff_info_t * cutoff_info,
@@ -387,6 +424,9 @@ static int best_reinsert_edge(pllmod_treeinfo_t * treeinfo,
   pllmod_treeinfo_invalidate_clv(treeinfo, orig_prune_edge);
   pllmod_treeinfo_invalidate_clv(treeinfo, orig_prune_edge->back);
   pllmod_treeinfo_invalidate_pmatrix(treeinfo, orig_prune_edge);
+
+  /* recompute p-matrix for the original prune edge */
+  algo_update_pmatrix(treeinfo, orig_prune_edge);
 
   /* get list of candidate regrafting nodes in the given distance range */
   regraft_nodes = (pll_unode_t **) calloc (total_edge_count,
@@ -465,11 +505,15 @@ static int best_reinsert_edge(pllmod_treeinfo_t * treeinfo,
     algo_unode_fix_length(p_edge->next, params->bl_min, params->bl_max);
     algo_unode_fix_length(p_edge->next->next, params->bl_min, params->bl_max);
 
+    /* recompute p-matrices for branches adjacent to regrafting point */
+    algo_update_pmatrix(treeinfo, p_edge->next);
+    algo_update_pmatrix(treeinfo, p_edge->next->next);
+
+    /* re-compute invalid CLVs, and get tree logLH */
+    loglh = pllmod_treeinfo_compute_loglh_flex(treeinfo, 1, 0);
+
     if (params->thorough)
     {
-      /* re-compute invalid CLVs and p-matrices */
-       pllmod_treeinfo_compute_loglh(treeinfo, 1);
-
       /* optimize 3 adjacent branches and get tree logLH */
       loglh = algo_optimize_bl_triplet(p_edge,
                                        treeinfo,
@@ -484,11 +528,6 @@ static int best_reinsert_edge(pllmod_treeinfo_t * treeinfo,
 
         return PLL_FAILURE;
       }
-    }
-    else
-    {
-      /* re-compute invalid CLVs and p-matrices, and get tree logLH */
-       loglh = pllmod_treeinfo_compute_loglh(treeinfo, 1);
     }
 
     if (loglh > entry->lh)
@@ -513,6 +552,12 @@ static int best_reinsert_edge(pllmod_treeinfo_t * treeinfo,
     pll_unode_t * pruned_tree = pllmod_utree_prune(p_edge);
     pllmod_utree_set_length(pruned_tree, regraft_length);
     pllmod_treeinfo_invalidate_pmatrix(treeinfo, pruned_tree);
+
+    /* recompute p-matrix for the pendant branch of the pruned subtree */
+    algo_update_pmatrix(treeinfo, p_edge);
+
+    /* recompute p-matrix for the "old" regraft branch */
+    algo_update_pmatrix(treeinfo, pruned_tree);
 
     descent = r_dist < params->radius_max;
     if (cutoff_info && loglh < cutoff_info->lh_start)

@@ -589,8 +589,9 @@ PLL_EXPORT void pllmod_treeinfo_invalidate_clv(pllmod_treeinfo_t * treeinfo,
   }
 }
 
-PLL_EXPORT double pllmod_treeinfo_compute_loglh(pllmod_treeinfo_t * treeinfo,
-                                                int incremental)
+static double treeinfo_compute_loglh(pllmod_treeinfo_t * treeinfo,
+                                     int incremental,
+                                     int update_pmatrices)
 {
   /* tree root must be an inner node! */
   assert(!pllmod_utree_is_tip(treeinfo->root));
@@ -605,6 +606,9 @@ PLL_EXPORT double pllmod_treeinfo_compute_loglh(pllmod_treeinfo_t * treeinfo,
   unsigned int p;
   for (p = 0; p < treeinfo->partition_count; ++p)
   {
+    unsigned int traversal_size;
+    unsigned int matrix_count, ops_count;
+
     if (!treeinfo->partitions[p])
     {
       /* this partition will be computed by another thread(s) */
@@ -615,29 +619,30 @@ PLL_EXPORT double pllmod_treeinfo_compute_loglh(pllmod_treeinfo_t * treeinfo,
     /* all subsequent operation will affect current partition only */
     pllmod_treeinfo_set_active_partition(treeinfo, (int)p);
 
-    /* perform a FULL postorder traversal of the unrooted tree */
-    unsigned int traversal_size;
-    if (!pll_utree_traverse(treeinfo->root,
-                            PLL_TREE_TRAVERSE_POSTORDER,
-                            cb_full_traversal,
-                            treeinfo->travbuffer,
-                            &traversal_size))
-      return LOGLH_NONE;
+    if (update_pmatrices)
+    {
+      /* perform a FULL postorder traversal of the unrooted tree */
+      if (!pll_utree_traverse(treeinfo->root,
+                              PLL_TREE_TRAVERSE_POSTORDER,
+                              cb_full_traversal,
+                              treeinfo->travbuffer,
+                              &traversal_size))
+        return LOGLH_NONE;
 
 
-    /* given the computed traversal descriptor, generate the operations
-       structure, and the corresponding probability matrix indices that
-       may need recomputing */
-    unsigned int matrix_count, ops_count;
-    pll_utree_create_operations(treeinfo->travbuffer,
-                                traversal_size,
-                                treeinfo->branch_lengths[p],
-                                treeinfo->matrix_indices,
-                                treeinfo->operations,
-                                &matrix_count,
-                                &ops_count);
+      /* given the computed traversal descriptor, generate the operations
+         structure, and the corresponding probability matrix indices that
+         may need recomputing */
+      pll_utree_create_operations(treeinfo->travbuffer,
+                                  traversal_size,
+                                  treeinfo->branch_lengths[p],
+                                  treeinfo->matrix_indices,
+                                  treeinfo->operations,
+                                  &matrix_count,
+                                  &ops_count);
 
-    pllmod_treeinfo_update_prob_matrices(treeinfo, !incremental);
+      pllmod_treeinfo_update_prob_matrices(treeinfo, !incremental);
+    }
 
     if (incremental)
     {
@@ -706,6 +711,19 @@ PLL_EXPORT double pllmod_treeinfo_compute_loglh(pllmod_treeinfo_t * treeinfo,
   assert(total_loglh < 0.);
 
   return total_loglh;
+}
+
+PLL_EXPORT double pllmod_treeinfo_compute_loglh(pllmod_treeinfo_t * treeinfo,
+                                                int incremental)
+{
+  return treeinfo_compute_loglh(treeinfo, incremental, 1);
+}
+
+PLL_EXPORT double pllmod_treeinfo_compute_loglh_flex(pllmod_treeinfo_t * treeinfo,
+                                                     int incremental,
+                                                     int update_pmatrices)
+{
+  return treeinfo_compute_loglh(treeinfo, incremental, update_pmatrices);
 }
 
 PLL_EXPORT
