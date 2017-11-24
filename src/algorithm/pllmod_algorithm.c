@@ -689,6 +689,8 @@ double pllmod_algo_opt_onedim_treeinfo_custom(pllmod_treeinfo_t * treeinfo,
                                               1 /* global_range */
                                               );
 
+    free(param_vals);
+
     if (ret != PLL_SUCCESS)
     {
       assert(pll_errno);
@@ -925,6 +927,7 @@ double pllmod_algo_opt_subst_rates_treeinfo (pllmod_treeinfo_t * treeinfo,
   free(lb);
   free(ub);
   free(bt);
+  free(subst_free_params);
 
   return cur_logl;
 }
@@ -1074,6 +1077,7 @@ double pllmod_algo_opt_frequencies_treeinfo (pllmod_treeinfo_t * treeinfo,
   free(lb);
   free(ub);
   free(bt);
+  free(num_free_params);
 
   free(opt_params.fixed_var_index);
 
@@ -1228,6 +1232,9 @@ double pllmod_algo_opt_rates_weights_treeinfo (pllmod_treeinfo_t * treeinfo,
 
         num_free_params[part] = partition->rate_cats;
 
+        DBG("pllmod_algo_opt_rates_weights_treeinfo: OLD RATES = (%.12lf %.12lf %.12lf %.12lf)\n",
+            partition->rates[0], partition->rates[1], partition->rates[2], partition->rates[3]);
+
         fill_rates (partition->rates,
                     x[part], bt[part], lb[part], ub[part],
                     min_rate, max_rate,
@@ -1308,6 +1315,7 @@ double pllmod_algo_opt_rates_weights_treeinfo (pllmod_treeinfo_t * treeinfo,
   free(lb);
   free(ub);
   free(bt);
+  free(num_free_params);
 
   free(opt_params.fixed_var_index);
 

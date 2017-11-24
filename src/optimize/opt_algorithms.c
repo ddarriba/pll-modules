@@ -876,17 +876,6 @@ static int brent_opt_alt (int xnum,
     l_xmax = xmax;
   }
 
-  /* check that lower bound is > 0., seems to be a requirement for Brent */
-  for (i = 0; i < xnum; ++i)
-  {
-    if (!(l_xmin[i] > 0.))
-    {
-      pllmod_set_error(PLLMOD_ERROR_INVALID_RANGE,
-                       "BRENT: lower bound has to be greater than 0!");
-      return PLL_FAILURE;
-    }
-  }
-
   /* this function is a refactored version of brent_opt */
   /* if we consider the following structure:
    *
@@ -928,7 +917,11 @@ static int brent_opt_alt (int xnum,
       xguess[i] = l_xmin[i];
     if (xguess[i] > l_xmax[i])
       xguess[i] = l_xmax[i];
-    eps = xguess[i] * xtol * 50.0;
+
+    // TODO: this is a quick workaround to make it work for xguess==0
+    // But we should double-check this bracketing heuristic! (alexey)
+    eps = xguess[i] > 0 ? xguess[i] * xtol * 50.0 : 2. * xtol;
+
     ax[i] = xguess[i] - eps;
     outbounds_ax = ax[i] < l_xmin[i];
     if (outbounds_ax)
