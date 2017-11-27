@@ -467,6 +467,7 @@ PLL_EXPORT void pllmod_treeinfo_destroy(pllmod_treeinfo_t * treeinfo)
   free(treeinfo->param_indices);
   free(treeinfo->branch_lengths);
   free(treeinfo->partition_loglh);
+  free(treeinfo->deriv_precomp);
 
   if(treeinfo->brlen_scalers)
     free(treeinfo->brlen_scalers);
