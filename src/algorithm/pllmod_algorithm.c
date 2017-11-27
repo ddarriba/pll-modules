@@ -1084,6 +1084,87 @@ double pllmod_algo_opt_frequencies_treeinfo (pllmod_treeinfo_t * treeinfo,
   return cur_logl;
 }
 
+static void scales_rates_and_branches(pllmod_treeinfo_t * treeinfo,
+                                      size_t part_num,
+                                      double rate_scaler)
+{
+  assert(treeinfo);
+  assert(part_num < treeinfo->partition_count);
+  assert(rate_scaler > 0.);
+
+  pll_partition_t * partition = treeinfo->partitions[part_num];
+  double * rates              = partition->rates;
+  unsigned int rate_cats      = partition->rate_cats;
+  double brlen_scaler 		  = 1.0 / rate_scaler;
+  size_t j;
+
+  for (j = 0; j < rate_cats; ++j)
+    rates[j] *= rate_scaler;
+
+  const int scale_branches = (treeinfo->partition_count == 1 ||
+		  	  	  	   treeinfo->brlen_linkage == PLLMOD_TREE_BRLEN_UNLINKED);
+
+  if (scale_branches)
+  {
+    //TODO adapt for unlinked branches
+
+    /* scale branch lengths such that likelihood is conserved */
+    pllmod_utree_scale_branches_all(treeinfo->root, brlen_scaler);
+  }
+  else
+  {
+    assert(treeinfo->brlen_scalers);
+
+    /* update brlen scalers */
+      treeinfo->brlen_scalers[part_num] *= brlen_scaler;
+  }
+}
+
+static void fix_free_rates(pllmod_treeinfo_t * treeinfo,
+                           double min_rate,
+                           double max_rate)
+{
+  size_t i,j;
+
+  for (i = 0; i < treeinfo->partition_count; ++i)
+  {
+    /* skip remote partitions and those without rates/weight optimization */
+    if (!treeinfo->partitions[i] ||
+    	!(treeinfo->params_to_optimize[i] & PLLMOD_OPT_PARAM_FREE_RATES))
+      continue;
+
+    pll_partition_t * partition = treeinfo->partitions[i];
+    double * rates              = partition->rates;
+    unsigned int rate_cats      = partition->rate_cats;
+    double lowest_rate 			= rates[0];
+    double highest_rate 		= rates[0];
+    double rate_scaler;
+
+    /* force constraint sum(weights x rates) = 1.0 */
+    for (j = 1; j < rate_cats; ++j)
+    {
+      if (rates[j] < lowest_rate)
+        lowest_rate = rates[j];
+      if (rates[j] > highest_rate)
+        highest_rate = rates[j];
+    }
+
+    if (lowest_rate < min_rate || highest_rate > max_rate)
+    {
+      assert(lowest_rate >= min_rate || highest_rate <= max_rate);
+
+      if (lowest_rate < min_rate)
+        rate_scaler = min_rate / lowest_rate;
+      else if (highest_rate > max_rate)
+        rate_scaler = max_rate / highest_rate;
+      else
+        assert(0);
+
+      scales_rates_and_branches(treeinfo, i, rate_scaler);
+    }
+  }
+}
+
 PLL_EXPORT
 double pllmod_algo_opt_rates_weights_treeinfo (pllmod_treeinfo_t * treeinfo,
                                                double min_rate,
@@ -1169,8 +1250,10 @@ double pllmod_algo_opt_rates_weights_treeinfo (pllmod_treeinfo_t * treeinfo,
   opt_params.fixed_var_index = (unsigned int *) calloc(part_count,
                                                        sizeof(unsigned int));
 
-  /* 2 step BFGS */
+  /* check if we have rates which are outside the bounds, and correct them by scaling */
+  fix_free_rates(treeinfo, min_rate, max_rate);
 
+  /* 2 step BFGS */
   cur_logl = -1 * pllmod_treeinfo_compute_loglh(treeinfo, 0);
   DBG("pllmod_algo_opt_rates_weights_treeinfo: START: logLH = %.15lf\n", cur_logl);
   do
@@ -1277,24 +1360,8 @@ double pllmod_algo_opt_rates_weights_treeinfo (pllmod_treeinfo_t * treeinfo,
       sum_weightrates += rates[j] * weights[j];
     rate_scaler = 1.0 / sum_weightrates;
 
-    for (j = 0; j < rate_cats; ++j)
-      rates[j] *= rate_scaler;
 
-    const int scale_branches = (treeinfo->partition_count == 1 ||
-        treeinfo->brlen_linkage == PLLMOD_TREE_BRLEN_UNLINKED);
-
-    if (scale_branches)
-    {
-      //TODO adapt for unlinked branches
-
-      /* scale branch lengths such that likelihood is conserved */
-      pllmod_utree_scale_branches_all(treeinfo->root, sum_weightrates);
-    }
-    else
-    {
-      /* update brlen scalers */
-        treeinfo->brlen_scalers[i] *= sum_weightrates;
-    }
+    scales_rates_and_branches(treeinfo, i, rate_scaler);
   }
 
   /* update pmatrices and partials according to the new branches */
