@@ -424,7 +424,7 @@ pll_utree_t * pllmod_utree_create_parsimony(unsigned int taxa_count,
                                             char ** names,
                                             char ** sequences,
                                             const unsigned int * site_weights,
-                                            const unsigned int * charmap,
+                                            const pll_state_t * map,
                                             unsigned int states,
                                             unsigned int attributes,
                                             unsigned int random_seed,
@@ -450,7 +450,7 @@ pll_utree_t * pllmod_utree_create_parsimony(unsigned int taxa_count,
 
   /* find sequences in hash table and link them with the corresponding taxa */
   for (i = 0; i < taxa_count; ++i)
-    pll_set_tip_states(partition, i, charmap, sequences[i]);
+    pll_set_tip_states(partition, i, map, sequences[i]);
 
   pll_parsimony_t * parsimony = pll_fastparsimony_init(partition);
 

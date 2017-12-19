@@ -68,7 +68,7 @@ PLL_EXPORT double pllmod_msa_empirical_invariant_sites(pll_partition_t *partitio
 
 PLL_EXPORT pllmod_msa_stats_t * pllmod_msa_compute_stats(const pll_msa_t * msa,
                                                          unsigned int states,
-                                                         const unsigned int * charmap,
+                                                         const pll_state_t * tipmap,
                                                          const unsigned int * weights,
                                                          unsigned long stats_mask);
 

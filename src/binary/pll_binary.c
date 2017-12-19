@@ -434,8 +434,8 @@ PLL_EXPORT pll_partition_t * pllmod_binary_partition_load(FILE * bin_file,
         return PLL_FAILURE;
       }
 
-      if (!(local_partition->tipmap = (unsigned int *)calloc(PLL_ASCII_SIZE,
-                                                       sizeof(unsigned int))))
+      if (!(local_partition->tipmap = (pll_state_t *)calloc(PLL_ASCII_SIZE,
+                                                       sizeof(pll_state_t))))
       {
         pllmod_set_error(PLL_ERROR_MEM_ALLOC,
                   "Cannot allocate tipmap for tip-tip precomputation.");
