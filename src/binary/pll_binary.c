@@ -369,6 +369,7 @@ PLL_EXPORT pll_partition_t * pllmod_binary_partition_load(FILE * bin_file,
       free(local_partition->clv);
       local_partition->clv_buffers = aux_partition.clv_buffers;
       local_partition->tips = aux_partition.tips;
+      local_partition->nodes = aux_partition.clv_buffers + aux_partition.tips;;
       local_partition->clv = (double**) calloc(local_partition->clv_buffers +
                                                local_partition->tips,
                                                sizeof(double*));
