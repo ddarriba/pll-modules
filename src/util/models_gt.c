@@ -100,12 +100,12 @@ static int gt_sym_rate_hky4[] =  {   0, 0, 0, 1, 2, 1, 0, 0, 0,    /* AA */
 static const pllmod_subst_model_t gt_model_list[] =
 {
 /*  name    states  model rates         model freqs   rate symmetries   freq. sym.           */
-  {"GTJC-SM",   10, gt_rates_equal_sm,  gt_freqs_equal,  NULL,                NULL },
-  {"GTJC",      10, gt_rates_equal,     gt_freqs_equal,  NULL,                NULL },
-  {"GTGTR-SM",  10, NULL,               NULL,            gt_sym_rate_free_sm, NULL },
-  {"GTGTR4",    10, NULL,               NULL,            gt_sym_rate_dna4,    NULL },
-  {"GTHKY4",    10, NULL,               NULL,            gt_sym_rate_hky4,    NULL },
-  {"GTGTR",     10, NULL,               NULL,            NULL,                NULL }
+  {"GTJC-SM",   10, gt_rates_equal_sm,  gt_freqs_equal,  NULL,                NULL, 0 },
+  {"GTJC",      10, gt_rates_equal,     gt_freqs_equal,  NULL,                NULL, 0 },
+  {"GTGTR-SM",  10, NULL,               NULL,            gt_sym_rate_free_sm, NULL, 0 },
+  {"GTGTR4",    10, NULL,               NULL,            gt_sym_rate_dna4,    NULL, 0 },
+  {"GTHKY4",    10, NULL,               NULL,            gt_sym_rate_hky4,    NULL, 0 },
+  {"GTGTR",     10, NULL,               NULL,            NULL,                NULL, 0 }
 };
 
 const int GT_MODELS_COUNT = sizeof(gt_model_list) / sizeof(pllmod_subst_model_t);

@@ -22,6 +22,7 @@ libpll_util_la_SOURCES=\
      models_dna.c \
      models_aa.c \
      models_gt.c \
+     models_mult.c \
 		 ../pllmod_common.c
 
 libpll_util_la_CFLAGS = $(AM_CFLAGS) $(AVXFLAGS) $(SSEFLAGS)
