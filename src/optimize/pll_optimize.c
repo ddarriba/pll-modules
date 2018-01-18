@@ -1674,7 +1674,7 @@ PLL_EXPORT double pllmod_opt_optimize_branch_lengths_local_multi (
   if (!(new_loglikelihood - loglikelihood > new_loglikelihood * BETTER_LL_TRESHOLD))
   {
     pllmod_set_error(PLLMOD_OPT_ERROR_NEWTON_WORSE_LK,
-                     "BL opt converged to a worse likelihood score by %f units",
+                     "BL opt converged to a worse likelihood score by %.15f units",
                      new_loglikelihood - loglikelihood);
     goto cleanup;
   }

@@ -93,7 +93,7 @@ PLL_EXPORT double pllmod_opt_minimize_newton(double x1,
 
   deriv_func((void *)params, rts, &f, &df);
 
-  DBG("[NR deriv] BL=%.9f   f=%f  df=%f  nextBL=%.9f\n", rts, f, df, rts-f/df);
+  DBG("[NR deriv] BL=%.9f   f=%.12f  df=%.12f  nextBL=%.9f\n", rts, f, df, rts-f/fabs(df));
   if (!isfinite(f) || !isfinite(df))
   {
     pllmod_set_error(PLLMOD_OPT_ERROR_NEWTON_DERIV,
@@ -146,7 +146,7 @@ PLL_EXPORT double pllmod_opt_minimize_newton(double x1,
 
     deriv_func((void *)params, rts, &f, &df);
 
-    DBG("[%d][NR deriv] BL=%.9f   f=%f  df=%f  nextBL=%.9f\n", i, rts, f, df, rts-f/df);
+    DBG("[%d][NR deriv] BL=%.9f   f=%.12f  df=%.12f  nextBL=%.9f\n", i, rts, f, df, rts-f/df);
 
     if (!isfinite(f) || !isfinite(df))
     {
@@ -828,6 +828,7 @@ double target_funk_wrapper(void * params,
 }
 
 static int brent_opt_alt (int xnum,
+                          int * opt_mask,
                           double * xmin,
                           double * xguess,
                           double * xmax,
@@ -853,6 +854,8 @@ static int brent_opt_alt (int xnum,
   double * fc = (double *) calloc(xnum, sizeof(double));
   double * fxmin = (double *) calloc(xnum, sizeof(double));
   double * fxmax = (double *) calloc(xnum, sizeof(double));
+  int * init_ok = (int *) calloc(xnum+1, sizeof(int));
+
 
   double * l_xmin = NULL;
   double * l_xmax = NULL;
@@ -938,10 +941,16 @@ static int brent_opt_alt (int xnum,
   target_funk (params, l_xmin, fxmin, NULL);
   target_funk (params, l_xmax, fxmax, NULL);
 
+  for (i = 0; i < xnum; ++i)
+    init_ok[i] = 1;
+
   /* check if this works */
-  int init_failed = 0;
   for (i = 0; i < xnum; ++i)
   {
+    /* skip params that do not need to be optimized */
+    if (opt_mask && !opt_mask[i])
+      continue;
+
     /* if it works use these borders else be conservative */
     if ((fa[i] < fb[i]) || (fc[i] < fb[i]))
     {
@@ -951,10 +960,13 @@ static int brent_opt_alt (int xnum,
       cx[i] = l_xmax[i];
     }
 
+    DBG("param[%d] a x c / fa fx fc: %lf, %lf, %lf / %lf, %lf, %lf / %lf\n",
+        i, ax[i], xguess[i], cx[i], fa[i], fb[i], fc[i], l_xmax[i]);
+
     if (!brent_opt_init(ax[i], xguess[i], cx[i], xtol, fx, f2x,
                         fa[i], fb[i], fc[i], &brent_params[i]))
     {
-      init_failed = 1;
+      init_ok[i] = 0;
       break;
     }
   }
@@ -973,6 +985,11 @@ static int brent_opt_alt (int xnum,
     free(l_xmax);
   }
 
+  // check if BRENT initialization has failed in *any* of the threads
+  target_funk (params, NULL, NULL, init_ok);
+  int init_failed = !init_ok[xnum];
+  free(init_ok);
+
   if (init_failed)
   {
     /* restore the original parameter value */
@@ -982,9 +999,9 @@ static int brent_opt_alt (int xnum,
     return PLL_FAILURE;
   }
 
+  int * converged = (int *) calloc(xnum+1, sizeof(int));
   double * u = (double *) calloc(xnum, sizeof(double));
   double * fu = (double *) calloc(xnum, sizeof(double));
-  int * converged = (int *) calloc(xnum+1, sizeof(int));
 
   int iter_num = 0;
   while (iterate)
@@ -1000,6 +1017,10 @@ static int brent_opt_alt (int xnum,
     iterate = !converged[xnum];
     for (i = 0; i < xnum; ++i)
     {
+      /* skip params that do not need to be optimized */
+      if (opt_mask && !opt_mask[i])
+        continue;
+
       if (!converged[i])
       {
         brent_params[i].fu = fu[i];
@@ -1196,7 +1217,7 @@ PLL_EXPORT double pllmod_opt_minimize_brent(double xmin,
   wrap_params.target_funk = target_funk;
   wrap_params.params = params;
 
-  brent_opt_alt (1, &xmin, &xguess, &xmax, xtol, &optx, fx, f2x, &wrap_params,
+  brent_opt_alt (1, NULL, &xmin, &xguess, &xmax, xtol, &optx, fx, f2x, &wrap_params,
                     target_funk_wrapper, 1);
 
 //  optx = brent_opt(xmin, xguess, xmax, xtol, fx, f2x, params, target_funk);
@@ -1209,6 +1230,7 @@ PLL_EXPORT double pllmod_opt_minimize_brent(double xmin,
  * (e.g., unlinked alphas for multiple partitions)
  *
  * @param xnum number of variables/partitions
+ * @param opt_mask opt_mask[i]=1/0: optimize/skip parameter i
  * @param xmin minimum value(s) (see @param global_range)
  * @param xguess array of staring values
  * @param xmax maximum value(s) (see @param global_range)
@@ -1223,6 +1245,7 @@ PLL_EXPORT double pllmod_opt_minimize_brent(double xmin,
  * per-variable ranges; 1=xmin/xmax is a global range for all variables
  */
 PLL_EXPORT int pllmod_opt_minimize_brent_multi(int xnum,
+                                               int * opt_mask,
                                                double * xmin,
                                                double * xguess,
                                                double * xmax,
@@ -1238,7 +1261,7 @@ PLL_EXPORT int pllmod_opt_minimize_brent_multi(int xnum,
                                                       int *),
                                                int global_range)
 {
-  return brent_opt_alt (xnum, xmin, xguess, xmax, xtol, xopt, fx, f2x, params,
+  return brent_opt_alt (xnum, opt_mask, xmin, xguess, xmax, xtol, xopt, fx, f2x, params,
                           target_funk, global_range);
 }
 

@@ -651,6 +651,7 @@ double pllmod_algo_opt_onedim_treeinfo_custom(pllmod_treeinfo_t * treeinfo,
   if (param_count > 0)
   {
     double * param_vals = (double *) malloc(param_count * sizeof(double));
+    int * opt_mask = (int *) calloc(param_count, sizeof(int));
 
     /* collect current values of parameters */
     size_t j = 0;
@@ -668,6 +669,7 @@ double pllmod_algo_opt_onedim_treeinfo_custom(pllmod_treeinfo_t * treeinfo,
         }
 
         params_getter(treeinfo, i, &param_vals[j], 1);
+        opt_mask[j] = 1;
         j++;
       }
     }
@@ -681,6 +683,7 @@ double pllmod_algo_opt_onedim_treeinfo_custom(pllmod_treeinfo_t * treeinfo,
 
     /* run BRENT optimization for all partitions in parallel */
     int ret = pllmod_opt_minimize_brent_multi(param_count,
+                                              opt_mask,
                                               &min_value, param_vals, &max_value,
                                               tolerance, param_vals,
                                               NULL, NULL,  /* fx, f2x */
@@ -690,6 +693,7 @@ double pllmod_algo_opt_onedim_treeinfo_custom(pllmod_treeinfo_t * treeinfo,
                                               );
 
     free(param_vals);
+    free(opt_mask);
 
     if (ret != PLL_SUCCESS)
     {

@@ -276,6 +276,7 @@ PLL_EXPORT double pllmod_opt_optimize_branch_lengths_local_multi (
                                                                          int));
 
 PLL_EXPORT int pllmod_opt_minimize_brent_multi(int xnum,
+                                               int * opt_mask,
                                                double * xmin,
                                                double * xguess,
                                                double * xmax,

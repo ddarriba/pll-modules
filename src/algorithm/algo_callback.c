@@ -300,6 +300,8 @@ double target_func_onedim_treeinfo(void *p, double *x, double *fx, int * converg
   unsigned int num_parts              = params->num_opt_partitions;
   treeinfo_param_set_cb param_setter  = params->param_set_cb;
 
+  double score = -INFINITY;
+
   /* any partitions which have not converged yet? */
   double unconverged_flag = 0.;
 
@@ -319,7 +321,10 @@ double target_func_onedim_treeinfo(void *p, double *x, double *fx, int * converg
 
       unconverged_flag = 1.;
 
-      param_setter(treeinfo, i, &x[j], 1);
+      /* if x=NULL, function was called solely to check convergence
+       * -> no update of parameter values & LH computation */
+      if (x)
+        param_setter(treeinfo, i, &x[j], 1);
 
       j++;
     }
@@ -328,7 +333,8 @@ double target_func_onedim_treeinfo(void *p, double *x, double *fx, int * converg
   assert(j == num_parts);
 
   /* compute negative score */
-  double score = -1 * pllmod_treeinfo_compute_loglh(treeinfo, 0);
+  if (x)
+    score = -1 * pllmod_treeinfo_compute_loglh(treeinfo, 0);
 
 //  printf("score: %lf\n", score);
 
