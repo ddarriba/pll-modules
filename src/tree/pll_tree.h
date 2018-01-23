@@ -339,10 +339,10 @@ PLL_EXPORT pll_utree_t * pllmod_utree_create_random(unsigned int taxa_count,
                                                     const char * const* names);
 
 PLL_EXPORT
-pll_utree_t * pllmod_utree_create_parsimony(unsigned int taxa_count,
+pll_utree_t * pllmod_utree_create_parsimony(unsigned int taxon_count,
                                             unsigned int seq_length,
-                                            char ** names,
-                                            char ** sequences,
+                                            char * const * names,
+                                            char * const * sequences,
                                             const unsigned int * site_weights,
                                             const pll_state_t * map,
                                             unsigned int states,
@@ -350,6 +350,12 @@ pll_utree_t * pllmod_utree_create_parsimony(unsigned int taxa_count,
                                             unsigned int random_seed,
                                             unsigned int * score);
 
+pll_utree_t * pllmod_utree_create_parsimony_multipart(unsigned int taxon_count,
+                                                      char * const * taxon_names,
+                                                      unsigned int partition_count,
+                                                      pll_partition_t * const * partitions,
+                                                      unsigned int random_seed,
+                                                      unsigned int * score);
 
 
 /* Discrete operations */
