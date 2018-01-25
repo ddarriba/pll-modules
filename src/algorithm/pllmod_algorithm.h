@@ -171,6 +171,16 @@ double pllmod_algo_opt_rates_weights_treeinfo (pllmod_treeinfo_t * treeinfo,
                                                double bfgs_factor,
                                                double tolerance);
 
+PLL_EXPORT
+double pllmod_algo_opt_alpha_pinv_treeinfo(pllmod_treeinfo_t * treeinfo,
+                                           unsigned int params_index,
+                                           double min_alpha,
+                                           double max_alpha,
+                                           double min_pinv,
+                                           double max_pinv,
+                                           double bfgs_factor,
+                                           double tolerance);
+
 
 /* search */
 

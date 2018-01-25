@@ -369,7 +369,7 @@ double target_func_multidim_treeinfo(void * p, double ** x, double * fx,
   pllmod_treeinfo_t * treeinfo      = params->treeinfo;
   unsigned int num_parts            = params->num_opt_partitions;
   unsigned int * fixed_var_index    = params->fixed_var_index;
-  int param_to_optimize             = params->param_to_optimize;
+  int params_to_optimize            = params->param_to_optimize;
 
   double score = -INFINITY;
 
@@ -382,7 +382,7 @@ double target_func_multidim_treeinfo(void * p, double ** x, double * fx,
   {
     pll_partition_t * partition = treeinfo->partitions[i];
 
-    if (treeinfo->params_to_optimize[i] & param_to_optimize)
+    if ((treeinfo->params_to_optimize[i] & params_to_optimize) == params_to_optimize)
     {
       if (!partition || (converged && converged[part]))
       {
@@ -400,8 +400,32 @@ double target_func_multidim_treeinfo(void * p, double ** x, double * fx,
         continue;
       }
 
-      switch (param_to_optimize)
+      switch (params_to_optimize)
       {
+        case PLLMOD_OPT_PARAM_ALPHA | PLLMOD_OPT_PARAM_PINV:
+          /* update GAMMA rate categories */
+          treeinfo->alphas[i] = x[part][0];
+          if (!pll_compute_gamma_cats (treeinfo->alphas[i],
+                                       partition->rate_cats,
+                                       partition->rates,
+                                       params->treeinfo->gamma_mode[i]))
+          {
+            assert(pll_errno);
+            return PLL_FAILURE;
+          }
+
+          /* update proportion of invariant sites */
+          for (j=0; j<partition->rate_cats; ++j)
+          {
+            if (!pll_update_invariant_sites_proportion(partition,
+                                                       treeinfo->param_indices[i][j],
+                                                       x[part][1]))
+            {
+              assert(pll_errno);
+              return PLL_FAILURE;
+            }
+          }
+          break;
         case PLLMOD_OPT_PARAM_FREE_RATES:
           /* update rate categories */
           memcpy(partition->rates, x[part], partition->rate_cats*sizeof(double));
@@ -445,7 +469,7 @@ double target_func_multidim_treeinfo(void * p, double ** x, double * fx,
     j = 0;
     for (i = 0; i < treeinfo->partition_count; ++i)
     {
-      if (treeinfo->params_to_optimize[i] & param_to_optimize)
+      if ((treeinfo->params_to_optimize[i] & params_to_optimize) == params_to_optimize)
         fx[j++] = -1 * treeinfo->partition_loglh[i];
     }
   }
