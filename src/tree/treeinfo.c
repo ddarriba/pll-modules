@@ -43,7 +43,7 @@ static int cb_set_treeinfo_pointer(pll_unode_t * node, void *data)
 /* a callback function for performing a full traversal */
 static int cb_full_traversal(pll_unode_t * node)
 {
-  UNUSED(node);
+  PLLMOD_UNUSED(node);
   return PLL_SUCCESS;
 }
 

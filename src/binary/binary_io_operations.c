@@ -163,7 +163,7 @@ int binary_partition_desc_apply (FILE * bin_file,
                              unsigned int attributes,
                              int (*bin_func)(void *, size_t, size_t, FILE *))
 {
-  UNUSED(attributes);
+  PLLMOD_UNUSED(attributes);
 
   /* partition descriptor */
   bin_func (&partition->tips, sizeof(unsigned int), 1, bin_file);
@@ -332,7 +332,7 @@ int binary_repeats_apply (FILE * bin_file,
                   size_t nodes,
                   int (*bin_func)(void *, size_t, size_t, FILE *))
 {
-  UNUSED(attributes);
+  PLLMOD_UNUSED(attributes);
   if (!bin_func(partition->repeats->pernode_ids, sizeof(unsigned int), nodes, bin_file))
   {
     pllmod_set_error(PLLMOD_BIN_ERROR_LOADSTORE,
@@ -356,7 +356,7 @@ int binary_clv_apply (FILE * bin_file,
                       size_t clv_size,
                       int (*bin_func)(void *, size_t, size_t, FILE *))
 {
-  UNUSED(attributes);
+  PLLMOD_UNUSED(attributes);
   if (clv_index > (partition->tips + partition->clv_buffers))
   {
     pllmod_set_error(PLLMOD_BIN_ERROR_INVALID_INDEX,

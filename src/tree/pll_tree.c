@@ -1067,7 +1067,7 @@ PLL_EXPORT pll_utree_t * pllmod_utree_expand(pll_unode_t * serialized_tree,
 
 static int rtree_rollback_tbr(pll_tree_rollback_t * rollback_info)
 {
-  UNUSED(rollback_info);
+  PLLMOD_UNUSED(rollback_info);
   assert(UNIMPLEMENTED);
   return PLL_FAILURE;
 }
@@ -1090,7 +1090,7 @@ static int rtree_rollback_spr(pll_tree_rollback_t * rollback_info)
 
 static int rtree_rollback_nni(pll_tree_rollback_t * rollback_info)
 {
-  UNUSED(rollback_info);
+  PLLMOD_UNUSED(rollback_info);
   assert(UNIMPLEMENTED);
   return PLL_FAILURE;
 }

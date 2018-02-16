@@ -30,7 +30,7 @@
 #define PLLMOD_COMMON_REDUCE_MAX     1
 #define PLLMOD_COMMON_REDUCE_MIN     2
 
-#define UNUSED(expr) do { (void)(expr); } while (0)
+#define PLLMOD_UNUSED(expr) do { (void)(expr); } while (0)
 
 #define PLLMOD_ERRMSG_LEN 200
 

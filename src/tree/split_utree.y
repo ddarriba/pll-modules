@@ -20,9 +20,8 @@
 */
 
 %{
+#include "../pllmod_common.h"
 #include "tree_hashtable.h"
-
-#define UNUSED(expr) do { (void)(expr); } while (0)
 
 extern int pllmod_utree_lex();
 extern FILE * pllmod_utree_in;
@@ -89,12 +88,13 @@ static void pllmod_utree_error(struct parse_params_t * paramas,
 
 inputstr: '(' subtree ',' subtree ',' subtree ')' optional_label optional_length ';'
 {
-  UNUSED($$);UNUSED($2);UNUSED($4);UNUSED($6); /* ignore result */
+  PLLMOD_UNUSED($$);PLLMOD_UNUSED($2);
+  PLLMOD_UNUSED($4);PLLMOD_UNUSED($6); /* ignore result */
 };
 
 subtree: '(' subtree ',' subtree ')' optional_label optional_length
 {
-  UNUSED($$);UNUSED($2);UNUSED($4);
+  PLLMOD_UNUSED($$);PLLMOD_UNUSED($2);PLLMOD_UNUSED($4);
   struct parse_params_t * params = (struct parse_params_t *) params_ptr;
 
   assert(params->split_stack->split_count >= 2);
@@ -113,7 +113,7 @@ subtree: '(' subtree ',' subtree ')' optional_label optional_length
 }
        | label optional_length
 {
-  UNUSED($$);
+  PLLMOD_UNUSED($$);
   struct parse_params_t * params = (struct parse_params_t *) params_ptr;
 
   // find tip index

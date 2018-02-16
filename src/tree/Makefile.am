@@ -41,5 +41,5 @@ else
 endif
 
 pkgincludedir=$(includedir)/libpll
-pkginclude_HEADERS = pll_tree.h
+pkginclude_HEADERS = pll_tree.h ../pllmod_common.h
 EXTRA_DIST = ../pllmod_common.h tree_hashtable.h

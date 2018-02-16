@@ -1268,7 +1268,7 @@ PLL_EXPORT void * pllmod_binary_custom_load(FILE * bin_file,
 
 static int cb_full_traversal(pll_unode_t * node)
 {
-  UNUSED(node);
+  PLLMOD_UNUSED(node);
   return 1;
 }
 
