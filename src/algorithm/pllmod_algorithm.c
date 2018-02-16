@@ -798,7 +798,7 @@ double pllmod_algo_opt_subst_rates_treeinfo (pllmod_treeinfo_t * treeinfo,
   {
     double tmp = (double) max_free_params;
     treeinfo->parallel_reduce_cb(treeinfo->parallel_context, &tmp, 1,
-                                 PLLMOD_TREE_REDUCE_MAX);
+                                 PLLMOD_COMMON_REDUCE_MAX);
     max_free_params = (size_t) tmp;
   }
 
@@ -982,7 +982,7 @@ double pllmod_algo_opt_frequencies_treeinfo (pllmod_treeinfo_t * treeinfo,
   {
     double tmp = (double) max_free_params;
     treeinfo->parallel_reduce_cb(treeinfo->parallel_context, &tmp, 1,
-                                 PLLMOD_TREE_REDUCE_MAX);
+                                 PLLMOD_COMMON_REDUCE_MAX);
     max_free_params = (size_t) tmp;
   }
 
@@ -1227,7 +1227,7 @@ static void scales_rates_and_branches(pllmod_treeinfo_t * treeinfo,
     rates[j] *= rate_scaler;
 
   const int scale_branches = (treeinfo->partition_count == 1 ||
-		  	  	  	   treeinfo->brlen_linkage == PLLMOD_TREE_BRLEN_UNLINKED);
+		  	  	  	   treeinfo->brlen_linkage == PLLMOD_COMMON_BRLEN_UNLINKED);
 
   if (scale_branches)
   {
@@ -1335,7 +1335,7 @@ double pllmod_algo_opt_rates_weights_treeinfo (pllmod_treeinfo_t * treeinfo,
   {
     double tmp = (double) max_free_params;
     treeinfo->parallel_reduce_cb(treeinfo->parallel_context, &tmp, 1,
-                                 PLLMOD_TREE_REDUCE_MAX);
+                                 PLLMOD_COMMON_REDUCE_MAX);
     max_free_params = (size_t) tmp;
   }
 

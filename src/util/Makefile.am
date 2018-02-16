@@ -34,5 +34,5 @@ else
 endif
 
 pkgincludedir=$(includedir)/libpll
-pkginclude_HEADERS = pllmod_util.h
+pkginclude_HEADERS = pllmod_util.h ../pllmod_common.h
 EXTRA_DIST = ../pllmod_common.h

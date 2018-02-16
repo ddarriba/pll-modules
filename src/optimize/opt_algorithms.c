@@ -68,15 +68,115 @@ static inline int d_equals(double a, double b)
  *
  * @return            the parameter value that minimizes the function in [x1,x2]
  */
-PLL_EXPORT double pllmod_opt_minimize_newton(double x1,
-                                            double xguess,
-                                            double x2,
-                                            double tolerance,
-                                            unsigned int max_iters,
-                                            void * params,
-                                            void (deriv_func)(void *,
-                                                              double,
-                                                              double *, double *))
+PLL_EXPORT double pllmod_opt_minimize_newton(double xmin,
+                                             double xguess,
+                                             double xmax,
+                                             double tolerance,
+                                             unsigned int max_iters,
+                                             void * params,
+                                             void (deriv_func)(void *,
+                                                          double,
+                                                          double *, double *))
+{
+  unsigned int i;
+  double dx, f, df;
+  double xh, xl, x;
+
+  double dxmax = xmax / max_iters;
+
+  /* reset errno */
+  pll_errno = 0;
+
+  x = PLL_MAX(PLL_MIN(xguess, xmax), xmin);
+
+  xl = xmin;
+  xh = xmax;
+
+  for (i = 1; i <= max_iters; i++)
+  {
+    deriv_func((void *)params, x, &f, &df);
+
+    if (!isfinite(f) || !isfinite(df))
+    {
+      DBG("[%d][NR deriv] BL=%.9f   f=%.12f  df=%.12f\n",
+          i, x, f, df);
+      pllmod_set_error(PLLMOD_OPT_ERROR_NEWTON_DERIV,
+                       "Wrong likelihood derivatives");
+      return PLL_FAILURE;
+    }
+
+    if (df > 0.0)
+    {
+      if (fabs (f) < tolerance)
+        return x;
+
+      if (f < 0.0)
+        xl = x;
+      else
+        xh = x;
+
+      dx = -1 * f / df;
+    }
+    else
+    {
+//          dx = xl[root_num] + 0.5 * (xh[root_num] - xl[root_num]) - x[root_num];
+      dx = -1 * f / fabs(df);
+    }
+
+    dx = PLL_MAX(PLL_MIN(dx, dxmax), -dxmax);
+
+    if (x+dx < xl) dx = xl-x;
+    if (x+dx > xh) dx = xh-x;
+
+//    if ((x+dx < xl) || (x+dx > xh))
+//    {
+//      // reset to the middle of the current interval
+//      dx = xl + 0.5 * (xh - xl) - x;
+//    }
+
+    if (fabs (dx) < tolerance)
+      return x;
+
+    DBG("[%d][NR deriv] BL=%.9f   f=%.12f  df=%.12f  nextBL=%.9f\n",
+        i, x, f, df, x+dx);
+
+    x += dx;
+
+    x = PLL_MAX(PLL_MIN(x, xmax), xmin);
+  }
+
+  pllmod_set_error(PLLMOD_OPT_ERROR_NEWTON_LIMIT,
+                   "Exceeded maximum number of iterations");
+  return PLL_FAILURE;
+}
+
+
+/**
+ * Minimize a function using Newton-Raphson - LEGACY version from IQTree
+ *
+ * The target function must compute the derivatives at a certain point,
+ * and it requires 4 parameters: (1) custom data (if needed), (2) the value at
+ * which derivatives are computed, and (3,4) lower and upper bounds.
+ *
+ * @param  x1         lower bound
+ * @param  xguess     first guess for the free variable
+ * @param  x2         upper bound
+ * @param  tolerance  tolerance of the minimization method
+ * @param  max_iters  maximum number of iterations (bounds the effect of slow convergence)
+ * @param  params     custom parameters required by the target function
+ * @param  deriv_func target function
+ *
+ * @return            the parameter value that minimizes the function in [x1,x2]
+ */
+PLL_EXPORT double pllmod_opt_minimize_newton_old(double x1,
+                                                  double xguess,
+                                                  double x2,
+                                                  double tolerance,
+                                                  unsigned int max_iters,
+                                                  void * params,
+                                                  void (deriv_func)(void *,
+                                                                    double,
+                                                                    double *, double *))
 {
   unsigned int i;
   double df, dx, dxold, f;
@@ -117,6 +217,7 @@ PLL_EXPORT double pllmod_opt_minimize_newton(double x1,
   for (i = 1; i <= max_iters; i++)
   {
     rts_old = rts;
+
     if ((df <= 0.0) // function is concave
     || (((rts - xh) * df - f) * ((rts - xl) * df - f) >= 0.0) // out of bound
         )
@@ -136,6 +237,7 @@ PLL_EXPORT double pllmod_opt_minimize_newton(double x1,
       if (temp == rts)
         return rts;
     }
+
     if (fabs (dx) < tolerance)
       return rts_old;
 
@@ -170,6 +272,7 @@ PLL_EXPORT double pllmod_opt_minimize_newton(double x1,
                    "Exceeded maximum number of iterations");
   return rts_old;
 }
+
 
 /******************************************************************************/
 /* L-BFGS-B OPTIMIZATION */

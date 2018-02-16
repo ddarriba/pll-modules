@@ -161,7 +161,7 @@ PLL_EXPORT pllmod_treeinfo_t * pllmod_treeinfo_create(pll_unode_t * root,
   treeinfo->linked_branch_lengths = (double *) malloc(branch_count * sizeof(double));
 
   /* allocate branch length scalers if needed */
-  if (brlen_linkage == PLLMOD_TREE_BRLEN_SCALED)
+  if (brlen_linkage == PLLMOD_COMMON_BRLEN_SCALED)
     treeinfo->brlen_scalers = (double *) calloc(partitions, sizeof(double));
   else
     treeinfo->brlen_scalers = NULL;
@@ -172,7 +172,7 @@ PLL_EXPORT pllmod_treeinfo_t * pllmod_treeinfo_create(pll_unode_t * root,
       !treeinfo->deriv_precomp || !treeinfo->clv_valid || !treeinfo->pmatrix_valid ||
       !treeinfo->linked_branch_lengths || !treeinfo->partition_loglh ||
       !treeinfo->gamma_mode ||
-      (brlen_linkage == PLLMOD_TREE_BRLEN_SCALED && !treeinfo->brlen_scalers))
+      (brlen_linkage == PLLMOD_COMMON_BRLEN_SCALED && !treeinfo->brlen_scalers))
   {
     pllmod_set_error(PLL_ERROR_MEM_ALLOC,
                      "Cannot allocate memory for treeinfo arrays\n");
@@ -186,7 +186,7 @@ PLL_EXPORT pllmod_treeinfo_t * pllmod_treeinfo_create(pll_unode_t * root,
     treeinfo->gamma_mode[p] = PLL_GAMMA_RATES_MEAN;
 
     /* allocate arrays for storing the per-partition branch lengths */
-    if (brlen_linkage == PLLMOD_TREE_BRLEN_UNLINKED)
+    if (brlen_linkage == PLLMOD_COMMON_BRLEN_UNLINKED)
       treeinfo->branch_lengths[p] =
           (double *) malloc(branch_count * sizeof(double));
     else
@@ -337,6 +337,8 @@ PLL_EXPORT int pllmod_treeinfo_init_partition(pllmod_treeinfo_t * treeinfo,
     return PLL_FAILURE;
   }
 
+  memset(treeinfo->deriv_precomp[partition_index], 0, precomp_size * sizeof(double));
+
   return PLL_SUCCESS;
 }
 
@@ -445,7 +447,7 @@ PLL_EXPORT void pllmod_treeinfo_destroy(pllmod_treeinfo_t * treeinfo)
   unsigned int p;
   for (p = 0; p < treeinfo->partition_count; ++p)
   {
-    if (treeinfo->brlen_linkage == PLLMOD_TREE_BRLEN_UNLINKED)
+    if (treeinfo->brlen_linkage == PLLMOD_COMMON_BRLEN_UNLINKED)
       free(treeinfo->branch_lengths[p]);
 
     pllmod_treeinfo_destroy_partition(treeinfo, p);
@@ -500,7 +502,7 @@ PLL_EXPORT int pllmod_treeinfo_update_prob_matrices(pllmod_treeinfo_t * treeinfo
           continue;
 
         double p_brlen = treeinfo->branch_lengths[p][m];
-        if (treeinfo->brlen_linkage == PLLMOD_TREE_BRLEN_SCALED)
+        if (treeinfo->brlen_linkage == PLLMOD_COMMON_BRLEN_SCALED)
           p_brlen *= treeinfo->brlen_scalers[p];
 
         pll_update_prob_matrices (treeinfo->partitions[p],
@@ -699,7 +701,7 @@ static double treeinfo_compute_loglh(pllmod_treeinfo_t * treeinfo,
     treeinfo->parallel_reduce_cb(treeinfo->parallel_context,
                                  treeinfo->partition_loglh,
                                  p,
-                                 PLLMOD_TREE_REDUCE_SUM);
+                                 PLLMOD_COMMON_REDUCE_SUM);
   }
 
   /* accumulate loglh by summing up over all the partitions */
@@ -752,12 +754,12 @@ int pllmod_treeinfo_normalize_brlen_scalers(pllmod_treeinfo_t * treeinfo)
     treeinfo->parallel_reduce_cb(treeinfo->parallel_context,
                                  &sum_scalers,
                                  1,
-                                 PLLMOD_TREE_REDUCE_SUM);
+                                 PLLMOD_COMMON_REDUCE_SUM);
 
     treeinfo->parallel_reduce_cb(treeinfo->parallel_context,
                                  &sum_sites,
                                  1,
-                                 PLLMOD_TREE_REDUCE_SUM);
+                                 PLLMOD_COMMON_REDUCE_SUM);
   }
 
   const double mean_rate = sum_scalers / sum_sites;

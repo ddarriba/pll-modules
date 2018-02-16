@@ -1,5 +1,5 @@
 /*
- Copyright (C) 2016 Diego Darriba
+ Copyright (C) 2016-18 Diego Darriba, Alexey Kozlov
 
  This program is free software: you can redistribute it and/or modify
  it under the terms of the GNU Affero General Public License as
@@ -22,6 +22,14 @@
 #ifndef PLLMOD_COMMON_H_
 #define PLLMOD_COMMON_H_
 
+#define PLLMOD_COMMON_BRLEN_LINKED    0
+#define PLLMOD_COMMON_BRLEN_SCALED    1
+#define PLLMOD_COMMON_BRLEN_UNLINKED  2
+
+#define PLLMOD_COMMON_REDUCE_SUM     0
+#define PLLMOD_COMMON_REDUCE_MAX     1
+#define PLLMOD_COMMON_REDUCE_MIN     2
+
 #define UNUSED(expr) do { (void)(expr); } while (0)
 
 #define PLLMOD_ERRMSG_LEN 200
@@ -30,6 +38,7 @@
 #define PLLMOD_ERROR_INVALID_RANGE                1001
 #define PLLMOD_ERROR_INVALID_NODE_TYPE            1002
 #define PLLMOD_ERROR_INVALID_INDEX                1003
+#define PLLMOD_ERROR_NOT_IMPLEMENTED              1004
 
 void pllmod_set_error(int errno, const char* errmsg_fmt, ...);
 void pllmod_reset_error();

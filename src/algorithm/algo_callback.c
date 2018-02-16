@@ -28,6 +28,7 @@
   * @author Alexey Kozlov
   */
 
+#include "../pllmod_common.h"
 #include "algo_callback.h"
 
 double target_freqs_func(void *p, double *x)
@@ -353,7 +354,7 @@ double target_func_onedim_treeinfo(void *p, double *x, double *fx, int * converg
     if (treeinfo->parallel_reduce_cb)
     {
       treeinfo->parallel_reduce_cb(treeinfo->parallel_context, &unconverged_flag, 1,
-                                   PLLMOD_TREE_REDUCE_SUM);
+                                   PLLMOD_COMMON_REDUCE_SUM);
     }
     converged[num_parts] = unconverged_flag > 0. ? 0 : 1;
   }
@@ -480,7 +481,7 @@ double target_func_multidim_treeinfo(void * p, double ** x, double * fx,
     if (treeinfo->parallel_reduce_cb)
     {
       treeinfo->parallel_reduce_cb(treeinfo->parallel_context,
-                                   &unconverged_flag, 1, PLLMOD_TREE_REDUCE_SUM);
+                                   &unconverged_flag, 1, PLLMOD_COMMON_REDUCE_SUM);
     }
     converged[num_parts] = unconverged_flag > 0. ? 0 : 1;
   }
@@ -581,7 +582,7 @@ double target_subst_params_func_multi(void * p, double ** x, double * fx,
     if (treeinfo->parallel_reduce_cb)
     {
       treeinfo->parallel_reduce_cb(treeinfo->parallel_context,
-                                   &unconverged_flag, 1, PLLMOD_TREE_REDUCE_SUM);
+                                   &unconverged_flag, 1, PLLMOD_COMMON_REDUCE_SUM);
     }
     converged[num_parts] = unconverged_flag > 0. ? 0 : 1;
   }
@@ -680,7 +681,7 @@ double target_freqs_func_multi(void * p, double ** x, double * fx,
     if (treeinfo->parallel_reduce_cb)
     {
       treeinfo->parallel_reduce_cb(treeinfo->parallel_context,
-                                   &unconverged_flag, 1, PLLMOD_TREE_REDUCE_SUM);
+                                   &unconverged_flag, 1, PLLMOD_COMMON_REDUCE_SUM);
     }
     converged[num_parts] = unconverged_flag > 0. ? 0 : 1;
   }

@@ -44,6 +44,7 @@ typedef struct spr_params
   double bl_min;
   double bl_max;
   int smoothings;
+  int brlen_opt_method;
 } pllmod_search_params_t;
 
 typedef struct rollback_list
@@ -259,25 +260,31 @@ static int algo_bestnode_list_next_index(pllmod_bestnode_list_t * best_node_list
   return curr_index;
 }
 
-static double algo_optimize_bl_triplet(pll_unode_t * node,
-                                       pllmod_treeinfo_t * treeinfo,
-                                       double bl_min,
-                                       double bl_max,
-                                       int smoothings)
+static double algo_optimize_bl_iterative(pll_unode_t * node,
+                                         pllmod_treeinfo_t * treeinfo,
+                                         const pllmod_search_params_t * params,
+                                         int radius,
+                                         double lh_epsilon,
+                                         double smooth_factor)
 {
+  int smoothings = (int) round(smooth_factor * params->smoothings);
+
   double new_loglh = pllmod_opt_optimize_branch_lengths_local_multi(
                                                   treeinfo->partitions,
                                                   treeinfo->partition_count,
                                                   node,
                                                   treeinfo->param_indices,
                                                   treeinfo->deriv_precomp,
+                                                  treeinfo->branch_lengths,
                                                   treeinfo->brlen_scalers,
-                                                  bl_min,
-                                                  bl_max,
-                                                  0.1,
+                                                  params->bl_min,
+                                                  params->bl_max,
+                                                  lh_epsilon,
                                                   smoothings,
-                                                  1,    /* radius */
-                                                  1,    /* keep_update */
+                                                  radius,
+                                                  1,       /* keep_update */
+                                                  params->brlen_opt_method,
+                                                  treeinfo->brlen_linkage,
                                                   treeinfo->parallel_context,
                                                   treeinfo->parallel_reduce_cb);
 
@@ -290,38 +297,25 @@ static double algo_optimize_bl_triplet(pll_unode_t * node,
   }
 }
 
-static double algo_optimize_bl_iterative(pllmod_treeinfo_t * treeinfo,
-                                         double lh_epsilon,
-                                         double bl_min,
-                                         double bl_max,
-                                         int smoothings)
+static double algo_optimize_bl_triplet(pll_unode_t * node,
+                                       pllmod_treeinfo_t * treeinfo,
+                                       const pllmod_search_params_t * params,
+                                       double smooth_factor)
 {
-  double new_loglh;
+  return algo_optimize_bl_iterative(node, treeinfo, params,
+                                    1, 0.1, smooth_factor);
+}
 
+static double algo_optimize_bl_all(pllmod_treeinfo_t * treeinfo,
+                                   const pllmod_search_params_t * params,
+                                   double lh_epsilon,
+                                   double smooth_factor)
+{
   pllmod_treeinfo_compute_loglh(treeinfo, 0);
 
-  new_loglh = pllmod_opt_optimize_branch_lengths_local_multi(
-                                                  treeinfo->partitions,
-                                                  treeinfo->partition_count,
-                                                  treeinfo->root,
-                                                  treeinfo->param_indices,
-                                                  treeinfo->deriv_precomp,
-                                                  treeinfo->brlen_scalers,
-                                                  bl_min,
-                                                  bl_max,
-                                                  lh_epsilon,
-                                                  smoothings,
-                                                  -1,    /* radius */
-                                                  1,    /* keep_update */
-                                                  treeinfo->parallel_context,
-                                                  treeinfo->parallel_reduce_cb);
-  if (new_loglh)
-    return -1 * new_loglh;
-  else
-  {
-    assert(pll_errno);
-    return 0;
-  }
+  return algo_optimize_bl_iterative(treeinfo->root, treeinfo, params,
+                                    PLLMOD_OPT_BRLEN_OPTIMIZE_ALL, lh_epsilon,
+                                    smooth_factor);
 }
 
 static void algo_unode_fix_length(pll_unode_t * node, double bl_min, double bl_max)
@@ -349,7 +343,7 @@ int algo_update_pmatrix(pllmod_treeinfo_t * treeinfo,
 
       // TODO: extend for unlinked per-partition branch lengths
       double p_brlen = edge->length;
-      if (treeinfo->brlen_linkage == PLLMOD_TREE_BRLEN_SCALED)
+      if (treeinfo->brlen_linkage == PLLMOD_COMMON_BRLEN_SCALED)
         p_brlen *= treeinfo->brlen_scalers[p];
 
       int ret = pll_update_prob_matrices (treeinfo->partitions[p],
@@ -517,9 +511,8 @@ static int best_reinsert_edge(pllmod_treeinfo_t * treeinfo,
       /* optimize 3 adjacent branches and get tree logLH */
       loglh = algo_optimize_bl_triplet(p_edge,
                                        treeinfo,
-                                       params->bl_min,
-                                       params->bl_max,
-                                       params->smoothings);
+                                       params,
+                                       1.0);
 
       if (!loglh)
       {
@@ -713,6 +706,7 @@ PLL_EXPORT double pllmod_algo_spr_round(pllmod_treeinfo_t * treeinfo,
                                         int radius_max,
                                         int ntopol_keep,
                                         int thorough,
+                                        int brlen_opt_method,
                                         double bl_min,
                                         double bl_max,
                                         int smoothings,
@@ -753,6 +747,7 @@ PLL_EXPORT double pllmod_algo_spr_round(pllmod_treeinfo_t * treeinfo,
   params.bl_min = bl_min;
   params.bl_max = bl_max;
   params.smoothings = smoothings;
+  params.brlen_opt_method = brlen_opt_method;
 
   /* reset error */
   pll_errno = 0;
@@ -840,11 +835,10 @@ PLL_EXPORT double pllmod_algo_spr_round(pllmod_treeinfo_t * treeinfo,
   free(allnodes);
   allnodes = NULL;
 
-  best_lh = algo_optimize_bl_iterative(treeinfo,
-                                       epsilon,
-                                       params.bl_min,
-                                       params.bl_max,
-                                       params.smoothings/4);
+  best_lh = algo_optimize_bl_all(treeinfo,
+                                 &params,
+                                 epsilon,
+                                 0.25);
   DBG("Best tree LH after BLO: %f\n", best_lh);
 
   best_tree = pll_utree_graph_clone(treeinfo->root);
@@ -949,11 +943,10 @@ PLL_EXPORT double pllmod_algo_spr_round(pllmod_treeinfo_t * treeinfo,
 
     /* now optimize all the branches */
     double loglh;
-    loglh = algo_optimize_bl_iterative(treeinfo,
-                                  epsilon,
-                                  params.bl_min,
-                                  params.bl_max,
-                                  params.smoothings/4);
+    loglh = algo_optimize_bl_all(treeinfo,
+                                 &params,
+                                 epsilon,
+                                 0.25);
 
     if (!loglh)
     {
