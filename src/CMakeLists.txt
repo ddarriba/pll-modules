@@ -10,4 +10,5 @@ add_subdirectory(tree)
 add_subdirectory(util)
 add_subdirectory(optimize)
 
+set(PLLMOD_EXPORTED_INCLUDE_PATH ${CMAKE_CURRENT_SOURCE_DIR} "${CMAKE_CURRENT_SOURCE_DIR}/algorithm/" "${CMAKE_CURRENT_SOURCE_DIR}/binary" "${CMAKE_CURRENT_SOURCE_DIR}/msa"  "${CMAKE_CURRENT_SOURCE_DIR}/tree" "${CMAKE_CURRENT_SOURCE_DIR}/util" ${LIBPLL_SRC} PARENT_SCOPE)
 

@@ -6,4 +6,5 @@ add_subdirectory(libs/libpll)
 
 add_subdirectory(src)
 
+set(PLLMOD_EXPORTED_INCLUDE_PATH ${PLLMOD_EXPORTED_INCLUDE_PATH} PARENT_SCOPE)
 
