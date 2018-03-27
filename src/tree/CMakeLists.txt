@@ -1,3 +1,7 @@
+find_package(BISON)
+find_package(FLEX)
+set(LIBPLL_BISON_FLAGS "-y -d -p pll_utree_")
+set(LIBPLL_FLEX_FLAGS "-P pll_utree_")
 
 BISON_TARGET(split_utree_t 
   ${CMAKE_CURRENT_SOURCE_DIR}/split_utree.y ${CMAKE_CURRENT_BINARY_DIR}/split_utree.c
