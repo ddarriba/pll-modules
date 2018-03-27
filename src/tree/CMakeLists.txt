@@ -1,8 +1,18 @@
 
+BISON_TARGET(split_utree_t 
+  ${CMAKE_CURRENT_SOURCE_DIR}/split_utree.y ${CMAKE_CURRENT_BINARY_DIR}/split_utree.c
+  COMPILE_FLAGS ${LIBPLL_BISON_FLAGS})
+FLEX_TARGET(lex_split_t 
+  ${CMAKE_CURRENT_SOURCE_DIR}/lex_split.l ${CMAKE_CURRENT_BINARY_DIR}/lex_split.c
+  COMPILE_FLAGS ${LIBPLL_FLEX_FLAGS})
+ADD_FLEX_BISON_DEPENDENCY(lex_split_t split_utree_t)
+
 file(GLOB TREE_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/*.c
-  ${CMAKE_CURRENT_SOURCE_DIR}/*.y
-  ${CMAKE_CURRENT_SOURCE_DIR}/*.l
-  ${CMAKE_CURRENT_SOURCE_DIR}/../pllmod_common.c)
+  ${CMAKE_CURRENT_SOURCE_DIR}/../pllmod_common.c
+  ${BISON_split_utree_t_OUTPUTS}
+  ${FLEX_lex_split_t_OUTPUTS}
+  )
+
 
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${PLLMOD_CFLAGS}")
 
