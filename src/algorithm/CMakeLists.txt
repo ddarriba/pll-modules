@@ -15,3 +15,4 @@ set_property(TARGET pllmodalgorithm PROPERTY POSITION_INDEPENDENT_CODE 1)
 add_library(pllmodalgorithm_shared SHARED $<TARGET_OBJECTS:pllmodalgorithm>)
 add_library(pllmodalgorithm_static STATIC $<TARGET_OBJECTS:pllmodalgorithm>)
 
+target_link_libraries(pllmodalgorithm_shared pll_shared) 

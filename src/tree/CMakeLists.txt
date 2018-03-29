@@ -33,3 +33,4 @@ set_property(TARGET pllmodtree PROPERTY POSITION_INDEPENDENT_CODE 1)
 add_library(pllmodtree_shared SHARED $<TARGET_OBJECTS:pllmodtree>)
 add_library(pllmodtree_static STATIC $<TARGET_OBJECTS:pllmodtree>)
 
+target_link_libraries(pllmodtree_shared pll_shared) 

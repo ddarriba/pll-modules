@@ -11,3 +11,4 @@ set_property(TARGET pllmodoptimize PROPERTY POSITION_INDEPENDENT_CODE 1)
 add_library(pllmodoptimize_shared SHARED $<TARGET_OBJECTS:pllmodoptimize>)
 add_library(pllmodoptimize_static STATIC $<TARGET_OBJECTS:pllmodoptimize>)
 
+target_link_libraries(pllmodoptimize_shared pll_shared) 

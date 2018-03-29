@@ -9,3 +9,4 @@ set_property(TARGET pllmodbinary PROPERTY POSITION_INDEPENDENT_CODE 1)
 add_library(pllmodbinary_shared SHARED $<TARGET_OBJECTS:pllmodbinary>)
 add_library(pllmodbinary_static STATIC $<TARGET_OBJECTS:pllmodbinary>)
 
+target_link_libraries(pllmodbinary_shared pll_shared) 

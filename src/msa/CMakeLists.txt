@@ -9,3 +9,4 @@ set_property(TARGET pllmodmsa PROPERTY POSITION_INDEPENDENT_CODE 1)
 add_library(pllmodmsa_shared SHARED $<TARGET_OBJECTS:pllmodmsa>)
 add_library(pllmodmsa_static STATIC $<TARGET_OBJECTS:pllmodmsa>)
 
+target_link_libraries(pllmodmsa_shared pll_shared) 
