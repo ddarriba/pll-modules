@@ -100,8 +100,7 @@ PLL_EXPORT pll_consensus_utree_t * pllmod_utree_from_splits(
 {
   const pll_split_t * splits = split_system->splits;
   unsigned int split_size = sizeof(pll_split_base_t) * 8;
-  unsigned int split_offset = tip_count % split_size;
-  unsigned int split_len  = tip_count / split_size + (split_offset>0);
+  unsigned int split_len  = bitv_length(tip_count);
   unsigned int i;
   pll_unode_t * tree, * next_parent;
   pll_consensus_utree_t * return_tree;
@@ -329,10 +328,8 @@ PLL_EXPORT pll_consensus_utree_t * pllmod_utree_weight_consensus(
   pll_split_t * tree_splits;
   unsigned int i, j,
                tip_count = reference_tree->tip_count,
-               n_splits,
-               split_size = sizeof(pll_split_base_t) * 8,
-               split_offset,
-               split_len;
+               n_splits  = tip_count - 3,
+               split_len = bitv_length(tip_count);
 
   /* validate threshold */
   if (threshold > 1 || threshold < 0)
@@ -376,9 +373,6 @@ PLL_EXPORT pll_consensus_utree_t * pllmod_utree_weight_consensus(
                        (int) tipnodes[i]->node_index);
   }
 
-  split_offset = tip_count % split_size;
-  split_len  = tip_count / split_size + (split_offset>0);
-
   /* create hashtable */
   splits_hash = hash_init(tip_count * 10, tip_count);
 
@@ -393,7 +387,6 @@ PLL_EXPORT pll_consensus_utree_t * pllmod_utree_weight_consensus(
       return NULL;
     }
 
-    n_splits = tip_count - 3;
     tree_splits = pllmod_utree_split_create(current_tree->nodes[
                                                 current_tree->tip_count +
                                                 current_tree->inner_count - 1],
@@ -478,8 +471,6 @@ PLL_EXPORT pll_consensus_utree_t * pllmod_utree_consensus(
   unsigned int i,
                tip_count,
                n_splits,
-               split_size = sizeof(pll_split_base_t) * 8,
-               split_offset,
                split_len,
                tree_count,         /* number of trees */
                current_tree_index; /* for error management */
@@ -529,8 +520,7 @@ PLL_EXPORT pll_consensus_utree_t * pllmod_utree_consensus(
                        (int) tipnodes[i]->node_index);
   }
 
-  split_offset = tip_count % split_size;
-  split_len  = tip_count / split_size + (split_offset>0);
+  split_len = bitv_length(tip_count);
 
   /* create hashtable */
   splits_hash = hash_init(tip_count * 10, tip_count);
@@ -1081,6 +1071,8 @@ static void reverse_split(pll_split_t split, unsigned int tip_count)
   unsigned int split_offset = tip_count % split_size;
   unsigned int split_len  = tip_count / split_size + (split_offset>0);
   unsigned int i;
+
+  if (!split_offset) split_offset = split_size;
 
   for (i=0; i<split_len; ++i)
     split[i] = ~split[i];

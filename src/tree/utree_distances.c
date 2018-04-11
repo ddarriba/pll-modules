@@ -328,8 +328,10 @@ PLL_EXPORT void pllmod_utree_split_show(pll_split_t split, unsigned int tip_coun
 {
   unsigned int split_size   = sizeof(pll_split_base_t) * 8;
   unsigned int split_offset = tip_count % split_size;
-  unsigned int split_len    = bitv_length(tip_count);;
+  unsigned int split_len    = bitv_length(tip_count);
   unsigned int i, j;
+
+  if (!split_offset) split_offset = split_size;
 
   for (i=0; i<(split_len-1); ++i)
     for (j=0; j<split_size; ++j)
@@ -760,4 +762,3 @@ static int split_is_valid_and_normalized(const pll_split_t bitv,
 
   return (mask == all1) ? 0 : 1;
 }
-
