@@ -230,7 +230,8 @@ PLL_EXPORT pll_consensus_utree_t * pllmod_utree_from_splits(
 
   reset_template_indices(tree, tip_count);
 
-  fill_consensus(return_tree);
+  if (return_tree)
+    fill_consensus(return_tree);
 
   /* return_tree == tree if sucess, or null if the algorithm failed */
   return return_tree;
@@ -1197,6 +1198,10 @@ static void fill_consensus_recurse(pll_consensus_utree_t * consensus_tree,
                                    pll_unode_t * node,
                                    unsigned int * cur_branch)
 {
+  assert(consensus_tree);
+  assert(cur_branch);
+  assert(node);
+
   pll_unode_t * child;
   unsigned int max_degree = consensus_tree->tip_count;
 
@@ -1232,6 +1237,9 @@ static void fill_consensus_recurse(pll_consensus_utree_t * consensus_tree,
 
 static void fill_consensus(pll_consensus_utree_t * consensus_tree)
 {
+  assert(consensus_tree);
+  assert(consensus_tree->tree);
+
   pll_unode_t * root = consensus_tree->tree;
   unsigned int cur_branch = 0;
 
