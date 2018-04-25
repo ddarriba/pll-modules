@@ -332,7 +332,8 @@ PLL_EXPORT int pllmod_utree_nodes_at_edge_dist(pll_unode_t * edge,
 /* functions at pll_tree.c */
 
 PLL_EXPORT pll_utree_t * pllmod_utree_create_random(unsigned int taxa_count,
-                                                    const char * const* names);
+                                                    const char * const* names,
+                                                    unsigned int random_seed);
 
 PLL_EXPORT
 pll_utree_t * pllmod_utree_create_parsimony(unsigned int taxon_count,

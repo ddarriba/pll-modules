@@ -785,7 +785,6 @@ PLL_EXPORT int pllmod_treeinfo_set_tree(pllmod_treeinfo_t * treeinfo,
     return PLL_FAILURE;
   }
 
-//  treeinfo->tree = pll_utree_clone(tree);
   if (!treeinfo->tree)
     treeinfo->tree = (pll_utree_t *) malloc(sizeof(pll_utree_t));
 
@@ -837,10 +836,6 @@ PLL_EXPORT int pllmod_treeinfo_set_constraint_clvmap(pllmod_treeinfo_t * treeinf
     treeinfo->constraint[node->node_index] =
         treeinfo->constraint[node->next->node_index] =
             treeinfo->constraint[node->next->next->node_index] = cons_group_id;
-
-//    printf("%u %u %u \t", node->clv_index, node->next->clv_index, node->next->next->clv_index);
-//    printf("%u:%u (%u %u %u)\t", node->clv_index, cons_group_id,
-//           node->node_index, node->next->node_index, node->next->next->node_index);
   }
 
   for (unsigned int i = 0; i < tip_count; ++i)
@@ -848,17 +843,7 @@ PLL_EXPORT int pllmod_treeinfo_set_constraint_clvmap(pllmod_treeinfo_t * treeinf
     const pll_unode_t * node = treeinfo->tree->nodes[i];
     treeinfo->constraint[node->node_index] =
         treeinfo->constraint[node->back->node_index];
-//    printf("%u:%u:%u ", node->node_index, node->back->node_index, treeinfo->constraint[node->back->node_index]);
   }
-
-  printf("\nclv map: ");
-  for (unsigned int i = 0; i < tip_count + inner_count; ++i)
-    printf("%u ", clv_index_map[i]);
-  printf("\nconstraint: ");
-  for (unsigned int i = 0; i < tip_count + 3 * inner_count; ++i)
-    printf("%u ", treeinfo->constraint[i]);
-
-  printf("\n\n");
 
   return PLL_SUCCESS;
 }
@@ -884,10 +869,6 @@ PLL_EXPORT int pllmod_treeinfo_set_constraint_tree(pllmod_treeinfo_t * treeinfo,
 
   pll_utree_destroy(bin_cons_tree, NULL);
 
-//  pll_utree_show_ascii(bin_cons_tree->vroot,
-//                       PLL_UTREE_SHOW_LABEL | PLL_UTREE_SHOW_BRANCH_LENGTH |
-//                       PLL_UTREE_SHOW_CLV_INDEX);
-
   retval = pllmod_treeinfo_set_constraint_clvmap(treeinfo, clv_index_map);
 
   free(clv_index_map);
@@ -904,7 +885,6 @@ PLL_EXPORT int pllmod_treeinfo_check_constraint(pllmod_treeinfo_t * treeinfo,
     unsigned int r1 = treeinfo->constraint[regraft_edge->node_index];
     unsigned int r2 = treeinfo->constraint[regraft_edge->back->node_index];
     unsigned int s  = treeinfo->constraint[subtree->node_index];
-//    printf("%u %u %u\n", s, r1, r2);
     return (!s || s == r1 || s == r2) ? 1 : 0;
   }
   else

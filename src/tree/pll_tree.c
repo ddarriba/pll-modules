@@ -303,9 +303,6 @@ PLL_EXPORT pll_utree_t * pllmod_utree_resolve_multi(const pll_utree_t * multi_tr
   unsigned int multi_node_count = multi_tree->tip_count + multi_tree->inner_count;
   unsigned int bin_node_count = 2 * tip_count -2;
 
-//  printf("MULTI: tips: %u, inner: %u, edges: %u\n", bin_tree->tip_count, bin_tree->inner_count,
-//         bin_tree->edge_count);
-
   if (random_seed)
     shuffle_tree_nodes(bin_tree, random_seed);
 
@@ -347,7 +344,6 @@ PLL_EXPORT pll_utree_t * pllmod_utree_resolve_multi(const pll_utree_t * multi_tr
       {
         unsigned int new_clv_id = bin_tree->nodes[tip_count + j]->clv_index;
         clv_index_map[new_clv_id] = start->clv_index;
-//        printf("Map CLV[%u]: %u -> %u\n", tip_count + j, new_clv_id, start->clv_index);
       }
     }
     old_inner_count = bin_tree->inner_count;
@@ -372,13 +368,6 @@ PLL_EXPORT pll_utree_t * pllmod_utree_resolve_multi(const pll_utree_t * multi_tr
   }
   assert(max_node_index == bin_tree->tip_count + 3*bin_tree->inner_count);
 
-//  pll_utree_show_ascii(bin_tree->vroot,
-//                       PLL_UTREE_SHOW_LABEL | PLL_UTREE_SHOW_BRANCH_LENGTH |
-//                       PLL_UTREE_SHOW_CLV_INDEX);
-
-//  printf("BIN: tips: %u, inner: %u, edges: %u\n", bin_tree->tip_count, bin_tree->inner_count,
-//         bin_tree->edge_count);
-
   return bin_tree;
 }
 
@@ -387,7 +376,8 @@ PLL_EXPORT pll_utree_t * pllmod_utree_resolve_multi(const pll_utree_t * multi_tr
  * Creates a random topology with default branch lengths
  */
 PLL_EXPORT pll_utree_t * pllmod_utree_create_random(unsigned int taxa_count,
-                                                    const char * const* names)
+                                                    const char * const* names,
+                                                    unsigned int random_seed)
 {
   /*
    * The algorithm works as follows:
@@ -407,6 +397,8 @@ PLL_EXPORT pll_utree_t * pllmod_utree_create_random(unsigned int taxa_count,
                                                     sizeof(pll_unode_t *));
   pll_unode_t ** branches = (pll_unode_t **) calloc(max_branches,
                                                     sizeof(pll_unode_t *));
+
+  pll_random_state * rstate =  pll_random_create(random_seed);
 
   pll_unode_t * next_tip;
   pll_unode_t * next_inner;
@@ -474,7 +466,7 @@ PLL_EXPORT pll_utree_t * pllmod_utree_create_random(unsigned int taxa_count,
     next_inner = nodes[tip_node_count + i - 2];
 
     /* select random branch from the tree */
-    rand_branch_id = (unsigned int) rand() % placed_branches_count;
+    rand_branch_id = pll_random_getint(rstate, placed_branches_count);
     next_branch = branches[rand_branch_id];
 
     /* connect tip to selected branch */
@@ -505,6 +497,7 @@ PLL_EXPORT pll_utree_t * pllmod_utree_create_random(unsigned int taxa_count,
   /* clean */
   free (nodes);
   free (branches);
+  pll_random_destroy(rstate);
 
   wrapped_tree = pll_utree_wraptree(tree_root, tip_node_count);
   return (wrapped_tree);
@@ -1360,7 +1353,6 @@ static void split_multi_node(pll_utree_t * tree, pll_unode_t * first,
   if (degree > 3)
   {
     assert(first->next && first->next->next && first->next->next->next != first);
-//    printf("split multi: %u (%u / %u)\n", first->data, first->node_index, last->node_index);
 
     // got a multifurcating node, split it in two
     unsigned int new_pmatrix_id = tree->edge_count;
@@ -1400,7 +1392,7 @@ static void split_multi_node(pll_utree_t * tree, pll_unode_t * first,
         new_link->next->next->scaler_index = new_scaler_id;
 
     //set backpointers old<->new
-    pllmod_utree_connect_nodes(old_link, new_link, 0. /*PLLMOD_TREE_DEFAULT_BRANCH_LENGTH*/);
+    pllmod_utree_connect_nodes(old_link, new_link, PLLMOD_TREE_DEFAULT_BRANCH_LENGTH);
 
     tree->nodes[tree->inner_count + tree->tip_count] = new_link;
 
