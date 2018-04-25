@@ -197,6 +197,7 @@ typedef struct treeinfo
   double * linked_branch_lengths;
 
   pll_unode_t * root;
+  pll_utree_t * tree;
 
   // partitions & partition-specific stuff
   pll_partition_t ** partitions;
@@ -208,6 +209,9 @@ typedef struct treeinfo
   double * brlen_scalers;
   double * partition_loglh;
   int * params_to_optimize;
+
+  /* tree topology constraint */
+  unsigned int * constraint;
 
   /* precomputation buffers for derivatives (aka "sumtable") */
   double ** deriv_precomp;
@@ -470,6 +474,10 @@ PLL_EXPORT void pllmod_utree_scale_branches_all(pll_unode_t * root,
 PLL_EXPORT void pllmod_utree_scale_subtree_branches(pll_unode_t * root,
                                                     double branch_length_scaler);
 
+PLL_EXPORT pll_utree_t * pllmod_utree_resolve_multi(const pll_utree_t * multi_tree,
+                                                    unsigned int random_seed,
+                                                    int * clv_index_map);
+
 PLL_EXPORT double pllmod_utree_compute_lk(pll_partition_t * partition,
                                        pll_unode_t * tree,
                                        const unsigned int * params_indices,
@@ -549,5 +557,17 @@ PLL_EXPORT double pllmod_treeinfo_compute_loglh_flex(pllmod_treeinfo_t * treeinf
 PLL_EXPORT
 int pllmod_treeinfo_normalize_brlen_scalers(pllmod_treeinfo_t * treeinfo);
 
+PLL_EXPORT int pllmod_treeinfo_set_tree(pllmod_treeinfo_t * treeinfo,
+                                        pll_utree_t * tree);
+
+PLL_EXPORT int pllmod_treeinfo_set_constraint_clvmap(pllmod_treeinfo_t * treeinfo,
+                                                     const int * clv_index_map);
+
+PLL_EXPORT int pllmod_treeinfo_set_constraint_tree(pllmod_treeinfo_t * treeinfo,
+                                                   const pll_utree_t * cons_tree);
+
+PLL_EXPORT int pllmod_treeinfo_check_constraint(pllmod_treeinfo_t * treeinfo,
+                                                pll_unode_t * subtree,
+                                                pll_unode_t * regraft_edge);
 
 #endif /* PLL_TREE_H_ */

@@ -40,6 +40,9 @@ static int utree_rollback_spr(pll_tree_rollback_t * rollback_info);
 static int utree_rollback_nni(pll_tree_rollback_t * rollback_info);
 static int utree_find_node_in_subtree(pll_unode_t * root, pll_unode_t * node);
 static int cb_update_matrices_partials(pll_unode_t * node, void *data);
+static void shuffle_tree_nodes(const pll_utree_t * tree, unsigned int seed);
+static void split_multi_node(pll_utree_t * tree, pll_unode_t * first,
+                             pll_unode_t * last, unsigned int degree);
 
 struct cb_params
 {
@@ -286,6 +289,99 @@ PLL_EXPORT int pllmod_tree_rollback(pll_tree_rollback_t * rollback_info)
 
 /******************************************************************************/
 /* Tree construction */
+
+PLL_EXPORT pll_utree_t * pllmod_utree_resolve_multi(const pll_utree_t * multi_tree,
+                                                    unsigned int random_seed,
+                                                    int * clv_index_map)
+{
+  pll_utree_t * bin_tree = pll_utree_clone(multi_tree);
+
+  if (bin_tree->binary)
+    return bin_tree;
+
+  unsigned int tip_count = multi_tree->tip_count;
+  unsigned int multi_node_count = multi_tree->tip_count + multi_tree->inner_count;
+  unsigned int bin_node_count = 2 * tip_count -2;
+
+//  printf("MULTI: tips: %u, inner: %u, edges: %u\n", bin_tree->tip_count, bin_tree->inner_count,
+//         bin_tree->edge_count);
+
+  if (random_seed)
+    shuffle_tree_nodes(bin_tree, random_seed);
+
+  bin_tree->nodes = (pll_unode_t **)realloc(bin_tree->nodes,
+                                            bin_node_count*sizeof(pll_unode_t *));
+
+  // 1:1 CLV index mapping for existing nodes
+  if (clv_index_map)
+  {
+    for (unsigned int i = 0; i < multi_node_count; ++i)
+    {
+      const unsigned int clv_id = bin_tree->nodes[i]->clv_index;
+      clv_index_map[clv_id] = clv_id;
+    }
+  }
+
+  // iterate over inner nodes, resolve multifurcations, and map new->old CLV indices
+  unsigned int old_inner_count = multi_tree->inner_count;
+  for (unsigned int i = tip_count; i < multi_node_count; ++i)
+  {
+    pll_unode_t * start = bin_tree->nodes[i];
+    pll_unode_t * end = NULL;
+    pll_unode_t * snode = start;
+    unsigned int degree = 0;
+    do
+    {
+      end = snode;
+      snode = snode->next;
+      degree++;
+    }
+    while (snode && snode != start);
+
+    split_multi_node(bin_tree, start, end, degree);
+
+    assert(bin_tree->inner_count == old_inner_count + degree-3);
+    if (clv_index_map)
+    {
+      for (unsigned int j = old_inner_count; j < bin_tree->inner_count; ++j)
+      {
+        unsigned int new_clv_id = bin_tree->nodes[tip_count + j]->clv_index;
+        clv_index_map[new_clv_id] = start->clv_index;
+//        printf("Map CLV[%u]: %u -> %u\n", tip_count + j, new_clv_id, start->clv_index);
+      }
+    }
+    old_inner_count = bin_tree->inner_count;
+  }
+
+  assert(bin_tree->inner_count == bin_tree->tip_count - 2);
+
+  bin_tree->binary = 1;
+
+  /* re-assign node indices such that:
+   * (1) all 3 pll_unode's of an inner node have consecutive indices: (x, x+1, x+2)
+   * (2) for any two random multifurcation resolutions R1 and R2 holds
+   *      (x, x+1, x+2) in R1 iff (x, x+1, x+2) in R2
+   */
+  unsigned int max_node_index = tip_count;
+  for (unsigned int i = tip_count; i < bin_node_count; ++i)
+  {
+    pll_unode_t * node = bin_tree->nodes[i];
+    node->node_index = max_node_index++;
+    node->next->node_index = max_node_index++;
+    node->next->next->node_index = max_node_index++;
+  }
+  assert(max_node_index == bin_tree->tip_count + 3*bin_tree->inner_count);
+
+//  pll_utree_show_ascii(bin_tree->vroot,
+//                       PLL_UTREE_SHOW_LABEL | PLL_UTREE_SHOW_BRANCH_LENGTH |
+//                       PLL_UTREE_SHOW_CLV_INDEX);
+
+//  printf("BIN: tips: %u, inner: %u, edges: %u\n", bin_tree->tip_count, bin_tree->inner_count,
+//         bin_tree->edge_count);
+
+  return bin_tree;
+}
+
 
 /**
  * Creates a random topology with default branch lengths
@@ -1212,4 +1308,106 @@ static int cb_update_matrices_partials(pll_unode_t * node, void *data)
   }
 
   return PLL_SUCCESS;
+}
+
+static void shuffle_tree_nodes(const pll_utree_t * tree, unsigned int seed)
+{
+  unsigned int node_count = tree->tip_count + tree->inner_count;
+  pll_random_state * rstate =  pll_random_create(seed);
+  pll_unode_t ** subnodes =  (pll_unode_t **) calloc(tree->tip_count,
+                                                     sizeof(pll_unode_t *));
+
+  for (unsigned int i = tree->tip_count; i < node_count; ++i)
+  {
+    pll_unode_t * node = tree->nodes[i];
+    unsigned int degree = 0;
+    do
+    {
+      subnodes[degree] = node;
+      degree++;
+      node = node->next;
+    }
+    while (node != tree->nodes[i]);
+
+    // Fisher–Yates shuffle
+    for (unsigned int j = degree-1; j > 0; --j)
+    {
+      unsigned int r = pll_random_getint(rstate, j+1);
+      PLL_SWAP(subnodes[j], subnodes[r]);
+    }
+
+    // re-connect pll_unodes in the new, shuffled order
+    tree->nodes[i] = node = subnodes[0];
+    for (unsigned int j = 1; j < degree; ++j)
+    {
+      node->next = subnodes[j];
+      node = node->next;
+    }
+
+    // close roundabout
+    node->next = tree->nodes[i];
+  }
+
+  pll_random_destroy(rstate);
+  free(subnodes);
+}
+
+
+static void split_multi_node(pll_utree_t * tree, pll_unode_t * first,
+                             pll_unode_t * last, unsigned int degree)
+{
+  assert(last->next == first);
+  if (degree > 3)
+  {
+    assert(first->next && first->next->next && first->next->next->next != first);
+//    printf("split multi: %u (%u / %u)\n", first->data, first->node_index, last->node_index);
+
+    // got a multifurcating node, split it in two
+    unsigned int new_pmatrix_id = tree->edge_count;
+    unsigned int new_node_id = tree->edge_count * 2;
+    unsigned int new_clv_id = tree->tip_count + tree->inner_count;
+    unsigned int new_scaler_id = tree->inner_count;
+
+    pll_unode_t * second = first->next;
+
+    pll_unode_t * old_link = (pll_unode_t *) calloc(1, sizeof(pll_unode_t));
+    pll_unode_t * new_link = (pll_unode_t *) calloc(1, sizeof(pll_unode_t));
+
+    old_link->data = second->data;
+    new_link->data = second->next->data;
+
+    //close 'new' roundabout
+    new_link->next = second->next;
+    last->next = new_link;
+
+    //close 'old' roundabout
+    old_link->next = first;
+    second->next = old_link;
+
+    old_link->clv_index = second->clv_index;
+    old_link->scaler_index = second->scaler_index;
+    old_link->pmatrix_index = new_pmatrix_id;
+    old_link->node_index = new_node_id;
+
+    assert(new_link->next && new_link->next->next);
+
+    new_link->pmatrix_index = new_pmatrix_id;
+    new_link->node_index = new_node_id+1;
+
+    new_link->clv_index = new_link->next->clv_index =
+        new_link->next->next->clv_index = new_clv_id;
+    new_link->scaler_index = new_link->next->scaler_index =
+        new_link->next->next->scaler_index = new_scaler_id;
+
+    //set backpointers old<->new
+    pllmod_utree_connect_nodes(old_link, new_link, 0. /*PLLMOD_TREE_DEFAULT_BRANCH_LENGTH*/);
+
+    tree->nodes[tree->inner_count + tree->tip_count] = new_link;
+
+    tree->edge_count++;
+    tree->inner_count++;
+
+    // split new node if needed
+    split_multi_node(tree, new_link, last, degree-1);
+  }
 }

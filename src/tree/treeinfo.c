@@ -23,23 +23,6 @@
 
 #include "../pllmod_common.h"
 
-static int cb_set_treeinfo_pointer(pll_unode_t * node, void *data)
-{
-  pllmod_treeinfo_t * treeinfo = (pllmod_treeinfo_t *) data;
-
-  ++treeinfo->counter;
-
-  node->data = treeinfo;
-
-  if (node->next)
-  {
-    node->next->data = treeinfo;
-    node->next->next->data = treeinfo;
-  }
-
-  return PLL_SUCCESS;
-}
-
 /* a callback function for performing a full traversal */
 static int cb_full_traversal(pll_unode_t * node)
 {
@@ -93,35 +76,32 @@ PLL_EXPORT pllmod_treeinfo_t * pllmod_treeinfo_create(pll_unode_t * root,
     return NULL;
   }
 
+  /* save dimensions & options */
+  treeinfo->tip_count = tips;
+  treeinfo->partition_count = partitions;
+  treeinfo->brlen_linkage = brlen_linkage;
+
   /* compute some derived dimensions */
   unsigned int inner_nodes_count = tips - 2;
   unsigned int nodes_count       = inner_nodes_count + tips;
   unsigned int branch_count      = nodes_count - 1;
 
-  /* save tree pointer */
-  treeinfo->root = root;
+  /* create pll_utree structure and store it in treeinfo */
+  pll_utree_t * tree = pll_utree_wraptree(root, tips);
 
-  /* traverse the tree and set treeinfo pointer into "data" field of every node */
-  treeinfo->counter = 0;
-  int retval = pllmod_utree_traverse_apply(root,
-                                           NULL,                     /* pre  */
-                                           NULL,                     /*  in  */
-                                           cb_set_treeinfo_pointer,  /* post */
-                                           (void *) treeinfo);
-  if (treeinfo->counter != nodes_count)
+  if (!tree)
   {
-    pllmod_set_error(PLLMOD_TREE_ERROR_INVALID_TREE_SIZE,
-                     "Invalid tree size. Got %d instead of %d\n",
-                     treeinfo->counter, nodes_count);
+    assert(pll_errno);
     return NULL;
   }
-  if (retval != PLL_SUCCESS)
-    return NULL;
 
-  /* save dimensions & options */
-  treeinfo->tip_count = tips;
-  treeinfo->partition_count = partitions;
-  treeinfo->brlen_linkage = brlen_linkage;
+  if (!pllmod_treeinfo_set_tree(treeinfo, tree))
+  {
+    assert(pll_errno);
+    return NULL;
+  }
+
+  assert(treeinfo->tree && treeinfo->tree->tip_count == tips);
 
   /* allocate a buffer for storing pointers to nodes of the tree in postorder
      traversal */
@@ -366,6 +346,7 @@ PLL_EXPORT void pllmod_treeinfo_set_root(pllmod_treeinfo_t * treeinfo,
 
   /* root must be an inner node! */
   treeinfo->root = pllmod_utree_is_tip(root) ? root->back : root;
+  treeinfo->tree->vroot = treeinfo->root;
 }
 
 PLL_EXPORT void pllmod_treeinfo_set_branch_length(pllmod_treeinfo_t * treeinfo,
@@ -456,6 +437,9 @@ PLL_EXPORT void pllmod_treeinfo_destroy(pllmod_treeinfo_t * treeinfo)
   if(treeinfo->subst_matrix_symmetries)
     free(treeinfo->subst_matrix_symmetries);
 
+  if(treeinfo->constraint)
+    free(treeinfo->constraint);
+
   /* free invalidation arrays */
   free(treeinfo->clv_valid);
   free(treeinfo->pmatrix_valid);
@@ -476,6 +460,9 @@ PLL_EXPORT void pllmod_treeinfo_destroy(pllmod_treeinfo_t * treeinfo)
 
   /* deallocate partition array */
   free(treeinfo->partitions);
+
+  if (treeinfo->tree)
+    free(treeinfo->tree);
 
   /* finally, deallocate treeinfo object itself */
   free(treeinfo);
@@ -772,3 +759,155 @@ int pllmod_treeinfo_normalize_brlen_scalers(pllmod_treeinfo_t * treeinfo)
 
   return PLL_SUCCESS;
 }
+
+PLL_EXPORT int pllmod_treeinfo_set_tree(pllmod_treeinfo_t * treeinfo,
+                                        pll_utree_t * tree)
+{
+  if (!treeinfo || !tree)
+  {
+    pllmod_set_error(PLL_ERROR_PARAM_INVALID,
+                     "Parameter is NULL\n");
+    return PLL_FAILURE;
+  }
+
+  if (treeinfo->tip_count != tree->tip_count)
+  {
+    pllmod_set_error(PLLMOD_TREE_ERROR_INVALID_TREE_SIZE,
+                     "Invalid tree size. Got %d instead of %d\n",
+                     tree->tip_count, treeinfo->tip_count);
+    return PLL_FAILURE;
+  }
+
+  if (!tree->binary)
+  {
+    pllmod_set_error(PLLMOD_TREE_ERROR_INVALID_TREE,
+                     "Binary tree expected\n");
+    return PLL_FAILURE;
+  }
+
+//  treeinfo->tree = pll_utree_clone(tree);
+  if (!treeinfo->tree)
+    treeinfo->tree = (pll_utree_t *) malloc(sizeof(pll_utree_t));
+
+  memcpy(treeinfo->tree, tree, sizeof(pll_utree_t));
+  treeinfo->root = treeinfo->tree->vroot;
+
+  unsigned int node_count = treeinfo->tree->tip_count + treeinfo->tree->inner_count;
+  for (unsigned int i = 0; i < node_count; ++i)
+  {
+    pll_unode_t * snode = treeinfo->tree->nodes[i];
+    do
+    {
+      snode->data = treeinfo;
+      snode = snode->next;
+    }
+    while (snode && snode != treeinfo->tree->nodes[i]);
+  }
+
+
+  return PLL_SUCCESS;
+}
+
+PLL_EXPORT int pllmod_treeinfo_set_constraint_clvmap(pllmod_treeinfo_t * treeinfo,
+                                                     const int * clv_index_map)
+{
+  const unsigned int tip_count = treeinfo->tree->tip_count;
+  const unsigned int inner_count = treeinfo->tree->inner_count;
+  const size_t cons_size = (tip_count + 3 * inner_count) * sizeof(unsigned int);
+
+  if(!treeinfo->constraint)
+  {
+    treeinfo->constraint = malloc(cons_size);
+    if (!treeinfo->constraint)
+    {
+      pllmod_set_error(PLL_ERROR_MEM_ALLOC,
+                       "Can't allocate memory for topological constraint\n");
+      return PLL_FAILURE;
+    }
+  }
+
+  assert(treeinfo->constraint);
+
+  for (unsigned int i = tip_count; i < tip_count + inner_count; ++i)
+  {
+    const pll_unode_t * node = treeinfo->tree->nodes[i];
+    const unsigned int cons_group_id = clv_index_map[node->clv_index]+1;
+
+    assert(node->next);
+    treeinfo->constraint[node->node_index] =
+        treeinfo->constraint[node->next->node_index] =
+            treeinfo->constraint[node->next->next->node_index] = cons_group_id;
+
+//    printf("%u %u %u \t", node->clv_index, node->next->clv_index, node->next->next->clv_index);
+//    printf("%u:%u (%u %u %u)\t", node->clv_index, cons_group_id,
+//           node->node_index, node->next->node_index, node->next->next->node_index);
+  }
+
+  for (unsigned int i = 0; i < tip_count; ++i)
+  {
+    const pll_unode_t * node = treeinfo->tree->nodes[i];
+    treeinfo->constraint[node->node_index] =
+        treeinfo->constraint[node->back->node_index];
+//    printf("%u:%u:%u ", node->node_index, node->back->node_index, treeinfo->constraint[node->back->node_index]);
+  }
+
+  printf("\nclv map: ");
+  for (unsigned int i = 0; i < tip_count + inner_count; ++i)
+    printf("%u ", clv_index_map[i]);
+  printf("\nconstraint: ");
+  for (unsigned int i = 0; i < tip_count + 3 * inner_count; ++i)
+    printf("%u ", treeinfo->constraint[i]);
+
+  printf("\n\n");
+
+  return PLL_SUCCESS;
+}
+
+PLL_EXPORT int pllmod_treeinfo_set_constraint_tree(pllmod_treeinfo_t * treeinfo,
+                                                   const pll_utree_t * cons_tree)
+{
+  unsigned int node_count = cons_tree->tip_count * 2 - 2;
+  int * clv_index_map = (int *) calloc(node_count, sizeof(int));
+  int retval;
+
+  // TODO: support non-comprehensive trees
+  if (treeinfo->tip_count != cons_tree->tip_count)
+  {
+    pllmod_set_error(PLLMOD_TREE_ERROR_INVALID_TREE_SIZE,
+                     "Invalid tree size. Got %d instead of %d\n",
+                     cons_tree->tip_count, treeinfo->tip_count);
+    return PLL_FAILURE;
+  }
+
+  pll_utree_t * bin_cons_tree = pllmod_utree_resolve_multi(cons_tree,
+                                                           0, clv_index_map);
+
+  pll_utree_destroy(bin_cons_tree, NULL);
+
+//  pll_utree_show_ascii(bin_cons_tree->vroot,
+//                       PLL_UTREE_SHOW_LABEL | PLL_UTREE_SHOW_BRANCH_LENGTH |
+//                       PLL_UTREE_SHOW_CLV_INDEX);
+
+  retval = pllmod_treeinfo_set_constraint_clvmap(treeinfo, clv_index_map);
+
+  free(clv_index_map);
+
+  return retval;
+}
+
+PLL_EXPORT int pllmod_treeinfo_check_constraint(pllmod_treeinfo_t * treeinfo,
+                                                pll_unode_t * subtree,
+                                                pll_unode_t * regraft_edge)
+{
+  if (treeinfo->constraint)
+  {
+    unsigned int r1 = treeinfo->constraint[regraft_edge->node_index];
+    unsigned int r2 = treeinfo->constraint[regraft_edge->back->node_index];
+    unsigned int s  = treeinfo->constraint[subtree->node_index];
+//    printf("%u %u %u\n", s, r1, r2);
+    return (!s || s == r1 || s == r2) ? 1 : 0;
+  }
+  else
+    return 1;
+}
+

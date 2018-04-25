@@ -467,8 +467,12 @@ static int best_reinsert_edge(pllmod_treeinfo_t * treeinfo,
   while ((r_edge = regraft_nodes[j]) != NULL)
   {
     /* do not re-insert back into the pruning branch */
-    if (r_edge == orig_prune_edge || r_edge == orig_prune_edge->back)
+    if (r_edge == orig_prune_edge || r_edge == orig_prune_edge->back ||
+        !pllmod_treeinfo_check_constraint(treeinfo, p_edge, r_edge))
+    {
+      ++j;
       continue;
+    }
 
     regraft_edges++;
 
