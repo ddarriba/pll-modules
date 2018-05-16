@@ -28,6 +28,7 @@
   */
 
 #include "pll_tree.h"
+#include "tree_hashtable.h"
 #include "../pllmod_common.h"
 
 #define UNIMPLEMENTED 0
@@ -294,13 +295,27 @@ PLL_EXPORT pll_utree_t * pllmod_utree_resolve_multi(const pll_utree_t * multi_tr
                                                     unsigned int random_seed,
                                                     int * clv_index_map)
 {
+  if (!multi_tree)
+  {
+    pllmod_set_error(PLL_ERROR_PARAM_INVALID, "Parameter multi_tree is NULL.");
+    return NULL;
+  }
+
+  if (multi_tree->vroot->next &&
+      multi_tree->vroot->next->next == multi_tree->vroot)
+  {
+    pllmod_set_error(PLLMOD_TREE_ERROR_INVALID_TREE,
+                     "Unrooted tree is expected but a rooted tree was provided.");
+    return NULL;
+  }
+
   pll_utree_t * bin_tree = pll_utree_clone(multi_tree);
 
   if (bin_tree->binary)
     return bin_tree;
 
-  unsigned int tip_count = multi_tree->tip_count;
-  unsigned int multi_node_count = multi_tree->tip_count + multi_tree->inner_count;
+  unsigned int tip_count = bin_tree->tip_count;
+  unsigned int multi_node_count = bin_tree->tip_count + bin_tree->inner_count;
   unsigned int bin_node_count = 2 * tip_count -2;
 
   if (random_seed)
@@ -320,7 +335,7 @@ PLL_EXPORT pll_utree_t * pllmod_utree_resolve_multi(const pll_utree_t * multi_tr
   }
 
   // iterate over inner nodes, resolve multifurcations, and map new->old CLV indices
-  unsigned int old_inner_count = multi_tree->inner_count;
+  unsigned int old_inner_count = bin_tree->inner_count;
   for (unsigned int i = tip_count; i < multi_node_count; ++i)
   {
     pll_unode_t * start = bin_tree->nodes[i];
@@ -369,6 +384,152 @@ PLL_EXPORT pll_utree_t * pllmod_utree_resolve_multi(const pll_utree_t * multi_tr
   assert(max_node_index == bin_tree->tip_count + 3*bin_tree->inner_count);
 
   return bin_tree;
+}
+
+PLL_EXPORT int pllmod_utree_root_inplace(pll_utree_t * tree)
+{
+  if (!tree)
+  {
+    pllmod_set_error(PLL_ERROR_PARAM_INVALID, "Empty tree specified!");
+    return PLL_FAILURE;
+  }
+
+  pll_unode_t * root = tree->vroot;
+  pll_unode_t * root_back = root->back;
+  pll_unode_t * root_left = (pll_unode_t *) calloc(1, sizeof(pll_unode_t));
+  pll_unode_t * root_right = (pll_unode_t *) calloc(1, sizeof(pll_unode_t));
+  root_left->next = root_right;
+  root_right->next = root_left;
+  double root_brlen = root->length / 2.;
+  unsigned int last_clv_index = 0;
+  int last_scaler_index = 0;
+  unsigned int last_node_index = 0;
+  unsigned int last_pmatrix_index = 0;
+  unsigned int node_count = tree->inner_count + tree->tip_count;
+
+  for (unsigned int i = 0; i < node_count; ++i)
+  {
+    const pll_unode_t * node  = tree->nodes[i];
+    last_clv_index = PLL_MAX(last_clv_index, node->clv_index);
+    last_scaler_index = PLL_MAX(last_scaler_index, node->scaler_index);
+    do
+    {
+      last_node_index = PLL_MAX(last_node_index, node->node_index);
+      last_pmatrix_index = PLL_MAX(last_pmatrix_index, node->pmatrix_index);
+      node = node->next;
+    }
+    while(node && node != tree->nodes[i]);
+  }
+
+  root_left->clv_index = root_right->clv_index = ++last_clv_index;
+  root_left->scaler_index = root_right->scaler_index = ++last_scaler_index;
+  root_left->node_index = ++last_node_index;
+  root_right->node_index = ++last_node_index;
+  root_right->pmatrix_index = ++last_pmatrix_index;
+
+  pllmod_utree_connect_nodes(root, root_left, root_brlen);
+  pllmod_utree_connect_nodes(root_right, root_back, root_brlen);
+
+  tree->vroot = root_left;
+  tree->inner_count++;
+  tree->edge_count++;
+  node_count++;
+
+  tree->nodes = (pll_unode_t **) realloc(tree->nodes,
+                                         node_count*sizeof(pll_unode_t *));
+  tree->nodes[node_count-1] = root_left;
+
+  return PLL_SUCCESS;
+}
+
+PLL_EXPORT int pllmod_utree_outgroup_root(pll_utree_t * tree,
+                                          unsigned int * outgroup_tip_ids,
+                                          unsigned int outgroup_size)
+{
+  pll_unode_t ** split_to_node_map = NULL;
+  pll_split_t * tree_splits = NULL;
+  pll_unode_t * new_root = NULL;
+  unsigned int tip_count;
+  unsigned int split_count;
+
+  if (!tree || !outgroup_tip_ids || !outgroup_size)
+  {
+    pllmod_set_error(PLL_ERROR_PARAM_INVALID,
+                     "Empty tree and/or outgroup specified!");
+    return PLL_FAILURE;
+  }
+
+  if (outgroup_size == 1)
+  {
+    // special case single-taxon outgroup: just find a tip by node_index
+    for (unsigned int i = 0; i < tree->tip_count; ++i)
+    {
+      const pll_unode_t * node  = tree->nodes[i];
+      if (node->node_index == outgroup_tip_ids[0])
+      {
+        new_root = node->back;
+        break;
+      }
+    }
+  }
+  else
+  {
+    tip_count = tree->tip_count;
+    split_count = tip_count - 3;
+
+    split_to_node_map = (pll_unode_t **) calloc(split_count,
+                                                sizeof(pll_unode_t *));
+
+    if (!split_to_node_map)
+    {
+      pllmod_set_error(PLL_ERROR_MEM_ALLOC,
+                       "Cannot allocate memory for split->node map!");
+      return PLL_FAILURE;
+    }
+
+    tree_splits = pllmod_utree_split_create(tree->vroot, tree->tip_count,
+                                            split_to_node_map);
+
+    if (!tree_splits)
+    {
+      assert(pll_errno);
+      free(split_to_node_map);
+      return PLL_FAILURE;
+    }
+
+    // create outgroup split
+    pll_split_t outgroup_split = pllmod_utree_split_from_tips(outgroup_tip_ids,
+                                                              outgroup_size,
+                                                              tip_count);
+
+    // check if this split is in the tree
+    size_t split_len = bitv_length(tip_count);
+    for (unsigned int i = 0; i < split_count; ++i)
+    {
+      if (!bitv_compare(tree_splits[i], outgroup_split, split_len))
+      {
+        new_root = split_to_node_map[i];
+        break;
+      }
+    }
+
+    pllmod_utree_split_destroy(tree_splits);
+    free(split_to_node_map);
+    free(outgroup_split);
+  }
+
+  // set tree->vroot to the outgroup split node
+  if (new_root)
+  {
+    tree->vroot = new_root;
+    return pllmod_utree_root_inplace(tree);
+  }
+  else
+  {
+    pllmod_set_error(PLLMOD_TREE_ERROR_POLYPHYL_OUTGROUP,
+                     "Outgroup is not monophyletic!");
+    return PLL_FAILURE;
+  }
 }
 
 

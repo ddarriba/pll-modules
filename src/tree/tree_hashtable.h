@@ -64,6 +64,8 @@ int bitv_is_normalized(const pll_split_t bitv);
 
 unsigned int bitv_length(unsigned int bit_count);
 
+int bitv_compare(pll_split_t v1, pll_split_t v2, unsigned int bitv_len);
+
 /* string */
 
 string_hashtable_t *string_hash_init(unsigned int n, unsigned int max_labels);

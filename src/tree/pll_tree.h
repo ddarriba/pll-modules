@@ -55,6 +55,7 @@
 #define PLLMOD_TREE_ERROR_INVALID_SPLIT        3712 // B + {10...}
 #define PLLMOD_TREE_ERROR_EMPTY_SPLIT          3840 // B + {10...}
 #define PLLMOD_TREE_ERROR_INVALID_THRESHOLD    3968 // B + {10...}
+#define PLLMOD_TREE_ERROR_POLYPHYL_OUTGROUP    3970 // B + {10...}
 
 #define PLLMOD_TREE_REARRANGE_SPR  0
 #define PLLMOD_TREE_REARRANGE_NNI  1
@@ -380,6 +381,10 @@ PLL_EXPORT pll_split_t * pllmod_utree_split_create(pll_unode_t * tree,
                                                    unsigned int tip_count,
                                                    pll_unode_t ** split_to_node_map);
 
+PLL_EXPORT pll_split_t pllmod_utree_split_from_tips(unsigned int * subtree_tip_ids,
+                                                    unsigned int subtree_size,
+                                                    unsigned int tip_count);
+
 PLL_EXPORT void pllmod_utree_split_normalize_and_sort(pll_split_t * s,
                                                       unsigned int tip_count,
                                                       unsigned int n_splits,
@@ -478,6 +483,11 @@ PLL_EXPORT void pllmod_utree_scale_subtree_branches(pll_unode_t * root,
 PLL_EXPORT pll_utree_t * pllmod_utree_resolve_multi(const pll_utree_t * multi_tree,
                                                     unsigned int random_seed,
                                                     int * clv_index_map);
+
+PLL_EXPORT int pllmod_utree_outgroup_root(pll_utree_t * tree,
+                                          unsigned int * outgroup_tip_ids,
+                                          unsigned int outgroup_size);
+
 
 PLL_EXPORT double pllmod_utree_compute_lk(pll_partition_t * partition,
                                        pll_unode_t * tree,

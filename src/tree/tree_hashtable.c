@@ -302,6 +302,16 @@ unsigned int bitv_length(unsigned int bit_count)
   return bit_count / split_size + (split_offset>0);
 }
 
+int bitv_compare(pll_split_t v1, pll_split_t v2, unsigned int bitv_len)
+{
+  for (unsigned int i = 0; i < bitv_len; ++i)
+  {
+    if (v1[i] != v2[i])
+      return (int) (v1[i] > v2[i] ? 1 : -1);
+  }
+  return 0;
+}
+
 /* string */
 
 string_hashtable_t *string_hash_init(unsigned int n, unsigned int max_labels)

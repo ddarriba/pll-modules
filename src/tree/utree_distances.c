@@ -340,6 +340,26 @@ PLL_EXPORT void pllmod_utree_split_show(pll_split_t split, unsigned int tip_coun
     (split[i]&(1u<<j))?putchar('*'):putchar('-');
 }
 
+PLL_EXPORT pll_split_t pllmod_utree_split_from_tips(unsigned int * subtree_tip_ids,
+                                                    unsigned int subtree_size,
+                                                    unsigned int tip_count)
+{
+  size_t split_size = (sizeof(pll_split_base_t) * 8);
+  size_t split_len  = (tip_count / split_size) +
+      (tip_count % (sizeof(pll_split_base_t) * 8) > 0);
+  pll_split_t split = (pll_split_t) calloc(split_len, sizeof(pll_split_base_t));
+
+  for (unsigned int i = 0; i < subtree_size; ++i)
+  {
+    unsigned int tip_id = subtree_tip_ids[i];
+    int vec_id  = tip_id / split_size;
+    int bit_id  = tip_id % split_size;
+    split[vec_id] |= (1 << bit_id);
+  }
+  bitv_normalize(split, tip_count);
+  return split;
+}
+
 /*
  * Note: This function returns the splits according to the node indices at the tips!
  *
