@@ -394,6 +394,10 @@ PLL_EXPORT int pllmod_utree_root_inplace(pll_utree_t * tree)
     return PLL_FAILURE;
   }
 
+  /* check if tree is already rooted */
+  if (tree->vroot->next && tree->vroot->next->next == tree->vroot)
+    return PLL_SUCCESS;
+
   pll_unode_t * root = tree->vroot;
   pll_unode_t * root_back = root->back;
   pll_unode_t * root_left = (pll_unode_t *) calloc(1, sizeof(pll_unode_t));
@@ -444,7 +448,8 @@ PLL_EXPORT int pllmod_utree_root_inplace(pll_utree_t * tree)
 
 PLL_EXPORT int pllmod_utree_outgroup_root(pll_utree_t * tree,
                                           unsigned int * outgroup_tip_ids,
-                                          unsigned int outgroup_size)
+                                          unsigned int outgroup_size,
+                                          int add_root_node)
 {
   pll_unode_t ** split_to_node_map = NULL;
   pll_split_t * tree_splits = NULL;
@@ -522,7 +527,10 @@ PLL_EXPORT int pllmod_utree_outgroup_root(pll_utree_t * tree,
   if (new_root)
   {
     tree->vroot = new_root;
-    return pllmod_utree_root_inplace(tree);
+    if (add_root_node)
+      return pllmod_utree_root_inplace(tree);
+    else
+      return PLL_SUCCESS;
   }
   else
   {

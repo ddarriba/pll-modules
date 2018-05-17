@@ -484,9 +484,12 @@ PLL_EXPORT pll_utree_t * pllmod_utree_resolve_multi(const pll_utree_t * multi_tr
                                                     unsigned int random_seed,
                                                     int * clv_index_map);
 
+PLL_EXPORT int pllmod_utree_root_inplace(pll_utree_t * tree);
+
 PLL_EXPORT int pllmod_utree_outgroup_root(pll_utree_t * tree,
                                           unsigned int * outgroup_tip_ids,
-                                          unsigned int outgroup_size);
+                                          unsigned int outgroup_size,
+                                          int add_root_node);
 
 
 PLL_EXPORT double pllmod_utree_compute_lk(pll_partition_t * partition,
