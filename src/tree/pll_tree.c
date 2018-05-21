@@ -541,6 +541,203 @@ PLL_EXPORT int pllmod_utree_outgroup_root(pll_utree_t * tree,
 }
 
 
+int utree_insert_tips_random(pll_unode_t ** nodes, unsigned int taxa_count,
+                             unsigned int start_tip, unsigned int random_seed)
+{
+  unsigned int i;
+  unsigned int start_inner_count     = start_tip - 2;
+  unsigned int start_branches        = 2 * start_tip - 3;
+  unsigned int max_branches          = 2 * taxa_count - 3;
+  unsigned int placed_branches_count = 0;
+  unsigned int last_branch_id        = 0;
+
+  pll_unode_t ** branches   = NULL;
+  pll_random_state * rstate = NULL;
+
+  branches = (pll_unode_t **) calloc(max_branches, sizeof(pll_unode_t *));
+
+  if (!branches)
+  {
+    pllmod_set_error(PLL_ERROR_MEM_ALLOC,
+                     "Cannot allocate memory for branches!");
+    return PLL_FAILURE;
+  }
+
+  rstate =  pll_random_create(random_seed);
+
+  if (!rstate)
+  {
+    free(branches);
+    return PLL_FAILURE;
+  }
+
+  // check pmatrix indices on tip branches
+  for (i = 0; i < taxa_count; ++i)
+    last_branch_id = PLL_MAX(last_branch_id, nodes[i]->pmatrix_index);
+
+  for (i = taxa_count; i < taxa_count + start_inner_count; ++i)
+  {
+    pll_unode_t * snode = nodes[i];
+    do
+    {
+      if (snode->clv_index > snode->back->clv_index)
+      {
+        branches[placed_branches_count++] = snode;
+        last_branch_id = PLL_MAX(last_branch_id, snode->pmatrix_index);
+      }
+      snode = snode->next;
+    }
+    while (snode != nodes[i]);
+  }
+  assert(placed_branches_count == start_branches);
+
+  for (i = start_tip; i < taxa_count; ++i)
+  {
+    /* take tips iteratively */
+    pll_unode_t * next_tip = nodes[i];
+    pll_unode_t * next_inner = nodes[taxa_count + i - 2];
+
+    /* select random branch from the tree */
+    unsigned int rand_branch_id = pll_random_getint(rstate, placed_branches_count);
+    pll_unode_t * next_branch = branches[rand_branch_id];
+
+    /* connect tip to selected branch */
+    pllmod_utree_connect_nodes(next_branch->back, next_inner,
+                               PLLMOD_TREE_DEFAULT_BRANCH_LENGTH);
+    pllmod_utree_connect_nodes(next_branch, next_inner->next,
+                               PLLMOD_TREE_DEFAULT_BRANCH_LENGTH);
+    pllmod_utree_connect_nodes(next_tip, next_inner->next->next,
+                               PLLMOD_TREE_DEFAULT_BRANCH_LENGTH);
+
+    if (pllmod_utree_is_tip (next_inner->back))
+    {
+      next_inner->next->pmatrix_index = next_inner->next->back->pmatrix_index =
+          ++last_branch_id;
+    }
+    else
+    {
+      next_inner->pmatrix_index = next_inner->back->pmatrix_index =
+          ++last_branch_id;
+    }
+
+    /* store branches */
+    branches[placed_branches_count++] = next_inner;
+    branches[placed_branches_count++] = next_inner->next->next;
+  }
+  assert(placed_branches_count == max_branches);
+
+  /* clean */
+  free (branches);
+  pll_random_destroy(rstate);
+
+  return PLL_SUCCESS;
+}
+
+/**
+ * Extend a tree by inserting new taxa to randomly chosen branches
+ */
+PLL_EXPORT int pllmod_utree_extend_random(pll_utree_t * tree,
+                                          unsigned int ext_taxa_count,
+                                          const char * const* ext_names,
+                                          unsigned int random_seed)
+{
+  unsigned int old_taxa_count  = tree->tip_count;
+  unsigned int old_inner_count = tree->inner_count;
+  unsigned int old_node_count  = old_taxa_count + old_inner_count;
+  unsigned int new_taxa_count  = old_taxa_count + ext_taxa_count;
+  unsigned int new_inner_count = old_inner_count + ext_taxa_count;
+  unsigned int new_node_count = new_taxa_count + new_inner_count;
+
+  unsigned int last_clv_id     = 0;
+  unsigned int last_pmatrix_id = 0;
+  unsigned int last_node_id    = 0;
+  int next_scaler_id  = 0;
+
+  unsigned int i;
+  int retval;
+
+  pll_unode_t ** old_nodes = tree->nodes;
+  pll_unode_t ** new_nodes = (pll_unode_t **) calloc(new_node_count,
+                                                     sizeof(pll_unode_t *));
+
+  if (!new_nodes)
+  {
+    pllmod_set_error(PLL_ERROR_MEM_ALLOC,
+                     "Cannot allocate memory for nodes!");
+    return PLL_FAILURE;
+  }
+
+  // 1:1 mapping for old tips
+  for (i = 0; i < old_taxa_count; ++i)
+    new_nodes[i] = old_nodes[i];
+
+  // copy old inner nodes and adjust clvs
+  for (i = old_taxa_count; i < old_node_count; ++i)
+  {
+    unsigned int new_idx = i + ext_taxa_count;
+    new_nodes[new_idx] = old_nodes[i];
+    pll_unode_t * snode = new_nodes[new_idx];
+    assert(snode->next);
+    do
+    {
+      snode->clv_index += ext_taxa_count;
+      snode->node_index += ext_taxa_count;
+      last_clv_id = PLL_MAX(last_clv_id, snode->clv_index);
+      last_node_id = PLL_MAX(last_node_id, snode->node_index);
+      next_scaler_id = PLL_MAX(next_scaler_id, snode->scaler_index);
+      last_pmatrix_id = PLL_MAX(last_pmatrix_id, snode->pmatrix_index);
+      snode = snode->next;
+    }
+    while (snode != new_nodes[new_idx]);
+  }
+
+  // create new tip nodes
+  for (i = old_taxa_count; i < new_taxa_count; ++i)
+  {
+    pll_unode_t * node = (pll_unode_t *) calloc(1, sizeof(pll_unode_t));
+    node->clv_index = i;
+    node->node_index = i;
+    node->scaler_index = PLL_SCALE_BUFFER_NONE;
+    node->pmatrix_index = ++last_pmatrix_id; // ????
+
+    node->label = ext_names ? strdup(ext_names[i - old_taxa_count]) : NULL;
+
+    new_nodes[i] = node;
+  }
+
+  // create new inner nodes
+  for (i = old_node_count + ext_taxa_count; i < new_node_count; ++i)
+  {
+    pll_unode_t * node = pllmod_utree_create_node(++last_clv_id,
+                                                  ++next_scaler_id,
+                                                  NULL, NULL);
+
+    node->node_index = ++last_node_id;
+    node->next->node_index = ++last_node_id;
+    node->next->next->node_index = ++last_node_id;
+
+    new_nodes[i] = node;
+  }
+
+  retval = utree_insert_tips_random(new_nodes, new_taxa_count,
+                                    old_taxa_count, random_seed);
+
+  if (retval)
+  {
+    free(tree->nodes);
+    tree->nodes = new_nodes;
+    tree->tip_count = new_taxa_count;
+    tree->inner_count = new_inner_count;
+    tree->edge_count += 2 * ext_taxa_count;
+    return PLL_SUCCESS;
+  }
+  else
+  {
+    free(new_nodes);
+    return PLL_FAILURE;
+  }
+}
+
 /**
  * Creates a random topology with default branch lengths
  */
@@ -559,25 +756,14 @@ PLL_EXPORT pll_utree_t * pllmod_utree_create_random(unsigned int taxa_count,
   unsigned int tip_node_count        = taxa_count;
   unsigned int inner_node_count      = taxa_count - 2;
   unsigned int node_count            = tip_node_count + inner_node_count;
-  unsigned int max_branches          = 2 * tip_node_count - 3;
-  unsigned int placed_branches_count = 0;
 
   pll_unode_t ** nodes    = (pll_unode_t **) calloc(node_count,
                                                     sizeof(pll_unode_t *));
-  pll_unode_t ** branches = (pll_unode_t **) calloc(max_branches,
-                                                    sizeof(pll_unode_t *));
 
-  pll_random_state * rstate =  pll_random_create(random_seed);
-
-  pll_unode_t * next_tip;
-  pll_unode_t * next_inner;
-  pll_unode_t * next_branch;
   pll_unode_t * tree_root;
 
   pll_utree_t * wrapped_tree;
 
-  unsigned int next_branch_id = taxa_count;
-  unsigned int rand_branch_id;
   unsigned int node_id = 0;
 
   /* allocate tips */
@@ -620,53 +806,16 @@ PLL_EXPORT pll_utree_t * pllmod_utree_create_random(unsigned int taxa_count,
   /* build minimal tree with 3 tips and 1 inner node */
   pllmod_utree_connect_nodes(nodes[0], nodes[taxa_count],
                              PLLMOD_TREE_DEFAULT_BRANCH_LENGTH);
-  branches[placed_branches_count++] = nodes[taxa_count];
   pllmod_utree_connect_nodes(nodes[1], nodes[taxa_count]->next,
                              PLLMOD_TREE_DEFAULT_BRANCH_LENGTH);
-  branches[placed_branches_count++] = nodes[taxa_count]->next;
   pllmod_utree_connect_nodes(nodes[2], nodes[taxa_count]->next->next,
                              PLLMOD_TREE_DEFAULT_BRANCH_LENGTH);
-  branches[placed_branches_count++] = nodes[taxa_count]->next->next;
 
-  for (i=3; i<taxa_count; ++i)
-  {
-    /* take tips iteratively */
-    next_tip = nodes[i];
-    next_inner = nodes[tip_node_count + i - 2];
-
-    /* select random branch from the tree */
-    rand_branch_id = pll_random_getint(rstate, placed_branches_count);
-    next_branch = branches[rand_branch_id];
-
-    /* connect tip to selected branch */
-    pllmod_utree_connect_nodes(next_branch->back, next_inner,
-                               PLLMOD_TREE_DEFAULT_BRANCH_LENGTH);
-    pllmod_utree_connect_nodes(next_branch, next_inner->next,
-                               PLLMOD_TREE_DEFAULT_BRANCH_LENGTH);
-    pllmod_utree_connect_nodes(next_tip, next_inner->next->next,
-                               PLLMOD_TREE_DEFAULT_BRANCH_LENGTH);
-
-    if (pllmod_utree_is_tip (next_inner->back))
-    {
-      next_inner->next->pmatrix_index = next_inner->next->back->pmatrix_index =
-          next_branch_id++;
-    }
-    else
-    {
-      next_inner->pmatrix_index = next_inner->back->pmatrix_index =
-          next_branch_id++;
-    }
-
-    /* store branches */
-    branches[placed_branches_count++] = next_inner;
-    branches[placed_branches_count++] = next_inner->next->next;
-  }
-  assert(placed_branches_count == max_branches);
+  /* insert remaining taxa_count-3 tips into the tree */
+  utree_insert_tips_random(nodes, taxa_count, 3, random_seed);
 
   /* clean */
   free (nodes);
-  free (branches);
-  pll_random_destroy(rstate);
 
   wrapped_tree = pll_utree_wraptree(tree_root, tip_node_count);
   return (wrapped_tree);

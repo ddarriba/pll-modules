@@ -336,6 +336,11 @@ PLL_EXPORT pll_utree_t * pllmod_utree_create_random(unsigned int taxa_count,
                                                     const char * const* names,
                                                     unsigned int random_seed);
 
+PLL_EXPORT int pllmod_utree_extend_random(pll_utree_t * tree,
+                                          unsigned int ext_taxa_count,
+                                          const char * const* ext_names,
+                                          unsigned int random_seed);
+
 PLL_EXPORT
 pll_utree_t * pllmod_utree_create_parsimony(unsigned int taxon_count,
                                             unsigned int seq_length,
