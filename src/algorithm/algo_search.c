@@ -652,6 +652,9 @@ static double reinsert_nodes(pllmod_treeinfo_t * treeinfo, pll_unode_t ** nodes,
     if (spr_entry.lh - best_lh > 1e-6)
     {
       /* re-apply best SPR move for the node */
+      DBG("SPR: %u -> (%u %u)\n", p_edge->clv_index,
+          best_r_edge->clv_index, best_r_edge->back->clv_index);
+
       pll_unode_t * orig_prune_edge = p_edge->next->back;
       int retval = pllmod_utree_spr(p_edge, best_r_edge, rollback);
       assert(retval == PLL_SUCCESS);
@@ -921,6 +924,12 @@ PLL_EXPORT double pllmod_algo_spr_round(pllmod_treeinfo_t * treeinfo,
             r_edge->node_index,
             r_edge->clv_index,
             spr_entry->lh);
+      }
+
+      if (!pllmod_treeinfo_check_constraint(treeinfo, p_edge, r_edge))
+      {
+        DBG("Topological constraint check failed, skip the topology.\n");
+        continue;
       }
 
       /* re-apply best SPR move for the node */

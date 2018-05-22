@@ -812,7 +812,7 @@ PLL_EXPORT int pllmod_treeinfo_set_constraint_clvmap(pllmod_treeinfo_t * treeinf
 {
   const unsigned int tip_count = treeinfo->tree->tip_count;
   const unsigned int inner_count = treeinfo->tree->inner_count;
-  const size_t cons_size = (tip_count + 3 * inner_count) * sizeof(unsigned int);
+  const size_t cons_size = (tip_count + inner_count) * sizeof(unsigned int);
 
   if(!treeinfo->constraint)
   {
@@ -827,22 +827,12 @@ PLL_EXPORT int pllmod_treeinfo_set_constraint_clvmap(pllmod_treeinfo_t * treeinf
 
   assert(treeinfo->constraint);
 
-  for (unsigned int i = tip_count; i < tip_count + inner_count; ++i)
+  for (unsigned int i = 0; i < tip_count + inner_count; ++i)
   {
     const pll_unode_t * node = treeinfo->tree->nodes[i];
     const unsigned int cons_group_id = clv_index_map[node->clv_index]+1;
 
-    assert(node->next);
-    treeinfo->constraint[node->node_index] =
-        treeinfo->constraint[node->next->node_index] =
-            treeinfo->constraint[node->next->next->node_index] = cons_group_id;
-  }
-
-  for (unsigned int i = 0; i < tip_count; ++i)
-  {
-    const pll_unode_t * node = treeinfo->tree->nodes[i];
-    treeinfo->constraint[node->node_index] =
-        treeinfo->constraint[node->back->node_index];
+    treeinfo->constraint[node->clv_index] = cons_group_id;
   }
 
   return PLL_SUCCESS;
@@ -855,8 +845,7 @@ PLL_EXPORT int pllmod_treeinfo_set_constraint_tree(pllmod_treeinfo_t * treeinfo,
   int * clv_index_map = (int *) calloc(node_count, sizeof(int));
   int retval;
 
-  // TODO: support non-comprehensive trees
-  if (treeinfo->tip_count != cons_tree->tip_count)
+  if (treeinfo->tip_count < cons_tree->tip_count)
   {
     pllmod_set_error(PLLMOD_TREE_ERROR_INVALID_TREE_SIZE,
                      "Invalid tree size. Got %d instead of %d\n",
@@ -867,7 +856,60 @@ PLL_EXPORT int pllmod_treeinfo_set_constraint_tree(pllmod_treeinfo_t * treeinfo,
   pll_utree_t * bin_cons_tree = pllmod_utree_resolve_multi(cons_tree,
                                                            0, clv_index_map);
 
+  if (!bin_cons_tree || !clv_index_map)
+  {
+    assert(pll_errno);
+    return PLL_FAILURE;
+  }
+
+  // HACK; copy clv group ids from inner nodes to tips
+  for (unsigned int i = 0; i < bin_cons_tree->tip_count; ++i)
+  {
+    pll_unode_t * node = bin_cons_tree->nodes[i];
+    assert(!node->next);
+    clv_index_map[node->clv_index] = clv_index_map[node->back->clv_index];
+  }
+
   pll_utree_destroy(bin_cons_tree, NULL);
+
+  if (treeinfo->tip_count > cons_tree->tip_count)
+  {
+    // non-comprehensive constraint
+    unsigned int free_count = treeinfo->tip_count - cons_tree->tip_count;
+    unsigned int ext_node_count = treeinfo->tip_count * 2 - 2;
+    int * ext_clv_index_map = (int *) calloc(ext_node_count, sizeof(int));
+
+    for (unsigned int i = 0; i < ext_node_count; ++i)
+    {
+      unsigned int clv_id = treeinfo->tree->nodes[i]->clv_index;
+      if (clv_id < cons_tree->tip_count)
+      {
+        // copy map for tips in the constraint tree and adjust clv_ids
+        ext_clv_index_map[clv_id] = clv_index_map[clv_id] + free_count;
+      }
+      else if (clv_id < treeinfo->tip_count)
+      {
+        // mark new tips as freely movable
+        ext_clv_index_map[clv_id] = -1;
+      }
+      else if (clv_id < node_count + free_count)
+      {
+        // update clv_ids for old inner nodes by adding free tip count
+        unsigned int old_clv_id = clv_id - free_count;
+        ext_clv_index_map[clv_id] = clv_index_map[old_clv_id] + free_count;
+      }
+      else if (clv_id < ext_node_count)
+      {
+        // mark new inner nodes as freely movable
+        ext_clv_index_map[clv_id] = -1;
+      }
+      else
+        assert(0);
+    }
+
+    free(clv_index_map);
+    clv_index_map = ext_clv_index_map;
+  }
 
   retval = pllmod_treeinfo_set_constraint_clvmap(treeinfo, clv_index_map);
 
@@ -876,18 +918,48 @@ PLL_EXPORT int pllmod_treeinfo_set_constraint_tree(pllmod_treeinfo_t * treeinfo,
   return retval;
 }
 
+static unsigned int find_cons_id(pll_unode_t * node,
+                                 const unsigned int * constraint,
+                                 unsigned int s)
+{
+  unsigned int cons_group_id = constraint[node->clv_index];
+  if (!node->next || cons_group_id > 0)
+    return cons_group_id;
+  else
+  {
+    unsigned int left_id = find_cons_id(node->next->back, constraint, s);
+    unsigned int right_id = find_cons_id(node->next->next->back, constraint, s);
+    if (left_id == right_id)
+      return left_id;
+    else if (!s)
+      return PLL_MAX(left_id, right_id);
+    else
+      return (left_id == 0 || left_id == s) ? right_id : left_id;
+  }
+}
+
 PLL_EXPORT int pllmod_treeinfo_check_constraint(pllmod_treeinfo_t * treeinfo,
                                                 pll_unode_t * subtree,
                                                 pll_unode_t * regraft_edge)
 {
   if (treeinfo->constraint)
   {
-    unsigned int r1 = treeinfo->constraint[regraft_edge->node_index];
-    unsigned int r2 = treeinfo->constraint[regraft_edge->back->node_index];
-    unsigned int s  = treeinfo->constraint[subtree->node_index];
-    return (!s || s == r1 || s == r2) ? 1 : 0;
+    int res;
+    unsigned int s = treeinfo->constraint[subtree->clv_index];
+    s  = s ? s : find_cons_id(subtree->back, treeinfo->constraint, 0);
+
+    if (s)
+    {
+      unsigned int r1 = find_cons_id(regraft_edge, treeinfo->constraint, s);
+      unsigned int r2 = find_cons_id(regraft_edge->back, treeinfo->constraint, s);
+
+      res = (s == r1 || s == r2) ? PLL_SUCCESS : PLL_FAILURE;
+    }
+    else
+      res = PLL_SUCCESS;
+
+    return res;
   }
   else
-    return 1;
+    return PLL_SUCCESS;
 }
-
