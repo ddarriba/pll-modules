@@ -1513,3 +1513,33 @@ double pllmod_algo_opt_rates_weights_treeinfo (pllmod_treeinfo_t * treeinfo,
 
   return -1 * cur_logl;
 }
+
+PLL_EXPORT
+double pllmod_algo_opt_brlen_treeinfo(pllmod_treeinfo_t * treeinfo,
+                                      double min_brlen,
+                                      double max_brlen,
+                                      double lh_epsilon,
+                                      int max_iters,
+                                      int opt_method,
+                                      int radius)
+{
+  return pllmod_opt_optimize_branch_lengths_local_multi(treeinfo->partitions,
+                                                        treeinfo->partition_count,
+                                                        treeinfo->root,
+                                                        treeinfo->param_indices,
+                                                        treeinfo->deriv_precomp,
+                                                        treeinfo->branch_lengths,
+                                                        treeinfo->brlen_scalers,
+                                                        min_brlen,
+                                                        max_brlen,
+                                                        lh_epsilon,
+                                                        max_iters,
+                                                        radius,
+                                                        1,    /* keep_update */
+                                                        opt_method,
+                                                        treeinfo->brlen_linkage,
+                                                        treeinfo->parallel_context,
+                                                        treeinfo->parallel_reduce_cb
+                                                        );
+
+}

@@ -181,6 +181,14 @@ double pllmod_algo_opt_alpha_pinv_treeinfo(pllmod_treeinfo_t * treeinfo,
                                            double bfgs_factor,
                                            double tolerance);
 
+PLL_EXPORT
+double pllmod_algo_opt_brlen_treeinfo(pllmod_treeinfo_t * treeinfo,
+                                      double min_brlen,
+                                      double max_brlen,
+                                      double lh_epsilon,
+                                      int max_iters,
+                                      int opt_method,
+                                      int radius);
 
 /* search */
 
