@@ -1221,7 +1221,13 @@ static void utree_derivative_func_multi (void * parameters, double * proposal,
   size_t p;
   int unlinked = (params->brlen_linkage == PLLMOD_COMMON_BRLEN_UNLINKED) ? 1 : 0;
 
-  *df = *ddf = 0;
+  if (unlinked)
+  {
+    for (p = 0; p < params->partition_count; ++p)
+      df[p] = ddf[p] = 0;
+  }
+  else
+    *df = *ddf = 0;
 
   /* simply iterate over partitions and add up the derivatives */
   for (p = 0; p < params->partition_count; ++p)
@@ -1385,6 +1391,7 @@ static int recomp_iterative_multi(pll_newton_tree_params_multi_t * params,
   pll_unode_t *tr_p, *tr_q, *tr_z;
   unsigned int p;
   int retval;
+  unsigned int xnum;
   double xmin,          /* min branch length */
          xorig_linked,  /* original branch length before optimization (linked) */
          xguess_linked, /* initial guess (linked) */
@@ -1397,7 +1404,6 @@ static int recomp_iterative_multi(pll_newton_tree_params_multi_t * params,
   unsigned int pmatrix_index;
 
   int unlinked      = params->brlen_linkage == PLLMOD_COMMON_BRLEN_UNLINKED ? 1 : 0;
-  unsigned int xnum = unlinked ? params->partition_count : 1;
   int apply_change  = 0;
 
   tr_p = params->tree;
@@ -1408,20 +1414,32 @@ static int recomp_iterative_multi(pll_newton_tree_params_multi_t * params,
   if (unlinked)
   {
     assert(params->brlen_buffers && params->brlen_orig && params->brlen_guess);
+    xnum = params->partition_count;
     xorig = params->brlen_orig;
     xguess = params->brlen_guess;
+
+    /* set initial values */
+    for (p = 0; p < xnum; ++p)
+    {
+      xguess[p] = params->partitions[p] ?
+          params->brlen_buffers[p][pmatrix_index] : 0.0;
+    }
+
+    /* make sure every thread has all per-partition branch lengths */
+    if (xnum > 1 && params->parallel_reduce_cb)
+    {
+      params->parallel_reduce_cb(params->parallel_context, xguess, xnum,
+                                 PLLMOD_COMMON_REDUCE_MAX);
+    }
+
+    memcpy(xorig, xguess, xnum * sizeof(double));
   }
   else
   {
+    xnum = 1;
     xorig = &xorig_linked;
     xguess = &xguess_linked;
-  }
-
-  /* set initial values */
-  for (p = 0; p < xnum; ++p)
-  {
-    xorig[p] = xguess[p] = params->brlen_buffers ?
-        params->brlen_buffers[p][pmatrix_index] : tr_p->length;
+    *xorig = *xguess = tr_p->length;
   }
 
   /* reset convergence flags */
@@ -1529,8 +1547,9 @@ static int recomp_iterative_multi(pll_newton_tree_params_multi_t * params,
     if (fabs(xguess[p] - xorig[p]) < 1e-10)
       continue;
 
-    params->brlen_buffers[p][pmatrix_index] = xguess[p];
     apply_change = 1;
+    if (params->brlen_buffers[p])
+      params->brlen_buffers[p][pmatrix_index] = xguess[p];
   }
 
   if (apply_change)
@@ -1581,7 +1600,8 @@ static int recomp_iterative_multi(pll_newton_tree_params_multi_t * params,
         /* reset branch length */
         for (p = 0; p < xnum; ++p)
         {
-          params->brlen_buffers[p][pmatrix_index] = xorig[p];
+          if (params->brlen_buffers[p])
+            params->brlen_buffers[p][pmatrix_index] = xorig[p];
         }
         if (!unlinked)
           tr_p->length = tr_p->back->length = xorig[0];
@@ -1784,7 +1804,8 @@ PLL_EXPORT double pllmod_opt_optimize_branch_lengths_local_multi (
   params.brlen_buffers     = brlen_buffers;
   params.brlen_scalers     = brlen_scalers;
   params.opt_method        = opt_method;
-  params.brlen_linkage     = brlen_linkage;
+  params.brlen_linkage     = (partition_count > 1) ?
+                             brlen_linkage : PLLMOD_COMMON_BRLEN_LINKED;
   params.max_newton_iters  = 30;
 
   params.brlen_orig        = NULL;
