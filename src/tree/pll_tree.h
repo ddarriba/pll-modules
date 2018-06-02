@@ -186,6 +186,22 @@ typedef struct
   };
 } pll_tree_rollback_t;
 
+typedef struct treeinfo_edge
+{
+  unsigned int left_index;
+  unsigned int right_index;
+  unsigned int pmatrix_index;
+  double brlen;
+} pllmod_treeinfo_edge_t;
+
+typedef struct treeinfo_topology
+{
+  unsigned int edge_count;
+  unsigned int brlen_set_count;
+  unsigned int root_index;
+  pllmod_treeinfo_edge_t * edges;
+  double ** branch_lengths;
+} pllmod_treeinfo_topology_t;
 
 typedef struct treeinfo
 {
@@ -200,6 +216,9 @@ typedef struct treeinfo
   pll_unode_t * root;
   pll_utree_t * tree;
 
+  unsigned int subnode_count;
+  pll_unode_t ** subnodes;
+
   // partitions & partition-specific stuff
   pll_partition_t ** partitions;
   double * alphas;
@@ -210,6 +229,11 @@ typedef struct treeinfo
   double * brlen_scalers;
   double * partition_loglh;
   int * params_to_optimize;
+
+  // partition that have been initialized (useful for parallelization)
+  unsigned int init_partition_count;
+  unsigned int * init_partition_idx;
+  pll_partition_t ** init_partitions;
 
   /* tree topology constraint */
   unsigned int * constraint;
@@ -542,9 +566,40 @@ PLL_EXPORT int pllmod_treeinfo_set_active_partition(pllmod_treeinfo_t * treeinfo
 PLL_EXPORT int pllmod_treeinfo_set_root(pllmod_treeinfo_t * treeinfo,
                                         pll_unode_t * root);
 
+PLL_EXPORT
+int pllmod_treeinfo_get_branch_length_all(const pllmod_treeinfo_t * treeinfo,
+                                          const pll_unode_t * edge,
+                                          double * lengths);
+
 PLL_EXPORT int pllmod_treeinfo_set_branch_length(pllmod_treeinfo_t * treeinfo,
                                                  pll_unode_t * edge,
                                                  double length);
+
+PLL_EXPORT
+int pllmod_treeinfo_set_branch_length_all(pllmod_treeinfo_t * treeinfo,
+                                          pll_unode_t * edge,
+                                          const double * lengths);
+
+PLL_EXPORT
+int pllmod_treeinfo_set_branch_length_partition(pllmod_treeinfo_t * treeinfo,
+                                                pll_unode_t * edge,
+                                                int partition_index,
+                                                double length);
+
+PLL_EXPORT
+pll_utree_t * pllmod_treeinfo_get_partition_tree(const pllmod_treeinfo_t * treeinfo,
+                                                 int partition_index);
+
+PLL_EXPORT
+pllmod_treeinfo_topology_t * pllmod_treeinfo_get_topology(const pllmod_treeinfo_t * treeinfo,
+                                                          pllmod_treeinfo_topology_t * topol);
+
+PLL_EXPORT
+int pllmod_treeinfo_set_topology(pllmod_treeinfo_t * treeinfo,
+                                 const pllmod_treeinfo_topology_t * topol);
+
+PLL_EXPORT
+int pllmod_treeinfo_destroy_topology(pllmod_treeinfo_topology_t * topol);
 
 PLL_EXPORT int pllmod_treeinfo_destroy_partition(pllmod_treeinfo_t * treeinfo,
                                                  unsigned int partition_index);

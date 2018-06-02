@@ -42,10 +42,12 @@ static int cb_partial_traversal(pll_unode_t * node)
   if (treeinfo->active_partition == PLLMOD_TREEINFO_PARTITION_ALL)
   {
     /* check if at least one per-partition CLV is invalid */
-    unsigned int p;
-    for (p = 0; p < treeinfo->partition_count; ++p)
+    for (unsigned int i = 0; i < treeinfo->init_partition_count; ++i)
+    {
+      unsigned int p = treeinfo->init_partition_idx[i];
       if (treeinfo->clv_valid[p][node->node_index] == 0)
         return PLL_SUCCESS;
+    }
 
     /* CLVs for all partitions are valid -> skip subtree */
     return PLL_FAILURE;
@@ -81,11 +83,6 @@ PLL_EXPORT pllmod_treeinfo_t * pllmod_treeinfo_create(pll_unode_t * root,
   treeinfo->partition_count = partitions;
   treeinfo->brlen_linkage = brlen_linkage;
 
-  /* compute some derived dimensions */
-  unsigned int inner_nodes_count = tips - 2;
-  unsigned int nodes_count       = inner_nodes_count + tips;
-  unsigned int branch_count      = nodes_count - 1;
-
   /* create pll_utree structure and store it in treeinfo */
   pll_utree_t * tree = pll_utree_wraptree(root, tips);
 
@@ -94,6 +91,12 @@ PLL_EXPORT pllmod_treeinfo_t * pllmod_treeinfo_create(pll_unode_t * root,
     assert(pll_errno);
     return NULL;
   }
+
+  /* compute some derived dimensions */
+  unsigned int inner_nodes_count = tree->inner_count;
+  unsigned int nodes_count       = inner_nodes_count + tips;
+  unsigned int branch_count      = tree->edge_count;
+  treeinfo->subnode_count        = tips + 3 * inner_nodes_count;
 
   /* allocate a buffer for storing pointers to nodes of the tree in postorder
      traversal */
@@ -108,8 +111,12 @@ PLL_EXPORT pllmod_treeinfo_t * pllmod_treeinfo_create(pll_unode_t * root,
   treeinfo->operations = (pll_operation_t *)
                             malloc(inner_nodes_count * sizeof(pll_operation_t));
 
+  treeinfo->subnodes = (pll_unode_t **) malloc(
+                          treeinfo->subnode_count * sizeof(pll_unode_t *));
+
   /* check memory allocation */
-  if (!treeinfo->travbuffer || !treeinfo->matrix_indices || !treeinfo->operations)
+  if (!treeinfo->travbuffer || !treeinfo->matrix_indices ||
+      !treeinfo->operations || !treeinfo->subnodes)
   {
     pllmod_set_error(PLL_ERROR_MEM_ALLOC,
                      "Cannot allocate memory for treeinfo structures\n");
@@ -129,6 +136,10 @@ PLL_EXPORT pllmod_treeinfo_t * pllmod_treeinfo_create(pll_unode_t * root,
   treeinfo->pmatrix_valid = (char **) calloc(partitions, sizeof(char*));
   treeinfo->partition_loglh = (double *) calloc(partitions, sizeof(double));
 
+  treeinfo->init_partition_count = 0;
+  treeinfo->init_partition_idx = (unsigned int *) calloc(partitions, sizeof(unsigned int));
+  treeinfo->init_partitions = (pll_partition_t **) calloc(partitions, sizeof(pll_partition_t *));
+
   /* allocate array for storing linked/average branch lengths */
   treeinfo->linked_branch_lengths = (double *) malloc(branch_count * sizeof(double));
 
@@ -143,7 +154,7 @@ PLL_EXPORT pllmod_treeinfo_t * pllmod_treeinfo_create(pll_unode_t * root,
       !treeinfo->subst_matrix_symmetries || !treeinfo->branch_lengths ||
       !treeinfo->deriv_precomp || !treeinfo->clv_valid || !treeinfo->pmatrix_valid ||
       !treeinfo->linked_branch_lengths || !treeinfo->partition_loglh ||
-      !treeinfo->gamma_mode ||
+      !treeinfo->gamma_mode || !treeinfo->init_partition_idx ||
       (brlen_linkage == PLLMOD_COMMON_BRLEN_SCALED && !treeinfo->brlen_scalers))
   {
     pllmod_set_error(PLL_ERROR_MEM_ALLOC,
@@ -159,8 +170,10 @@ PLL_EXPORT pllmod_treeinfo_t * pllmod_treeinfo_create(pll_unode_t * root,
 
     /* allocate arrays for storing the per-partition branch lengths */
     if (brlen_linkage == PLLMOD_COMMON_BRLEN_UNLINKED)
+    {
       treeinfo->branch_lengths[p] =
           (double *) malloc(branch_count * sizeof(double));
+    }
     else
       treeinfo->branch_lengths[p] = treeinfo->linked_branch_lengths;
 
@@ -232,8 +245,17 @@ PLL_EXPORT int pllmod_treeinfo_init_partition(pllmod_treeinfo_t * treeinfo,
               "Partition %d is out of bounds\n", partition_index);
     return PLL_FAILURE;
   }
+  else if (treeinfo->partitions[partition_index])
+  {
+    pllmod_set_error(PLL_ERROR_PARAM_INVALID,
+              "Partition %d is already initialized\n", partition_index);
+    return PLL_FAILURE;
+  }
 
+  unsigned int local_partition_index = treeinfo->init_partition_count++;
   treeinfo->partitions[partition_index] = partition;
+  treeinfo->init_partitions[local_partition_index] = partition;
+  treeinfo->init_partition_idx[local_partition_index] = partition_index;
   treeinfo->params_to_optimize[partition_index] = params_to_optimize;
   treeinfo->gamma_mode[partition_index] = gamma_mode;
   treeinfo->alphas[partition_index] = alpha;
@@ -359,21 +381,333 @@ PLL_EXPORT int pllmod_treeinfo_set_root(pllmod_treeinfo_t * treeinfo,
   return PLL_SUCCESS;
 }
 
+PLL_EXPORT
+int pllmod_treeinfo_get_branch_length_all(const pllmod_treeinfo_t * treeinfo,
+                                          const pll_unode_t * edge,
+                                          double * lengths)
+{
+  unsigned int pmatrix_index = edge->pmatrix_index;
+
+  if (treeinfo->brlen_linkage == PLLMOD_COMMON_BRLEN_UNLINKED)
+  {
+    for (unsigned int p = 0; p < treeinfo->partition_count; ++p)
+    {
+      if (treeinfo->partitions[p])
+        *lengths++ = treeinfo->branch_lengths[p][pmatrix_index];
+    }
+  }
+  else
+    lengths[0] = treeinfo->branch_lengths[0][pmatrix_index];
+
+  return PLL_SUCCESS;
+}
+
 PLL_EXPORT int pllmod_treeinfo_set_branch_length(pllmod_treeinfo_t * treeinfo,
                                                   pll_unode_t * edge,
                                                   double length)
 {
-  pllmod_utree_set_length(edge, length);
+  assert (treeinfo->brlen_linkage != PLLMOD_COMMON_BRLEN_UNLINKED);
+  return pllmod_treeinfo_set_branch_length_all(treeinfo, edge, &length);
+}
+
+PLL_EXPORT
+int pllmod_treeinfo_set_branch_length_all(pllmod_treeinfo_t * treeinfo,
+                                          pll_unode_t * edge,
+                                          const double * lengths)
+{
+  unsigned int pmatrix_index = edge->pmatrix_index;
+  if (treeinfo->brlen_linkage == PLLMOD_COMMON_BRLEN_UNLINKED)
+  {
+    for (unsigned int p = 0; p < treeinfo->partition_count; ++p)
+    {
+      if (treeinfo->partitions[p])
+        treeinfo->branch_lengths[p][pmatrix_index] = *lengths++;
+    }
+  }
+  else
+  {
+    treeinfo->branch_lengths[0][pmatrix_index] = lengths[0];
+    pllmod_utree_set_length(edge, lengths[0]);
+  }
+
+#if 0
+  pllmod_treeinfo_set_active_partition(treeinfo, PLLMOD_TREEINFO_PARTITION_ALL);
 
   /* invalidate p-matrices */
   pllmod_treeinfo_invalidate_pmatrix(treeinfo, edge);
 
   /* invalidate CLVs */
-  pllmod_treeinfo_invalidate_clv(treeinfo, edge->next);
-  pllmod_treeinfo_invalidate_clv(treeinfo, edge->next->next);
-  pllmod_treeinfo_invalidate_clv(treeinfo, edge->back->next);
-  pllmod_treeinfo_invalidate_clv(treeinfo, edge->back->next->next);
+  if (edge->next)
+  {
+    pllmod_treeinfo_invalidate_clv(treeinfo, edge->next);
+    pllmod_treeinfo_invalidate_clv(treeinfo, edge->next->next);
+  }
+  if (edge->back->next)
+  {
+    pllmod_treeinfo_invalidate_clv(treeinfo, edge->back->next);
+    pllmod_treeinfo_invalidate_clv(treeinfo, edge->back->next->next);
+  }
+#endif
 
+  return PLL_SUCCESS;
+}
+
+PLL_EXPORT
+int pllmod_treeinfo_set_branch_length_partition(pllmod_treeinfo_t * treeinfo,
+                                                pll_unode_t * edge,
+                                                int partition_index,
+                                                double length)
+{
+  unsigned int pmatrix_index = edge->pmatrix_index;
+
+  if (!pllmod_treeinfo_set_active_partition(treeinfo, partition_index))
+      return PLL_FAILURE;
+
+  if (partition_index != PLLMOD_TREEINFO_PARTITION_ALL)
+    treeinfo->branch_lengths[partition_index][pmatrix_index] = length;
+  else if (treeinfo->brlen_linkage != PLLMOD_COMMON_BRLEN_UNLINKED)
+  {
+    pllmod_utree_set_length(edge, length);
+    treeinfo->branch_lengths[0][pmatrix_index] = length;
+  }
+  else
+  {
+    for (unsigned int p = 0; p < treeinfo->partition_count; ++p)
+    {
+      if (treeinfo->partitions[p])
+        treeinfo->branch_lengths[p][pmatrix_index] = length;
+    }
+  }
+
+#if 0
+  /* invalidate p-matrices */
+  pllmod_treeinfo_invalidate_pmatrix(treeinfo, edge);
+
+  /* invalidate CLVs */
+  if (edge->next)
+  {
+    pllmod_treeinfo_invalidate_clv(treeinfo, edge->next);
+    pllmod_treeinfo_invalidate_clv(treeinfo, edge->next->next);
+  }
+  if (edge->back->next)
+  {
+    pllmod_treeinfo_invalidate_clv(treeinfo, edge->back->next);
+    pllmod_treeinfo_invalidate_clv(treeinfo, edge->back->next->next);
+  }
+#endif
+
+  return PLL_SUCCESS;
+}
+
+PLL_EXPORT
+pll_utree_t * pllmod_treeinfo_get_partition_tree(const pllmod_treeinfo_t * treeinfo,
+                                                 int partition_index)
+{
+  pll_utree_t * ptree = pll_utree_clone(treeinfo->tree);
+
+  // set partition-specific branch lengths
+  if (treeinfo->brlen_linkage == PLLMOD_COMMON_BRLEN_UNLINKED)
+  {
+    unsigned int node_count = ptree->tip_count + ptree->inner_count;
+    unsigned int edge_count = ptree->edge_count;
+    const double * brlens = treeinfo->branch_lengths[partition_index];
+    for (unsigned int i = 0; i < node_count; ++i)
+    {
+      pll_unode_t * snode = ptree->nodes[i];
+      do
+      {
+        unsigned int pmat_idx = snode->pmatrix_index;
+        if (pmat_idx > edge_count)
+        {
+          pllmod_set_error(PLLMOD_TREE_ERROR_INVALID_TREE,
+                           "p-matrix index out of bounds (%u). "
+                           "treeinfo structure requires that each branch "
+                           "is assigned a unique p-matrix index "
+                           "between 0 and branch_count-1\n",
+                           pmat_idx);
+          return NULL;
+        }
+        snode->length = brlens[pmat_idx];
+        snode = snode->next;
+      }
+      while (snode && snode != ptree->nodes[i]);
+    }
+  }
+
+  return ptree;
+}
+
+PLL_EXPORT
+pllmod_treeinfo_topology_t * pllmod_treeinfo_get_topology(const pllmod_treeinfo_t * treeinfo,
+                                                          pllmod_treeinfo_topology_t * topol)
+{
+  unsigned int brlen_set_count =
+      (treeinfo->brlen_linkage == PLLMOD_COMMON_BRLEN_UNLINKED) ?
+          treeinfo->init_partition_count : 0;
+
+  if (!topol)
+  {
+    topol =
+        (pllmod_treeinfo_topology_t *) calloc(1, sizeof(pllmod_treeinfo_topology_t));
+    if (!topol)
+    {
+      pllmod_set_error(PLL_ERROR_MEM_ALLOC,
+                    "Cannot allocate memory for topology structure\n");
+      return PLL_FAILURE;
+    }
+
+    topol->edge_count = treeinfo->tree->edge_count;
+    topol->brlen_set_count = brlen_set_count;
+    topol->root_index = treeinfo->root->node_index;
+    topol->edges = (pllmod_treeinfo_edge_t *) calloc(topol->edge_count,
+                                                     sizeof(pllmod_treeinfo_edge_t));
+    if (!topol->edges)
+    {
+      pllmod_set_error(PLL_ERROR_MEM_ALLOC,
+                    "Cannot allocate memory for topology buffers\n");
+      pllmod_treeinfo_destroy_topology(topol);
+      return PLL_FAILURE;
+    }
+
+    if (topol->brlen_set_count)
+    {
+      topol->branch_lengths = (double **) calloc(topol->brlen_set_count,
+                                                 sizeof(double *));
+      if (!topol->branch_lengths)
+      {
+        pllmod_set_error(PLL_ERROR_MEM_ALLOC,
+                      "Cannot allocate memory for branch length buffers\n");
+        pllmod_treeinfo_destroy_topology(topol);
+        return PLL_FAILURE;
+      }
+
+      for (unsigned int i = 0; i < topol->brlen_set_count; ++i)
+      {
+        topol->branch_lengths[i] = (double *) calloc(topol->edge_count,
+                                                     sizeof(double));
+        if (!topol->branch_lengths[i])
+        {
+          pllmod_set_error(PLL_ERROR_MEM_ALLOC,
+                        "Cannot allocate memory for branch length buffers\n");
+          pllmod_treeinfo_destroy_topology(topol);
+          return PLL_FAILURE;
+        }
+      }
+    }
+  }
+  else if (treeinfo->tree->edge_count != topol->edge_count ||
+           brlen_set_count != topol->brlen_set_count)
+  {
+    pllmod_set_error(PLL_ERROR_PARAM_INVALID,
+                     "Incompatible treeinfo_topology structure!\n");
+    return PLL_FAILURE;
+  }
+
+  // save topology as a list of edges
+  unsigned int edge_num = 0;
+  for (unsigned int i = 0; i < treeinfo->subnode_count; ++i)
+  {
+    const pll_unode_t * snode = treeinfo->subnodes[i];
+    if (snode->node_index < snode->back->node_index)
+    {
+      topol->edges[edge_num].pmatrix_index = snode->pmatrix_index;
+      topol->edges[edge_num].left_index = snode->node_index;
+      topol->edges[edge_num].right_index = snode->back->node_index;
+      topol->edges[edge_num].brlen = snode->length;
+      edge_num++;
+    }
+  }
+  assert(edge_num == topol->edge_count);
+
+  // save unlinked branch lengths
+  for (unsigned int i = 0; i < topol->brlen_set_count; ++i)
+  {
+    unsigned int p = treeinfo->init_partition_idx[i];
+    memcpy(topol->branch_lengths[i], treeinfo->branch_lengths[p],
+            topol->edge_count * sizeof(double));
+  }
+
+  return topol;
+}
+
+PLL_EXPORT
+int pllmod_treeinfo_set_topology(pllmod_treeinfo_t * treeinfo,
+                                 const pllmod_treeinfo_topology_t * topol)
+{
+  unsigned int brlen_set_count =
+      (treeinfo->brlen_linkage == PLLMOD_COMMON_BRLEN_UNLINKED) ?
+          treeinfo->init_partition_count : 0;
+
+  if (!treeinfo || !topol)
+  {
+    pllmod_set_error(PLL_ERROR_PARAM_INVALID, "treeinfo and/or topology is empty!\n");
+    return PLL_FAILURE;
+  }
+  if (treeinfo->tree->edge_count != topol->edge_count)
+  {
+    pllmod_set_error(PLL_ERROR_PARAM_INVALID,
+                     "Incompatible topology: edge count differs!\n");
+    return PLL_FAILURE;
+  }
+  if (brlen_set_count != topol->brlen_set_count)
+  {
+    pllmod_set_error(PLL_ERROR_PARAM_INVALID,
+                     "Incompatible topology: brlen set count differs!!\n");
+    return PLL_FAILURE;
+  }
+
+  // re-connect branches and reset pmatrix indices
+  for (unsigned int i = 0; i < topol->edge_count; ++i)
+  {
+    const pllmod_treeinfo_edge_t * edge = &topol->edges[i];
+    pll_unode_t * left_node = treeinfo->subnodes[edge->left_index];
+    pll_unode_t * right_node = treeinfo->subnodes[edge->right_index];
+    pllmod_utree_connect_nodes(left_node, right_node, edge->brlen);
+    left_node->pmatrix_index = right_node->pmatrix_index = edge->pmatrix_index;
+
+//    printf("load edge: %u %u %u %f\n", left_node->node_index, right_node->node_index,
+//           left_node->pmatrix_index, left_node->length);
+
+    // linked/scaled brlens -> set a global value for all partitions
+    if (!topol->branch_lengths)
+      treeinfo->branch_lengths[0][edge->pmatrix_index] = edge->brlen;
+  }
+
+  // restore unlinked branch lengths
+  if (topol->branch_lengths)
+  {
+    for (unsigned int i = 0; i < topol->brlen_set_count; ++i)
+    {
+      unsigned int p = treeinfo->init_partition_idx[i];
+      memcpy(treeinfo->branch_lengths[p], topol->branch_lengths[i],
+             topol->edge_count * sizeof(double));
+    }
+  }
+
+  // restore virtual root
+  treeinfo->root = treeinfo->tree->vroot = treeinfo->subnodes[topol->root_index];
+  assert(treeinfo->root->node_index == topol->root_index);
+
+  pllmod_treeinfo_invalidate_all(treeinfo);
+
+  return PLL_SUCCESS;
+}
+
+PLL_EXPORT
+int pllmod_treeinfo_destroy_topology(pllmod_treeinfo_topology_t * topol)
+{
+  if (topol)
+  {
+    if (topol->edges)
+      free(topol->edges);
+    if (topol->branch_lengths)
+    {
+      for (unsigned int i = 0; i < topol->brlen_set_count; ++i)
+        free(topol->branch_lengths[i]);
+      free(topol->branch_lengths);
+    }
+    free(topol);
+  }
   return PLL_SUCCESS;
 }
 
@@ -435,6 +769,7 @@ PLL_EXPORT void pllmod_treeinfo_destroy(pllmod_treeinfo_t * treeinfo)
   free(treeinfo->travbuffer);
   free(treeinfo->matrix_indices);
   free(treeinfo->operations);
+  free(treeinfo->subnodes);
 
   /* destroy all structures allocated for the concrete PLL partition instance */
   unsigned int p;
@@ -472,6 +807,7 @@ PLL_EXPORT void pllmod_treeinfo_destroy(pllmod_treeinfo_t * treeinfo)
 
   /* deallocate partition array */
   free(treeinfo->partitions);
+  free(treeinfo->init_partition_idx);
 
   if (treeinfo->tree)
     free(treeinfo->tree);
@@ -495,8 +831,6 @@ PLL_EXPORT int pllmod_treeinfo_update_prob_matrices(pllmod_treeinfo_t * treeinfo
 
       for (m = 0; m < pmatrix_count; ++m)
       {
-//        const unsigned int matrix_index = treeinfo->matrix_indices[m];
-
         if (treeinfo->pmatrix_valid[p][m] && !update_all)
           continue;
 
@@ -504,11 +838,14 @@ PLL_EXPORT int pllmod_treeinfo_update_prob_matrices(pllmod_treeinfo_t * treeinfo
         if (treeinfo->brlen_linkage == PLLMOD_COMMON_BRLEN_SCALED)
           p_brlen *= treeinfo->brlen_scalers[p];
 
-        pll_update_prob_matrices (treeinfo->partitions[p],
+        int ret = pll_update_prob_matrices (treeinfo->partitions[p],
                                   treeinfo->param_indices[p],
                                   &m,
                                   &p_brlen,
                                   1);
+
+        if (!ret)
+          return PLL_FAILURE;
 
         treeinfo->pmatrix_valid[p][m] = 1;
         updated++;
@@ -521,12 +858,14 @@ PLL_EXPORT int pllmod_treeinfo_update_prob_matrices(pllmod_treeinfo_t * treeinfo
 
 PLL_EXPORT void pllmod_treeinfo_invalidate_all(pllmod_treeinfo_t * treeinfo)
 {
-  unsigned int p, m;
+  unsigned int i, m;
   unsigned int clv_count = treeinfo->tip_count + (treeinfo->tip_count - 2) * 3;
   unsigned int pmatrix_count = treeinfo->tree->edge_count;
 
-  for (p = 0; p < treeinfo->partition_count; ++p)
+  for (i = 0; i < treeinfo->init_partition_count; ++i)
   {
+    unsigned int p = treeinfo->init_partition_idx[i];
+
     /* only selected partitioned will be affected */
     if (treeinfo_partition_active(treeinfo, p))
     {
@@ -543,16 +882,16 @@ PLL_EXPORT int pllmod_treeinfo_validate_clvs(pllmod_treeinfo_t * treeinfo,
                                              pll_unode_t ** travbuffer,
                                              unsigned int travbuffer_size)
 {
-  unsigned int p;
-  for (p = 0; p < treeinfo->partition_count; ++p)
+  for (unsigned int i = 0; i < treeinfo->init_partition_count; ++i)
   {
+    unsigned int p = treeinfo->init_partition_idx[i];
+
     /* only selected partitioned will be affected */
     if (treeinfo_partition_active(treeinfo, p))
     {
-      unsigned int i;
-      for (i = 0; i < travbuffer_size; ++i)
+      for (unsigned int j = 0; j < travbuffer_size; ++j)
       {
-        const pll_unode_t * node = travbuffer[i];
+        const pll_unode_t * node = travbuffer[j];
         if (node->next)
         {
           treeinfo->clv_valid[p][node->node_index] = 1;
@@ -572,9 +911,9 @@ PLL_EXPORT int pllmod_treeinfo_validate_clvs(pllmod_treeinfo_t * treeinfo,
 PLL_EXPORT void pllmod_treeinfo_invalidate_pmatrix(pllmod_treeinfo_t * treeinfo,
                                                    const pll_unode_t * edge)
 {
-  unsigned int p;
-  for (p = 0; p < treeinfo->partition_count; ++p)
+  for (unsigned int i = 0; i < treeinfo->init_partition_count; ++i)
   {
+    unsigned int p = treeinfo->init_partition_idx[i];
     if (treeinfo->pmatrix_valid[p] && treeinfo_partition_active(treeinfo, p))
       treeinfo->pmatrix_valid[p][edge->pmatrix_index] = 0;
   }
@@ -583,9 +922,9 @@ PLL_EXPORT void pllmod_treeinfo_invalidate_pmatrix(pllmod_treeinfo_t * treeinfo,
 PLL_EXPORT void pllmod_treeinfo_invalidate_clv(pllmod_treeinfo_t * treeinfo,
                                                const pll_unode_t * edge)
 {
-  unsigned int p;
-  for (p = 0; p < treeinfo->partition_count; ++p)
+  for (unsigned int i = 0; i < treeinfo->init_partition_count; ++i)
   {
+    unsigned int p = treeinfo->init_partition_idx[i];
     if (treeinfo->clv_valid[p] && treeinfo_partition_active(treeinfo, p))
       treeinfo->clv_valid[p][edge->node_index] = 0;
   }
@@ -610,6 +949,8 @@ static double treeinfo_compute_loglh(pllmod_treeinfo_t * treeinfo,
    * have to be prefetched to treeinfo->branch_lengths[p] !!! */
   int collect_brlen =
       (treeinfo->brlen_linkage == PLLMOD_COMMON_BRLEN_UNLINKED ? 0 : 1);
+
+  pllmod_treeinfo_set_active_partition(treeinfo, PLLMOD_TREEINFO_PARTITION_ALL);
 
   /* we need full traversal in 2 cases: 1) update p-matrices, 2) update all CLVs */
   if (!incremental || (update_pmatrices && collect_brlen))
@@ -636,8 +977,6 @@ static double treeinfo_compute_loglh(pllmod_treeinfo_t * treeinfo,
        }
     }
 
-    pllmod_treeinfo_set_active_partition(treeinfo, PLLMOD_TREEINFO_PARTITION_ALL);
-
     pllmod_treeinfo_update_prob_matrices(treeinfo, !incremental);
   }
 
@@ -652,7 +991,7 @@ static double treeinfo_compute_loglh(pllmod_treeinfo_t * treeinfo,
       return LOGLH_NONE;
   }
 
-  /* create operations based on full or partial traversal obtained above */
+  /* create operations based on partial traversal obtained above */
   pll_utree_create_operations(treeinfo->travbuffer,
                               traversal_size,
                               NULL,
@@ -663,7 +1002,7 @@ static double treeinfo_compute_loglh(pllmod_treeinfo_t * treeinfo,
 
   treeinfo->counter += ops_count;
 
-//  DBG("Traversal size: %u\n", ops_count);
+//  printf("Traversal size (%s): %u\n", incremental ? "part" : "full", ops_count);
 
   /* iterate over all partitions (we assume that traversal is the same) */
   for (p = 0; p < treeinfo->partition_count; ++p)
@@ -834,6 +1173,7 @@ PLL_EXPORT int pllmod_treeinfo_set_tree(pllmod_treeinfo_t * treeinfo,
                          pmat_idx);
         return PLL_FAILURE;
       }
+      treeinfo->subnodes[snode->node_index] = snode;
       treeinfo->branch_lengths[0][pmat_idx] = snode->length;
       snode->data = treeinfo;
       snode = snode->next;
