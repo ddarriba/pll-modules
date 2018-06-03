@@ -629,6 +629,65 @@ static int treeinfo_set_brlen_scaler(pllmod_treeinfo_t * treeinfo,
   return PLL_SUCCESS;
 }
 
+static void fix_brlen_scalers(pllmod_treeinfo_t * treeinfo,
+                              double min_scaler,
+                              double max_scaler)
+{
+  unsigned int i;
+
+  assert(treeinfo->brlen_scalers);
+
+  double lowest_scaler  = treeinfo->brlen_scalers[0];
+  double highest_scaler = treeinfo->brlen_scalers[0];
+
+  /* collect brlen scaler for all partitions */
+  if (treeinfo->parallel_reduce_cb)
+  {
+    for (i = 0; i < treeinfo->partition_count; ++i)
+    {
+      if (!treeinfo->partitions[i])
+        treeinfo->brlen_scalers[i] = 0.0;
+    }
+
+    treeinfo->parallel_reduce_cb(treeinfo->parallel_context,
+                                 treeinfo->brlen_scalers,
+                                 treeinfo->partition_count,
+                                 PLLMOD_COMMON_REDUCE_MAX);
+  }
+
+  /* skip remote partitions and those without rates/weight optimization */
+  for (i = 0; i < treeinfo->partition_count; ++i)
+  {
+    if (treeinfo->brlen_scalers[i] < lowest_scaler)
+      lowest_scaler = treeinfo->brlen_scalers[i];
+    if (treeinfo->brlen_scalers[i] > highest_scaler)
+      highest_scaler = treeinfo->brlen_scalers[i];
+  }
+
+  /* check if some scaler are out of bounds */
+  if (lowest_scaler < min_scaler || highest_scaler > max_scaler)
+  {
+    double global_scaler;
+
+    assert(lowest_scaler >= min_scaler || highest_scaler <= max_scaler);
+
+    /* compute correction factor */
+    if (lowest_scaler < min_scaler)
+      global_scaler = min_scaler / lowest_scaler;
+    else if (highest_scaler > max_scaler)
+      global_scaler = max_scaler / highest_scaler;
+    else
+      assert(0);
+
+    /* force scalers into bounds by multiplying with correction factor */
+    for (i = 0; i < treeinfo->partition_count; ++i)
+      treeinfo->brlen_scalers[i] *= global_scaler;
+
+    /* multiply all branches by the inverse to preserve likelihood */
+    pllmod_utree_scale_branches_all(treeinfo->root, 1.0 / global_scaler);
+  }
+}
+
 PLL_EXPORT
 double pllmod_algo_opt_onedim_treeinfo_custom(pllmod_treeinfo_t * treeinfo,
                                               int param_to_optimize,
@@ -754,6 +813,28 @@ PLL_EXPORT double pllmod_algo_opt_onedim_treeinfo(pllmod_treeinfo_t * treeinfo,
                                                 max_value,
                                                 tolerance);
 }
+
+PLL_EXPORT
+double pllmod_algo_opt_brlen_scalers_treeinfo(pllmod_treeinfo_t * treeinfo,
+                                              double min_scaler,
+                                              double max_scaler,
+                                              double lh_epsilon)
+{
+  /* make sure all brlen scalers are between min_scaler and max_scaler */
+  fix_brlen_scalers(treeinfo, min_scaler, max_scaler);
+
+  double loglh = pllmod_algo_opt_onedim_treeinfo(treeinfo,
+                                                 PLLMOD_OPT_PARAM_BRANCH_LEN_SCALER,
+                                                 min_scaler,
+                                                 max_scaler,
+                                                 lh_epsilon);
+
+  /* normalize scalers and scale the branches accordingly */
+  pllmod_treeinfo_normalize_brlen_scalers(treeinfo);
+
+  return loglh;
+}
+
 
 PLL_EXPORT
 double pllmod_algo_opt_subst_rates_treeinfo (pllmod_treeinfo_t * treeinfo,
