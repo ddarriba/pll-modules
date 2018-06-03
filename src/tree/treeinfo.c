@@ -1078,6 +1078,60 @@ PLL_EXPORT double pllmod_treeinfo_compute_loglh_flex(pllmod_treeinfo_t * treeinf
 }
 
 PLL_EXPORT
+int pllmod_treeinfo_scale_branches_all(pllmod_treeinfo_t * treeinfo, double scaler)
+{
+  unsigned int i, p;
+
+  for (i = 0; i < treeinfo->subnode_count; ++i)
+    treeinfo->subnodes[i]->length *= scaler;
+
+  if (treeinfo->brlen_linkage == PLLMOD_COMMON_BRLEN_UNLINKED)
+  {
+    for (p = 0; p < treeinfo->partition_count; ++p)
+    {
+      for (i = 0; i < treeinfo->tree->edge_count; ++i)
+        treeinfo->branch_lengths[p][i] *= scaler;
+    }
+
+  }
+  else
+  {
+    for (i = 0; i < treeinfo->tree->edge_count; ++i)
+      treeinfo->branch_lengths[0][i] *= scaler;
+  }
+
+  return PLL_SUCCESS;
+}
+
+PLL_EXPORT
+int pllmod_treeinfo_scale_branches_partition(pllmod_treeinfo_t * treeinfo,
+                                             unsigned int partition_idx,
+                                             double scaler)
+{
+  unsigned int i;
+
+  if (treeinfo->brlen_linkage != PLLMOD_COMMON_BRLEN_UNLINKED)
+  {
+    pllmod_set_error(PLLMOD_TREE_ERROR_INVALID_TREE,
+                     "Per-partition branch length scaling is supported "
+                     "in unlinked branch length mode only.\n");
+    return PLL_FAILURE;
+  }
+
+  if (partition_idx >= treeinfo->partition_count)
+  {
+    pllmod_set_error(PLL_ERROR_PARAM_INVALID,
+                     "Partition ID out of bounds\n");
+    return PLL_FAILURE;
+  }
+
+  for (i = 0; i < treeinfo->tree->edge_count; ++i)
+    treeinfo->branch_lengths[partition_idx][i] *= scaler;
+
+  return PLL_SUCCESS;
+}
+
+PLL_EXPORT
 int pllmod_treeinfo_normalize_brlen_scalers(pllmod_treeinfo_t * treeinfo)
 {
   double sum_scalers = 0.;
@@ -1111,7 +1165,7 @@ int pllmod_treeinfo_normalize_brlen_scalers(pllmod_treeinfo_t * treeinfo)
   }
 
   const double mean_rate = sum_scalers / sum_sites;
-  pllmod_utree_scale_branches_all(treeinfo->root, mean_rate);
+  pllmod_treeinfo_scale_branches_all(treeinfo, mean_rate);
   for (p = 0; p < treeinfo->partition_count; ++p)
   {
     if (treeinfo->partitions[p])

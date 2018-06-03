@@ -629,6 +629,14 @@ PLL_EXPORT double pllmod_treeinfo_compute_loglh_flex(pllmod_treeinfo_t * treeinf
                                                      int update_pmatrices);
 
 PLL_EXPORT
+int pllmod_treeinfo_scale_branches_all(pllmod_treeinfo_t * treeinfo, double scaler);
+
+PLL_EXPORT
+int pllmod_treeinfo_scale_branches_partition(pllmod_treeinfo_t * treeinfo,
+                                             unsigned int partition_idx,
+                                             double scaler);
+
+PLL_EXPORT
 int pllmod_treeinfo_normalize_brlen_scalers(pllmod_treeinfo_t * treeinfo);
 
 PLL_EXPORT int pllmod_treeinfo_set_tree(pllmod_treeinfo_t * treeinfo,

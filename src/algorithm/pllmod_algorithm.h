@@ -185,6 +185,8 @@ PLL_EXPORT
 double pllmod_algo_opt_brlen_scalers_treeinfo(pllmod_treeinfo_t * treeinfo,
                                               double min_scaler,
                                               double max_scaler,
+                                              double min_brlen,
+                                              double max_brlen,
                                               double lh_epsilon);
 
 

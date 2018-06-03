@@ -684,7 +684,7 @@ static void fix_brlen_scalers(pllmod_treeinfo_t * treeinfo,
       treeinfo->brlen_scalers[i] *= global_scaler;
 
     /* multiply all branches by the inverse to preserve likelihood */
-    pllmod_utree_scale_branches_all(treeinfo->root, 1.0 / global_scaler);
+    pllmod_treeinfo_scale_branches_all(treeinfo, 1.0 / global_scaler);
   }
 }
 
@@ -818,19 +818,100 @@ PLL_EXPORT
 double pllmod_algo_opt_brlen_scalers_treeinfo(pllmod_treeinfo_t * treeinfo,
                                               double min_scaler,
                                               double max_scaler,
+                                              double min_brlen,
+                                              double max_brlen,
                                               double lh_epsilon)
 {
+  unsigned int i, j;
+  double old_loglh, loglh;
+  double *old_scalers = NULL;
+  double *old_brlen   = NULL;
+
+  if (treeinfo->brlen_linkage != PLLMOD_COMMON_BRLEN_SCALED)
+  {
+    pllmod_set_error(PLL_ERROR_PARAM_INVALID,
+                     "Branch length scaler optimization works only in "
+                     "scaled branch length mode.");
+    return (double) PLL_FAILURE;
+  }
+
+  old_loglh = pllmod_treeinfo_compute_loglh(treeinfo, 0);
+
+  /* save old brlen scalers in case we will have to revert optimization */
+  old_scalers = (double *) calloc(treeinfo->init_partition_count,
+                                  sizeof(double));
+  old_brlen   = (double *) calloc(treeinfo->tree->edge_count,
+                                  sizeof(double));
+  for (i = 0, j = 0; i < treeinfo->partition_count; ++i)
+  {
+    if (treeinfo->partitions[i])
+      old_scalers[j++] = treeinfo->brlen_scalers[i];
+  }
+  assert(j == treeinfo->init_partition_count);
+
+  memcpy(old_brlen, treeinfo->branch_lengths[0],
+         treeinfo->tree->edge_count * sizeof(double));
+
   /* make sure all brlen scalers are between min_scaler and max_scaler */
   fix_brlen_scalers(treeinfo, min_scaler, max_scaler);
 
-  double loglh = pllmod_algo_opt_onedim_treeinfo(treeinfo,
-                                                 PLLMOD_OPT_PARAM_BRANCH_LEN_SCALER,
-                                                 min_scaler,
-                                                 max_scaler,
-                                                 lh_epsilon);
+  loglh = pllmod_algo_opt_onedim_treeinfo(treeinfo,
+                                          PLLMOD_OPT_PARAM_BRANCH_LEN_SCALER,
+                                          min_scaler,
+                                          max_scaler,
+                                          lh_epsilon);
 
   /* normalize scalers and scale the branches accordingly */
   pllmod_treeinfo_normalize_brlen_scalers(treeinfo);
+
+  /* check that all branch lengths are within bounds after normalization,
+   * and correct them as needed */
+  int brlen_fixed = 0;
+  for (i = 0; i < treeinfo->subnode_count; ++i)
+  {
+    pll_unode_t * snode = treeinfo->subnodes[i];
+    if (snode->length < min_brlen)
+    {
+      pllmod_treeinfo_set_branch_length(treeinfo, snode, min_brlen);
+      brlen_fixed = 1;
+    }
+    else if (snode->length > max_brlen)
+    {
+      pllmod_treeinfo_set_branch_length(treeinfo, snode, max_brlen);
+      brlen_fixed = 1;
+    }
+  }
+
+  if (brlen_fixed)
+  {
+    loglh = pllmod_treeinfo_compute_loglh(treeinfo, 0);
+    if (loglh < old_loglh)
+    {
+      /* revert optimization and restore old values */
+      for (i = 0, j = 0; i < treeinfo->partition_count; ++i)
+      {
+        if (treeinfo->partitions[i])
+          treeinfo->brlen_scalers[i] = old_scalers[j++];
+      }
+      assert(j == treeinfo->init_partition_count);
+
+      /* restore branch lengths */
+      for (i = 0; i < treeinfo->subnode_count; ++i)
+      {
+        pll_unode_t * snode = treeinfo->subnodes[i];
+        if (snode->node_index < snode->back->node_index)
+        {
+          pllmod_treeinfo_set_branch_length(treeinfo, snode,
+                                            old_brlen[snode->pmatrix_index]);
+        }
+      }
+
+      loglh = pllmod_treeinfo_compute_loglh(treeinfo, 0);
+    }
+  }
+
+  free(old_scalers);
+  free(old_brlen);
 
   return loglh;
 }
@@ -1307,16 +1388,11 @@ static void scales_rates_and_branches(pllmod_treeinfo_t * treeinfo,
   for (j = 0; j < rate_cats; ++j)
     rates[j] *= rate_scaler;
 
-  const int scale_branches = (treeinfo->partition_count == 1 ||
-		  	  	  	   treeinfo->brlen_linkage == PLLMOD_COMMON_BRLEN_UNLINKED);
-
-  if (scale_branches)
-  {
-    //TODO adapt for unlinked branches
-
-    /* scale branch lengths such that likelihood is conserved */
-    pllmod_utree_scale_branches_all(treeinfo->root, brlen_scaler);
-  }
+  /* scale branch lengths such that likelihood is conserved */
+  if (treeinfo->partition_count == 1)
+    pllmod_treeinfo_scale_branches_all(treeinfo, brlen_scaler);
+  else if (treeinfo->brlen_linkage == PLLMOD_COMMON_BRLEN_UNLINKED)
+    pllmod_treeinfo_scale_branches_partition(treeinfo, part_num, brlen_scaler);
   else
   {
     assert(treeinfo->brlen_scalers);
