@@ -406,7 +406,7 @@ PLL_EXPORT unsigned int pllmod_utree_split_rf_distance(pll_split_t * s1,
                                                        pll_split_t * s2,
                                                        unsigned int tip_count);
 
-PLL_EXPORT pll_split_t * pllmod_utree_split_create(pll_unode_t * tree,
+PLL_EXPORT pll_split_t * pllmod_utree_split_create(const pll_unode_t * tree,
                                                    unsigned int tip_count,
                                                    pll_unode_t ** split_to_node_map);
 
@@ -428,6 +428,15 @@ PLL_EXPORT pll_split_t * pll_utree_split_newick_string(char * s,
                                                        unsigned int tip_count,
                                                        string_hashtable_t * names_hash);
 
+PLL_EXPORT
+bitv_hashtable_t * pllmod_utree_split_hashtable_create(unsigned int tip_count,
+                                                       unsigned int slot_count);
+
+PLL_EXPORT bitv_hash_entry_t *
+pllmod_utree_split_hashtable_insert_single(bitv_hashtable_t * splits_hash,
+                                           pll_split_t split,
+                                           double support);
+
 PLL_EXPORT bitv_hashtable_t *
 pllmod_utree_split_hashtable_insert(bitv_hashtable_t * splits_hash,
                                     pll_split_t * splits,
@@ -447,9 +456,10 @@ void pllmod_utree_split_hashtable_destroy(bitv_hashtable_t * hash);
 
 /* functions in consensus.c */
 
-PLL_EXPORT int pllmod_utree_compatible_splits(pll_split_t s1,
-                                              pll_split_t s2,
-                                              unsigned int split_len);
+PLL_EXPORT int pllmod_utree_compatible_splits(const pll_split_t s1,
+                                              const pll_split_t s2,
+                                              unsigned int split_len,
+                                              unsigned int tip_count);
 
 PLL_EXPORT pll_consensus_utree_t * pllmod_utree_from_splits(
                                         const pll_split_system_t * split_system,
@@ -490,7 +500,7 @@ PLL_EXPORT int pllmod_utree_traverse_apply(pll_unode_t * root,
                                                             void *),
                                         void *data);
 
-PLL_EXPORT int pllmod_utree_is_tip(pll_unode_t * node);
+PLL_EXPORT int pllmod_utree_is_tip(const pll_unode_t * node);
 
 PLL_EXPORT void pllmod_utree_set_length(pll_unode_t * edge,
                                      double length);

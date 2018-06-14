@@ -1043,7 +1043,7 @@ PLL_EXPORT int pllmod_utree_traverse_apply(pll_unode_t * root,
   return retval;
 }
 
-PLL_EXPORT int pllmod_utree_is_tip(pll_unode_t * node)
+PLL_EXPORT int pllmod_utree_is_tip(const pll_unode_t * node)
 {
   return (node->next == NULL);
 }

@@ -365,7 +365,7 @@ PLL_EXPORT pll_split_t pllmod_utree_split_from_tips(unsigned int * subtree_tip_i
  *
  * split_to_node_map can be NULL
  */
-PLL_EXPORT pll_split_t * pllmod_utree_split_create(pll_unode_t * tree,
+PLL_EXPORT pll_split_t * pllmod_utree_split_create(const pll_unode_t * tree,
                                                    unsigned int tip_count,
                                                    pll_unode_t ** split_to_node_map)
 {
@@ -438,7 +438,7 @@ PLL_EXPORT pll_split_t * pllmod_utree_split_create(pll_unode_t * tree,
     tree = tree->back;
 
   /* traverse for computing the scripts */
-  pllmod_utree_traverse_apply(tree,
+  pllmod_utree_traverse_apply((pll_unode_t *) tree,
                               NULL,
                               NULL,
                               &cb_get_splits,
@@ -510,6 +510,36 @@ PLL_EXPORT pll_split_t * pllmod_utree_split_create(pll_unode_t * tree,
   return split_list;
 }
 
+
+PLL_EXPORT
+bitv_hashtable_t * pllmod_utree_split_hashtable_create(unsigned int tip_count,
+                                                       unsigned int slot_count)
+{
+  if (!slot_count)
+    slot_count = tip_count * 10;
+
+  return hash_init(slot_count, tip_count);
+}
+
+PLL_EXPORT bitv_hash_entry_t *
+pllmod_utree_split_hashtable_insert_single(bitv_hashtable_t * splits_hash,
+                                           pll_split_t split,
+                                           double support)
+{
+  if (!splits_hash)
+  {
+    pllmod_set_error(PLL_ERROR_PARAM_INVALID, "splits_hash is NULL!\n");
+    return NULL;
+  }
+
+  return hash_insert(split,
+                     splits_hash,
+                     splits_hash->entry_count,
+                     HASH_KEY_UNDEF,
+                     support,
+                     0);
+}
+
 /**
  * Creates or updates hashtable with splits (and their support)
  *
@@ -560,7 +590,7 @@ pllmod_utree_split_hashtable_insert(bitv_hashtable_t * splits_hash,
     {
       hash_insert(splits[i],
                   splits_hash,
-                  i,
+                  splits_hash->entry_count,
                   HASH_KEY_UNDEF,
                   support ? support[i] : 1.0,
                   0);

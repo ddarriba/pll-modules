@@ -60,11 +60,15 @@ static void fill_consensus(pll_consensus_utree_t * consensus_tree);
 
 
 
-PLL_EXPORT int pllmod_utree_compatible_splits(pll_split_t s1,
-                                              pll_split_t s2,
-                                              unsigned int split_len)
+PLL_EXPORT int pllmod_utree_compatible_splits(const pll_split_t s1,
+                                              const pll_split_t s2,
+                                              unsigned int split_len,
+                                              unsigned int tip_count)
 {
   unsigned int i;
+  unsigned int split_size = sizeof(pll_split_base_t) * 8;
+  unsigned int split_offset = tip_count % split_size;
+  unsigned int mask = split_offset ? (1<<split_offset) - 1 : ~0;
 
   /* check conflicts between s1 and s2 */
   for(i = 0; i < split_len; i++)
@@ -86,6 +90,17 @@ PLL_EXPORT int pllmod_utree_compatible_splits(pll_split_t s1,
   for(i = 0; i < split_len; i++)
     if(~s1[i] & s2[i])
       break;
+
+  if(i == split_len)
+    return 1;
+
+  /* check conflicts between ~s1 and ~s2 */
+  for(i = 0; i < split_len-1; i++)
+    if(~s1[i] & ~s2[i])
+      break;
+
+  if (i == split_len-1 && !(~s1[i] & ~s2[i] & mask))
+    ++i;
 
   if(i == split_len)
     return 1;
@@ -833,7 +848,8 @@ static void mre(bitv_hashtable_t *h,
       pll_split_t split_consolidated = consensus->splits[j];
       if (!pllmod_utree_compatible_splits(split_candidate->bit_vector,
                                           split_consolidated,
-                                          split_len))
+                                          split_len,
+                                          h->bit_count))
       {
         compatible = 0;
         break;
