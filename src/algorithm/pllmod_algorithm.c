@@ -855,7 +855,7 @@ double pllmod_algo_opt_brlen_scalers_treeinfo(pllmod_treeinfo_t * treeinfo,
   /* make sure all brlen scalers are between min_scaler and max_scaler */
   fix_brlen_scalers(treeinfo, min_scaler, max_scaler);
 
-  loglh = pllmod_algo_opt_onedim_treeinfo(treeinfo,
+  loglh = -1 * pllmod_algo_opt_onedim_treeinfo(treeinfo,
                                           PLLMOD_OPT_PARAM_BRANCH_LEN_SCALER,
                                           min_scaler,
                                           max_scaler,
@@ -913,7 +913,7 @@ double pllmod_algo_opt_brlen_scalers_treeinfo(pllmod_treeinfo_t * treeinfo,
   free(old_scalers);
   free(old_brlen);
 
-  return loglh;
+  return -1 * loglh;
 }
 
 
