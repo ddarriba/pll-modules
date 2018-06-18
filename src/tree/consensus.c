@@ -701,7 +701,7 @@ static pll_split_t * read_splits(FILE * file,
   }
   else
   {
-      splits = pll_utree_split_newick_string(tree_str,
+    splits = pll_utree_split_newick_string(tree_str,
                                              *tip_count,
                                              string_hashtable);
   }
