@@ -47,9 +47,24 @@ static inline int d_equals(double a, double b)
   return (fabs(a-b) < 1e-10);
 }
 
+struct newton_wrapper_params
+{
+  void (*derive_func)(void *, double, double *, double *);
+  void * params;
+};
+
 /******************************************************************************/
 /* NEWTON-RAPHSON OPTIMIZATION */
 /******************************************************************************/
+
+static void newton_wrapper_func(void * params, double * proposal,
+                                double * df, double * ddf)
+{
+  struct newton_wrapper_params * wrapper_params =
+      (struct newton_wrapper_params *) params;
+
+  wrapper_params->derive_func(wrapper_params->params, proposal[0], df, ddf);
+}
 
 /**
  * Minimize a function using Newton-Raphson.
@@ -74,80 +89,175 @@ PLL_EXPORT double pllmod_opt_minimize_newton(double xmin,
                                              double tolerance,
                                              unsigned int max_iters,
                                              void * params,
-                                             void (deriv_func)(void *,
+                                             void (*deriv_func)(void *,
                                                           double,
                                                           double *, double *))
 {
+  struct newton_wrapper_params wrapper_params;
+  wrapper_params.params = params;
+  wrapper_params.derive_func = deriv_func;
+  
+  double xres = xguess;
+
+  int retval = pllmod_opt_minimize_newton_multi(1, xmin, &xres, xmax,
+                                             tolerance, max_iters, NULL,
+                                             (void *) &wrapper_params,
+                                             newton_wrapper_func);
+  
+  if (retval)
+    return xres;
+  else
+    return PLL_FAILURE;
+}
+
+/**
+ * Minimize multiple functions in parallel using Newton-Raphson.
+ * (e.g. unlinked branch lengths for a partitioned alignment)
+ *
+ * The target function must compute the derivatives at a certain point,
+ * and it requires 4 parameters: (1) custom data (if needed), (2) the value at
+ * which derivatives are computed, and (3,4) lower and upper bounds.
+ *
+ * @param  xnum       number of functions/variables to optimize
+ * @param  xmin       lower bound
+ * @param  xguess     in=first guess for the free variables, out=optimized values
+ * @param  xmax       upper bound
+ * @param  tolerance  tolerance of the minimization method
+ * @param  max_iters  maximum number of iterations (bounds the effect of slow convergence)
+ * @param  converged  (optional) in: 1/0=skip/optimize, out: 1/0=converged yes/no
+ * @param  params     custom parameters required by the derivative function
+ * @param  deriv_func derivative function
+ *
+ * @return            PLL_FAILURE on error, PLL_SUCCESS otherwise
+ */
+PLL_EXPORT int pllmod_opt_minimize_newton_multi(unsigned int xnum,
+                                                double xmin,
+                                                double * xguess,
+                                                double xmax,
+                                                double tolerance,
+                                                unsigned int max_iters,
+                                                int * converged,
+                                                void * params,
+                                                void (deriv_func)(void *,
+                                                          double *,
+                                                          double *, double *))
+{
   unsigned int i;
-  double dx, f, df;
-  double xh, xl, x;
+  unsigned int iter = 0;
+  int all_converged = 0;
+  int error_flag = 0;
 
   double dxmax = xmax / max_iters;
+
+  double * xl = (double *) calloc(xnum, sizeof(double));
+  double * xh = (double *) calloc(xnum, sizeof(double));
+  double * f = (double *) calloc(xnum, sizeof(double));
+  double * df = (double *) calloc(xnum, sizeof(double));
+  int * int_converged = NULL;
+  double * x = xguess;
 
   /* reset errno */
   pll_errno = 0;
 
-  x = PLL_MAX(PLL_MIN(xguess, xmax), xmin);
-
-  xl = xmin;
-  xh = xmax;
-
-  for (i = 1; i <= max_iters; i++)
+  if (!converged)
   {
-    deriv_func((void *)params, x, &f, &df);
-
-    if (!isfinite(f) || !isfinite(df))
-    {
-      DBG("[%d][NR deriv] BL=%.9f   f=%.12f  df=%.12f\n",
-          i, x, f, df);
-      pllmod_set_error(PLLMOD_OPT_ERROR_NEWTON_DERIV,
-                       "Wrong likelihood derivatives");
-      return PLL_FAILURE;
-    }
-
-    if (df > 0.0)
-    {
-      if (fabs (f) < tolerance)
-        return x;
-
-      if (f < 0.0)
-        xl = x;
-      else
-        xh = x;
-
-      dx = -1 * f / df;
-    }
-    else
-    {
-//          dx = xl[root_num] + 0.5 * (xh[root_num] - xl[root_num]) - x[root_num];
-      dx = -1 * f / fabs(df);
-    }
-
-    dx = PLL_MAX(PLL_MIN(dx, dxmax), -dxmax);
-
-    if (x+dx < xl) dx = xl-x;
-    if (x+dx > xh) dx = xh-x;
-
-//    if ((x+dx < xl) || (x+dx > xh))
-//    {
-//      // reset to the middle of the current interval
-//      dx = xl + 0.5 * (xh - xl) - x;
-//    }
-
-    if (fabs (dx) < tolerance)
-      return x;
-
-    DBG("[%d][NR deriv] BL=%.9f   f=%.12f  df=%.12f  nextBL=%.9f\n",
-        i, x, f, df, x+dx);
-
-    x += dx;
-
-    x = PLL_MAX(PLL_MIN(x, xmax), xmin);
+    int_converged = (int *) calloc(xnum, sizeof(int));
+    converged = int_converged;
   }
 
-  pllmod_set_error(PLLMOD_OPT_ERROR_NEWTON_LIMIT,
-                   "Exceeded maximum number of iterations");
-  return PLL_FAILURE;
+  for (i = 0; i < xnum; i++)
+  {
+    x[i] = PLL_MAX(PLL_MIN(x[i], xmax), xmin);
+
+    xl[i] = xmin;
+    xh[i] = xmax;
+  }
+
+  while (!all_converged && !error_flag)
+  {
+    if (iter++ > max_iters)
+    {
+      pllmod_set_error(PLLMOD_OPT_ERROR_NEWTON_LIMIT,
+                       "Exceeded maximum number of iterations");
+      error_flag = 1;
+      break;
+    }
+
+    /* compute derivative for *all* functions in parallel */
+    deriv_func((void *)params, x, f, df);
+
+    /* for every function: check convergence and make the next guess */
+    all_converged = 1;
+    for (i = 0; i < xnum; i++)
+    {
+      double dx;
+
+      if (converged[i])
+        continue;
+
+      if (!isfinite(f[i]) || !isfinite(df[i]))
+      {
+        DBG("[it=%d][NR deriv][p=%d] BL=%.9f   f=%.12f  df=%.12f\n",
+            iter, i, x[i], f[i], df[i]);
+        pllmod_set_error(PLLMOD_OPT_ERROR_NEWTON_DERIV,
+                         "Wrong likelihood derivatives");
+        error_flag = 1;
+        break;
+      }
+
+      if (df[i] > 0.0)
+      {
+        if (fabs (f[i]) < tolerance)
+        {
+          converged[i] = 1;
+          continue;
+        }
+
+        if (f[i] < 0.0)
+          xl[i] = x[i];
+        else
+          xh[i] = x[i];
+
+        dx = -1 * f[i] / df[i];
+      }
+      else
+      {
+        dx = -1 * f[i] / fabs(df[i]);
+      }
+
+      dx = PLL_MAX(PLL_MIN(dx, dxmax), -dxmax);
+
+      if (x[i]+dx < xl[i]) dx = xl[i]-x[i];
+      if (x[i]+dx > xh[i]) dx = xh[i]-x[i];
+
+      if (fabs (dx) < tolerance)
+      {
+        converged[i] = 1;
+        continue;
+      }
+
+      DBG("[it=%d][NR deriv][p=%d] BL=%.9f   f=%.12f  df=%.12f  nextBL=%.9f\n",
+          iter, i, x[i], f[i], df[i], x[i]+dx);
+
+      x[i] += dx;
+
+      x[i] = PLL_MAX(PLL_MIN(x[i], xmax), xmin);
+
+      all_converged &= converged[i];
+    }
+  }
+
+  free(xl);
+  free(xh);
+  free(f);
+  free(df);
+  if (int_converged)
+    free(int_converged);
+
+  if (all_converged && !error_flag)
+    return PLL_SUCCESS;
+  else
+    return PLL_FAILURE;
 }
 
 
@@ -1114,7 +1224,7 @@ static int brent_opt_alt (int xnum,
 
     target_funk (params, u, fu, converged);
 
-//    DBG("iter: %d, u: %lf, fu: %lf\n", iter_num, u[2], fu[2]);
+    DBG("iter: %d, u: %lf, fu: %lf\n", iter_num, u[2], fu[2]);
 
     /* last element in converged[] array is "all converged" flag */
     iterate = !converged[xnum];
@@ -1140,11 +1250,14 @@ static int brent_opt_alt (int xnum,
   {
     xopt[i] = (brent_params[i].fx > brent_params[i].fstartx) ?
         brent_params[i].startx : brent_params[i].x;
+
+    DBG("xopt_PRE: %lf, LH_PRE: %lf\n", xopt[i], brent_params[i].fx);
   }
 
   target_funk (params, xopt, fx, NULL);
 
-  DBG("xopt: %lf, LH: %lf\n", xopt[2], fx ? fx[2] : NAN);
+//  for (i = 0; i < xnum; ++i)
+//    DBG("xopt: %lf, LH: %lf\n", xopt[i], fx ? fx[i] : NAN);
 
   free(u);
   free(fu);

@@ -111,7 +111,13 @@ static const pllmod_subst_model_alias_t dna_model_aliases[] =
 	{"TrNef", "TN93ef"},
 	{"TrN", "TN93"},
 	{"TPM1", "K81"},
-	{"TPM1uf", "K81uf"}
+	{"TPM1uf", "K81uf"},
+        {"TPM2ef", "TPM2"},
+        {"TPM3ef", "TPM3"},
+        {"TIM1ef", "TIM1"},
+        {"TIM2ef", "TIM2"},
+        {"TIM3ef", "TIM3"},
+
 };
 
 const int ALIAS_COUNT =

@@ -75,11 +75,9 @@ int main (int argc, char * argv[])
    unsigned int n_taxa = N_TAXA_SMALL;
    //unsigned int attributes = get_attributes(argc, argv);
 
-   /* fix RNG seed to arbitrary number */
-   srand(42);
-
    pll_utree_t * random_tree = pllmod_utree_create_random(n_taxa,
-                                                         (const char **)header);
+                                                         (const char **)header,
+                                                         42);
    pll_unode_t * root = random_tree->nodes[2*n_taxa - 3];
 
    /* set arbitrary branch lengths */

@@ -169,6 +169,9 @@ typedef struct
   unsigned int ** params_indices;
   double ** precomp_buffers;
   double ** brlen_buffers;
+  double * brlen_orig;
+  double * brlen_guess;
+  int * converged;
   double * brlen_scalers;
   double branch_length_min;
   double branch_length_max;
@@ -186,6 +189,21 @@ typedef struct
 /******************************************************************************/
 
 /* functions in opt_algorithms.c */
+
+/* core Newton-Raphson optimization function (multiple variables) */
+PLL_EXPORT int pllmod_opt_minimize_newton_multi(unsigned int xnum,
+                                                double xmin,
+                                                double * xguess,
+                                                double xmax,
+                                                double tolerance,
+                                                unsigned int max_iters,
+                                                int * converged,
+                                                void * params,
+                                                void (deriv_func)(void *,
+                                                          double *,
+                                                          double *, double *));
+
+/* core Newton-Raphson optimization function */
 PLL_EXPORT double pllmod_opt_minimize_newton(double xmin,
                                              double xguess,
                                              double xmax,
@@ -291,8 +309,8 @@ PLL_EXPORT double pllmod_opt_optimize_branch_lengths_local_multi (
                                               double * brlen_scalers,
                                               double branch_length_min,
                                               double branch_length_max,
-                                              double tolerance,
-                                              int smoothings,
+                                              double lh_epsilon,
+                                              int max_iters,
                                               int radius,
                                               int keep_update,
                                               int opt_method,

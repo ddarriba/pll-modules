@@ -27,10 +27,6 @@ set(TREE_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/consensus.c
 
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${PLLMOD_CFLAGS}")
 
-add_library(pllmodtree OBJECT ${TREE_SOURCES})
-target_include_directories(pllmodtree PRIVATE ${PLLMOD_INCLUDE_PATH} ${CMAKE_CURRENT_SOURCE_DIR})
-set_property(TARGET pllmodtree PROPERTY POSITION_INDEPENDENT_CODE 1)
-add_library(pllmodtree_shared SHARED $<TARGET_OBJECTS:pllmodtree>)
-add_library(pllmodtree_static STATIC $<TARGET_OBJECTS:pllmodtree>)
 
-target_link_libraries(pllmodtree_shared pll_shared) 
+add_pllmodules_lib(pllmodtree "${TREE_SOURCES}")
+target_include_directories(pllmodtree_obj PRIVATE ${PLLMOD_INCLUDE_PATH} ${CMAKE_CURRENT_SOURCE_DIR})

@@ -60,11 +60,15 @@ static void fill_consensus(pll_consensus_utree_t * consensus_tree);
 
 
 
-PLL_EXPORT int pllmod_utree_compatible_splits(pll_split_t s1,
-                                              pll_split_t s2,
-                                              unsigned int split_len)
+PLL_EXPORT int pllmod_utree_compatible_splits(const pll_split_t s1,
+                                              const pll_split_t s2,
+                                              unsigned int split_len,
+                                              unsigned int tip_count)
 {
   unsigned int i;
+  unsigned int split_size = sizeof(pll_split_base_t) * 8;
+  unsigned int split_offset = tip_count % split_size;
+  unsigned int mask = split_offset ? (1<<split_offset) - 1 : ~0;
 
   /* check conflicts between s1 and s2 */
   for(i = 0; i < split_len; i++)
@@ -89,6 +93,17 @@ PLL_EXPORT int pllmod_utree_compatible_splits(pll_split_t s1,
 
   if(i == split_len)
     return 1;
+
+  /* check conflicts between ~s1 and ~s2 */
+  for(i = 0; i < split_len-1; i++)
+    if(~s1[i] & ~s2[i])
+      break;
+
+  if (i == split_len-1 && !(~s1[i] & ~s2[i] & mask))
+    ++i;
+
+  if(i == split_len)
+    return 1;
   else
     return 0;
 }
@@ -100,8 +115,7 @@ PLL_EXPORT pll_consensus_utree_t * pllmod_utree_from_splits(
 {
   const pll_split_t * splits = split_system->splits;
   unsigned int split_size = sizeof(pll_split_base_t) * 8;
-  unsigned int split_offset = tip_count % split_size;
-  unsigned int split_len  = tip_count / split_size + (split_offset>0);
+  unsigned int split_len  = bitv_length(tip_count);
   unsigned int i;
   pll_unode_t * tree, * next_parent;
   pll_consensus_utree_t * return_tree;
@@ -231,7 +245,8 @@ PLL_EXPORT pll_consensus_utree_t * pllmod_utree_from_splits(
 
   reset_template_indices(tree, tip_count);
 
-  fill_consensus(return_tree);
+  if (return_tree)
+    fill_consensus(return_tree);
 
   /* return_tree == tree if sucess, or null if the algorithm failed */
   return return_tree;
@@ -329,10 +344,8 @@ PLL_EXPORT pll_consensus_utree_t * pllmod_utree_weight_consensus(
   pll_split_t * tree_splits;
   unsigned int i, j,
                tip_count = reference_tree->tip_count,
-               n_splits,
-               split_size = sizeof(pll_split_base_t) * 8,
-               split_offset,
-               split_len;
+               n_splits  = tip_count - 3,
+               split_len = bitv_length(tip_count);
 
   /* validate threshold */
   if (threshold > 1 || threshold < 0)
@@ -376,9 +389,6 @@ PLL_EXPORT pll_consensus_utree_t * pllmod_utree_weight_consensus(
                        (int) tipnodes[i]->node_index);
   }
 
-  split_offset = tip_count % split_size;
-  split_len  = tip_count / split_size + (split_offset>0);
-
   /* create hashtable */
   splits_hash = hash_init(tip_count * 10, tip_count);
 
@@ -393,7 +403,6 @@ PLL_EXPORT pll_consensus_utree_t * pllmod_utree_weight_consensus(
       return NULL;
     }
 
-    n_splits = tip_count - 3;
     tree_splits = pllmod_utree_split_create(current_tree->nodes[
                                                 current_tree->tip_count +
                                                 current_tree->inner_count - 1],
@@ -478,8 +487,6 @@ PLL_EXPORT pll_consensus_utree_t * pllmod_utree_consensus(
   unsigned int i,
                tip_count,
                n_splits,
-               split_size = sizeof(pll_split_base_t) * 8,
-               split_offset,
                split_len,
                tree_count,         /* number of trees */
                current_tree_index; /* for error management */
@@ -529,8 +536,7 @@ PLL_EXPORT pll_consensus_utree_t * pllmod_utree_consensus(
                        (int) tipnodes[i]->node_index);
   }
 
-  split_offset = tip_count % split_size;
-  split_len  = tip_count / split_size + (split_offset>0);
+  split_len = bitv_length(tip_count);
 
   /* create hashtable */
   splits_hash = hash_init(tip_count * 10, tip_count);
@@ -695,7 +701,7 @@ static pll_split_t * read_splits(FILE * file,
   }
   else
   {
-      splits = pll_utree_split_newick_string(tree_str,
+    splits = pll_utree_split_newick_string(tree_str,
                                              *tip_count,
                                              string_hashtable);
   }
@@ -842,7 +848,8 @@ static void mre(bitv_hashtable_t *h,
       pll_split_t split_consolidated = consensus->splits[j];
       if (!pllmod_utree_compatible_splits(split_candidate->bit_vector,
                                           split_consolidated,
-                                          split_len))
+                                          split_len,
+                                          h->bit_count))
       {
         compatible = 0;
         break;
@@ -1082,6 +1089,8 @@ static void reverse_split(pll_split_t split, unsigned int tip_count)
   unsigned int split_len  = tip_count / split_size + (split_offset>0);
   unsigned int i;
 
+  if (!split_offset) split_offset = split_size;
+
   for (i=0; i<split_len; ++i)
     split[i] = ~split[i];
 
@@ -1205,6 +1214,10 @@ static void fill_consensus_recurse(pll_consensus_utree_t * consensus_tree,
                                    pll_unode_t * node,
                                    unsigned int * cur_branch)
 {
+  assert(consensus_tree);
+  assert(cur_branch);
+  assert(node);
+
   pll_unode_t * child;
   unsigned int max_degree = consensus_tree->tip_count;
 
@@ -1240,6 +1253,9 @@ static void fill_consensus_recurse(pll_consensus_utree_t * consensus_tree,
 
 static void fill_consensus(pll_consensus_utree_t * consensus_tree)
 {
+  assert(consensus_tree);
+  assert(consensus_tree->tree);
+
   pll_unode_t * root = consensus_tree->tree;
   unsigned int cur_branch = 0;
 
