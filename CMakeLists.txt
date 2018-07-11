@@ -2,9 +2,7 @@ cmake_minimum_required (VERSION 2.8.10 FATAL_ERROR)
 
 project (Pll-modules)
 
-if(NOT PLLMODULES_LIBPLL_PATH)
-  set(PLLMODULES_LIBPLL_PATH "libs/libpll" CACHE STRING "" FORCE)
-endif()
+set(PLLMODULES_LIBPLL_PATH "${CMAKE_CURRENT_SOURCE_DIR}/libs/libpll" CACHE STRING "Libpll repository path")
 
 # Set BUILD_PLLMODULES_SHARED and BUILD_PLLMODULES_SHARED if both are unset
 # Use BUILD_SHARED_LIBS to decide whether we should build shared or static libraries
