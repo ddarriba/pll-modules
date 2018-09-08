@@ -69,9 +69,5 @@ examples/spr-round/spr-round
 examples/rf-distance/rf-distance
 examples/consensus/consensus
 
-# bison/flex generated
-src/tree/lex_split.c
-src/tree/split_utree.c
-src/tree/split_utree.h
 
 
