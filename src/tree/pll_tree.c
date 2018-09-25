@@ -311,18 +311,9 @@ PLL_EXPORT pll_utree_t * pllmod_utree_resolve_multi(const pll_utree_t * multi_tr
 
   pll_utree_t * bin_tree = pll_utree_clone(multi_tree);
 
-  if (bin_tree->binary)
-    return bin_tree;
-
   unsigned int tip_count = bin_tree->tip_count;
   unsigned int multi_node_count = bin_tree->tip_count + bin_tree->inner_count;
   unsigned int bin_node_count = 2 * tip_count -2;
-
-  if (random_seed)
-    shuffle_tree_nodes(bin_tree, random_seed);
-
-  bin_tree->nodes = (pll_unode_t **)realloc(bin_tree->nodes,
-                                            bin_node_count*sizeof(pll_unode_t *));
 
   // 1:1 CLV index mapping for existing nodes
   if (clv_index_map)
@@ -333,6 +324,15 @@ PLL_EXPORT pll_utree_t * pllmod_utree_resolve_multi(const pll_utree_t * multi_tr
       clv_index_map[clv_id] = clv_id;
     }
   }
+
+  if (bin_tree->binary)
+    return bin_tree;
+
+  if (random_seed)
+    shuffle_tree_nodes(bin_tree, random_seed);
+
+  bin_tree->nodes = (pll_unode_t **)realloc(bin_tree->nodes,
+                                            bin_node_count*sizeof(pll_unode_t *));
 
   // iterate over inner nodes, resolve multifurcations, and map new->old CLV indices
   unsigned int old_inner_count = bin_tree->inner_count;
