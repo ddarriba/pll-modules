@@ -44,6 +44,7 @@ static int cb_update_matrices_partials(pll_unode_t * node, void *data);
 static void shuffle_tree_nodes(const pll_utree_t * tree, unsigned int seed);
 static void split_multi_node(pll_utree_t * tree, pll_unode_t * first,
                              pll_unode_t * last, unsigned int degree);
+static char * default_support_fmt(double support);
 
 struct cb_params
 {
@@ -1469,6 +1470,51 @@ PLL_EXPORT pll_utree_t * pllmod_utree_expand(pll_unode_t * serialized_tree,
   return pll_utree_wraptree(tree, tip_count);
 }
 
+PLL_EXPORT int pllmod_utree_draw_support(pll_utree_t * ref_tree,
+                                         const double * support,
+                                         pll_unode_t ** node_map,
+                                         char * (*cb_serialize)(double) )
+{
+  if (!ref_tree || !support)
+  {
+    pllmod_set_error(PLL_ERROR_PARAM_INVALID, "Parameter is NULL!\n");
+    return PLL_FAILURE;
+  }
+
+  unsigned int split_count = ref_tree->tip_count - 3;
+  for (size_t i = 0; i < split_count; ++i)
+  {
+    pll_unode_t * node = node_map ? node_map[i] :
+                                    ref_tree->nodes[ref_tree->tip_count + i];
+
+    /* this has to be an inner node! */
+    assert(node->next);
+
+    if (node->label)
+      free(node->label);
+
+    node->label = node->next->label = node->next->next->label =
+        cb_serialize ? cb_serialize(support[i]) : default_support_fmt(support[i]);
+  }
+
+  /* set support value for the root branch to both adjacent nodes */
+  pll_unode_t * root = ref_tree->vroot;
+  if (!root->label && root->back->next)
+  {
+    assert(root->back->label);
+    root->label = root->next->label = root->next->next->label = strdup(root->back->label);
+  }
+  else if (!root->back->label && root->next)
+  {
+    assert(root->label);
+    root->back->label = root->back->next->label = root->back->next->next->label =
+        strdup(root->label);
+  }
+
+  return PLL_SUCCESS;
+}
+
+
 /******************************************************************************/
 /* Static functions */
 
@@ -1720,4 +1766,12 @@ static void split_multi_node(pll_utree_t * tree, pll_unode_t * first,
     // split new node if needed
     split_multi_node(tree, new_link, last, degree-1);
   }
+}
+
+static char * default_support_fmt(double support)
+{
+  char *sup_str;
+  int size_alloced = asprintf(&sup_str, "%lf", support);
+
+  return size_alloced >= 0 ? sup_str : NULL;
 }

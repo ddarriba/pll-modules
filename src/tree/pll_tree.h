@@ -285,6 +285,12 @@ PLL_EXPORT pll_unode_t * pllmod_utree_serialize(pll_unode_t * tree,
 PLL_EXPORT pll_utree_t * pllmod_utree_expand(pll_unode_t * serialized_tree,
                                              unsigned int tip_count);
 
+PLL_EXPORT int pllmod_utree_draw_support(pll_utree_t * ref_tree,
+                                         const double * support,
+                                         pll_unode_t ** node_map,
+                                         char * (*cb_serialize)(double));
+
+
 /* Topological operations */
 
 /* functions at rtree_operations.c */
@@ -423,6 +429,18 @@ PLL_EXPORT void pllmod_utree_split_show(pll_split_t split,
                                         unsigned int tip_count);
 
 PLL_EXPORT void pllmod_utree_split_destroy(pll_split_t * split_list);
+
+PLL_EXPORT unsigned int pllmod_utree_split_lightside(pll_split_t split,
+                                                     unsigned int tip_count);
+
+PLL_EXPORT unsigned int pllmod_utree_split_hamming_distance(pll_split_t s1,
+                                                            pll_split_t s2,
+                                                            unsigned int tip_count);
+
+PLL_EXPORT int pllmod_utree_split_transfer_support(pll_split_t * ref_splits,
+                                                   pll_split_t * bs_splits,
+                                                   unsigned int tip_count,
+                                                   double * support);
 
 PLL_EXPORT pll_split_t * pll_utree_split_newick_string(char * s,
                                                        unsigned int tip_count,

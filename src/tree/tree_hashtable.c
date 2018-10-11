@@ -286,7 +286,7 @@ int bitv_is_normalized(const pll_split_t bitv)
   return bitv[0]&1;
 }
 
-unsigned int bitv_length(unsigned int bit_count)
+inline unsigned int bitv_length(unsigned int bit_count)
 {
   unsigned int split_size = sizeof(pll_split_base_t) * 8;
   unsigned int split_offset = bit_count % split_size;
@@ -302,6 +302,30 @@ int bitv_compare(pll_split_t v1, pll_split_t v2, unsigned int bitv_len)
       return (int) (v1[i] > v2[i] ? 1 : -1);
   }
   return 0;
+}
+
+inline unsigned int bitv_popcount(const pll_split_t bitv, unsigned int bit_count,
+                                  unsigned int bitv_len)
+{
+  unsigned int setb = 0;
+  unsigned int i;
+
+  if (!bitv_len)
+    bitv_len = bitv_length(bit_count);
+
+  for (i = 0; i < bitv_len; ++i)
+  {
+    setb += (unsigned int) PLL_POPCNT32(bitv[i]);
+  }
+  return setb;
+}
+
+inline unsigned int bitv_lightside(const pll_split_t bitv, unsigned int bit_count,
+                                   unsigned int bitv_len)
+{
+  unsigned int setb = bitv_popcount(bitv, bit_count, bitv_len);
+
+  return PLL_MIN(setb, bit_count - setb);
 }
 
 /* string */

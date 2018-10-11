@@ -360,6 +360,158 @@ PLL_EXPORT pll_split_t pllmod_utree_split_from_tips(unsigned int * subtree_tip_i
   return split;
 }
 
+PLL_EXPORT unsigned int pllmod_utree_split_lightside(pll_split_t split,
+                                                     unsigned int tip_count)
+{
+  return bitv_lightside(split, tip_count, 0);
+}
+
+
+/* This function computes a classical Hamming distance between two tree splits */
+PLL_EXPORT unsigned int pllmod_utree_split_hamming_distance(pll_split_t s1,
+                                                            pll_split_t s2,
+                                                            unsigned int tip_count)
+{
+  unsigned int split_len = bitv_length(tip_count);
+  unsigned int hdist = 0;
+  unsigned int i;
+
+  for (i = 0; i < split_len; ++i)
+  {
+    hdist += PLL_POPCNT32(s1[i] ^ s2[i]);
+  }
+
+  return PLL_MIN(hdist, tip_count - hdist);
+}
+
+/* This function computes a lower bound of Hamming distance between splits:
+ * the computation terminates as soon as current distance values exceeds min_hdist.
+ * This allows for substantial time savings if we are looking for the
+ * minimum Hamming distance (as in TBE computation below).
+ *
+ * WARNING: This function does not check that hdist < N/2. Therefore,
+ * it should be called twice, with original and inverted s1 (or s2),
+ * to account for possible complementary split encoding.
+ * */
+PLL_EXPORT unsigned int utree_split_hamming_distance_lbound(pll_split_t s1,
+                                                            pll_split_t s2,
+                                                            unsigned int split_len,
+                                                            unsigned int min_hdist)
+{
+  unsigned int hdist = 0;
+  unsigned int i;
+
+  for (i = 0; (i < split_len) && (hdist <= min_hdist); ++i)
+  {
+    hdist += PLL_POPCNT32(s1[i] ^ s2[i]);
+  }
+
+  return hdist;
+}
+
+/* Compute Transfer Support (Lemoine et al., Nature 2018) for every split in ref_splits. */
+PLL_EXPORT int pllmod_utree_split_transfer_support(pll_split_t * ref_splits,
+                                                   pll_split_t * bs_splits,
+                                                   unsigned int tip_count,
+                                                   double * support)
+{
+  unsigned int i, j, k;
+  unsigned int split_count = tip_count - 3;
+  unsigned int split_len = bitv_length(tip_count);
+  unsigned int split_size  = sizeof(pll_split_base_t) * 8;
+  unsigned int split_offset = tip_count % split_size;
+  unsigned int split_mask = split_offset ? (1<<split_offset) - 1 : ~0;
+
+  if (!ref_splits || !bs_splits || !support)
+  {
+    pllmod_set_error(PLL_ERROR_PARAM_INVALID, "Parameter is NULL!\n");
+    return PLL_FAILURE;
+  }
+
+  bitv_hashtable_t * bs_splits_hash =
+                          pllmod_utree_split_hashtable_insert(NULL,
+                                                              bs_splits,
+                                                              tip_count,
+                                                              split_count,
+                                                              NULL,
+                                                              0);
+
+  if (!bs_splits_hash)
+  {
+    return PLL_FAILURE;
+  }
+
+  pll_split_t inv_split = (pll_split_t) calloc(split_len, sizeof(pll_split_base_t));
+  int * bs_light = calloc(split_count, sizeof(int));
+
+  if (!inv_split || !bs_light)
+  {
+    pllmod_utree_split_hashtable_destroy(bs_splits_hash);
+    pllmod_set_error(PLL_ERROR_MEM_ALLOC, "Cannot allocate memory\n");
+    return PLL_FAILURE;
+  }
+
+  /* precompute lightside size for all bootstrap splits */
+  for (j = 0; j < split_count; j++)
+  {
+    bs_light[j] = pllmod_utree_split_lightside(bs_splits[j], tip_count);
+  }
+
+  /* iterate over all splits of the reference tree */
+  for (i = 0; i < split_count; i++)
+  {
+    pll_split_t ref_split = ref_splits[i];
+    unsigned int p =  pllmod_utree_split_lightside(ref_split, tip_count);
+    unsigned int min_hdist = p - 1;
+
+    if (pllmod_utree_split_hashtable_lookup(bs_splits_hash, ref_split, tip_count))
+    {
+      /* found identical split in a bootstrap tree -> assign full support */
+      support[i] = 1.0;
+      continue;
+    }
+
+    /* inverse the reference split */
+    for (k = 0; k < split_len; ++k)
+    {
+      inv_split[k] = ~ref_split[k];
+    }
+    /* clear unused bits in the last array element */
+    inv_split[split_len-1] &= split_mask;
+
+    /* iterate over all splits of the bootstrap tree */
+    for (j = 0; j < split_count; j++)
+    {
+      unsigned int hdist, hdist_inv;
+
+      /* this split is too far away -> skip it */
+      if (abs(bs_light[j] - p) > min_hdist &&
+          abs(tip_count - bs_light[j] - p) > min_hdist)
+      {
+        continue;
+      }
+
+      //      unsigned int hdist = pllmod_utree_split_hamming_distance(ref_split, bs_splits[j], tip_count);
+      hdist = utree_split_hamming_distance_lbound(ref_split, bs_splits[j],
+                                                  split_len, min_hdist);
+      hdist_inv = utree_split_hamming_distance_lbound(inv_split, bs_splits[j],
+                                                      split_len, min_hdist);
+      min_hdist = PLL_MIN(min_hdist, hdist);
+      min_hdist = PLL_MIN(min_hdist, hdist_inv);
+    }
+
+    assert(min_hdist > 0);
+
+    support[i] = 1.0 - (((double) min_hdist) / (p - 1)) ;
+  }
+
+  pllmod_utree_split_hashtable_destroy(bs_splits_hash);
+  free(inv_split);
+  free(bs_light);
+
+  return PLL_SUCCESS;
+}
+
 /*
  * Note: This function returns the splits according to the node indices at the tips!
  *

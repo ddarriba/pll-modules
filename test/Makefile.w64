@@ -29,9 +29,14 @@ CFILES = src/binary/binary-sequential.c \
          src/optimize/blopt-minimal.c \
          src/optimize/blopt-5states.c \
          src/tree/random-tree.c \
+         src/tree/parsimony-tree.c \	 
          src/tree/treemove-nni.c \
          src/tree/treemove-spr.c \
-         src/tree/treemove-tbr.c
+         src/tree/rtreemove-spr.c \
+         src/tree/treemove-tbr.c \
+         src/tree/serialize.c \	 
+         src/tree/split-reconstruct.c \
+         src/tree/split-tbe.c
 
 OBJFILES = $(patsubst src/%.c, obj/%.exe, $(CFILES))
 OBJCOMMON = src/common.o

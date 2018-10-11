@@ -25,8 +25,6 @@ static void reverse_split(pll_split_t split, unsigned int tip_count);
 static int is_subsplit(pll_split_t child,
                        pll_split_t parent,
                        unsigned int split_len);
-static unsigned int setbit_count(pll_split_t split,
-                                 unsigned int split_len);
 static pll_unode_t * find_splitnode_recurse(pll_split_t split,
                                             pll_unode_t * root,
                                             unsigned int split_len);
@@ -869,26 +867,15 @@ static void mre(bitv_hashtable_t *h,
   return;
 }
 
-static unsigned int setbit_count(pll_split_t split,
-                                 unsigned int split_len)
-{
-  unsigned int setb = 0;
-  unsigned int i;
-
-  for (i=0; i<split_len; ++i)
-  {
-    setb += (unsigned int) __builtin_popcount(split[i]);
-  }
-  return setb;
-}
-
 static int get_split_id(pll_split_t split,
                         unsigned int split_len)
 {
-  unsigned int n_bits = setbit_count(split, split_len);
   int i, base_id, ctz;
-  int taxa_per_split = 8 * sizeof(split_len);
+  int taxa_per_split = 8 * sizeof(pll_split_base_t);
   int id = -1;
+  //  unsigned int n_bits = setbit_count(split, split_len);
+  unsigned int n_bits = bitv_popcount(split, taxa_per_split * split_len,
+                                      split_len);
 
   if (n_bits != 1)
   {
