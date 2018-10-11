@@ -328,7 +328,7 @@ int main (int argc, char * argv[])
 
   /* dump 5 arbitrary CLVs and save original values*/
   const int n_clvs   = 5;
-  size_t clv_size = partition->states_padded * partition->rate_cats * partition->sites;
+//  size_t clv_size = partition->states_padded * partition->rate_cats * partition->sites;
 
   double * saved_clvs[n_clvs];
   for (unsigned int i = 0; i < n_clvs; ++i)
