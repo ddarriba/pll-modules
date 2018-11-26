@@ -238,9 +238,9 @@ double ddotRef(int *n, double *dx, int *incx, double *dy,
     for (i = 1; i <= m; ++i)
       dtemp += DX(i)* DY(i);
 
-      if (*n < 5)
+    if (*n < 5)
       return dtemp;
-    }
+  }
 
   for (i = m+1; i <= *n; i += 5)
   {

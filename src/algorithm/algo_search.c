@@ -876,6 +876,8 @@ static double reinsert_nodes(pllmod_treeinfo_t * treeinfo, pll_unode_t ** nodes,
       pll_unode_t * orig_prune_edge = p_edge->next->back;
       int retval = algo_utree_spr(treeinfo, params, p_edge, best_r_edge, rollback);
       assert(retval == PLL_SUCCESS);
+      if (!retval)
+        return PLL_FAILURE;
 
       algo_unode_fix_length(treeinfo, orig_prune_edge, params->bl_min, params->bl_max);
 
@@ -1030,7 +1032,8 @@ PLL_EXPORT double pllmod_algo_spr_round(pllmod_treeinfo_t * treeinfo,
     goto error_exit;
   }
 
-  assert(algo_query_allnodes(treeinfo->root, allnodes) == allnodes_count);
+  int node_count = algo_query_allnodes(treeinfo->root, allnodes);
+  assert(node_count == allnodes_count);
 
   loglh = reinsert_nodes(treeinfo,
                          allnodes,

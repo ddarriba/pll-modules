@@ -1486,7 +1486,9 @@ static int recomp_iterative_multi(pll_newton_tree_params_multi_t * params,
     case PLLMOD_OPT_BLO_NEWTON_FALLBACK:
       // TODO: adapt for unlinked branches
       params->brlen_buffers[0][tr_p->pmatrix_index] = tr_p->length;
+      retval = PLL_FAILURE;
       assert(0);
+      break;
     case PLLMOD_OPT_BLO_NEWTON_OLDFAST:
     case PLLMOD_OPT_BLO_NEWTON_OLDSAFE:
     {
@@ -1499,10 +1501,12 @@ static int recomp_iterative_multi(pll_newton_tree_params_multi_t * params,
     break;
     case PLLMOD_OPT_BLO_NEWTON_GLOBAL:
     {
+      retval = PLL_FAILURE;
       assert(0);
     }
     break;
     default:
+      retval = PLL_FAILURE;
       assert(0);
   }
 
