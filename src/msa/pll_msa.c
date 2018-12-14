@@ -470,6 +470,89 @@ static int find_duplicate_strings(char ** const strings,
   return PLL_SUCCESS;
 }
 
+PLL_EXPORT pllmod_msa_errors_t * pllmod_msa_check(const pll_msa_t * msa,
+                                                  const pll_state_t * tipmap)
+{
+  unsigned long i, j;
+
+  if (!msa)
+  {
+    pllmod_set_error(PLL_ERROR_PARAM_INVALID,
+              "MSA structure is NULL");
+    return PLL_FAILURE;
+  }
+
+  if (!tipmap)
+  {
+    pllmod_set_error(PLL_ERROR_PARAM_INVALID,
+              "Character-to-state mapping (charmap) is NULL");
+    return PLL_FAILURE;
+  }
+
+  pllmod_msa_errors_t * errs =
+      (pllmod_msa_errors_t *) calloc(1, sizeof(pllmod_msa_errors_t));
+
+  if (!errs)
+  {
+    pllmod_set_error(PLL_ERROR_MEM_ALLOC,
+                     "Cannot allocate memory for MSA error structure");
+    return NULL;
+  }
+
+  errs->status = PLL_SUCCESS;
+
+  const unsigned long msa_count = (unsigned long) msa->count;
+  const unsigned long msa_length = (unsigned long) msa->length;
+  for (i = 0; i < msa_count; ++i)
+  {
+    const unsigned char *seqchars = (unsigned char *) msa->sequence[i];
+    for (j = 0; j < msa_length; ++j)
+    {
+      const int c = (int) seqchars[j];
+      const pll_state_t state = tipmap[c];
+
+      if (!state)
+      {
+        if (!errs->invalid_chars)
+        {
+          errs->invalid_chars =
+              (char *) calloc(PLLMOD_MSA_MAX_ERRORS, sizeof(char));
+          errs->invalid_char_seq =
+              (unsigned long *) calloc(PLLMOD_MSA_MAX_ERRORS, sizeof(unsigned long));
+          errs->invalid_char_pos =
+              (unsigned long *) calloc(PLLMOD_MSA_MAX_ERRORS, sizeof(unsigned long));
+        }
+        errs->invalid_chars[errs->invalid_char_count] = c;
+        errs->invalid_char_seq[errs->invalid_char_count] = i;
+        errs->invalid_char_pos[errs->invalid_char_count] = j;
+        errs->invalid_char_count++;
+      }
+    }
+  }
+
+  if (errs->invalid_char_count > 0)
+  {
+    errs->status = PLL_FAILURE;
+  }
+
+  return errs;
+}
+
+PLL_EXPORT void pllmod_msa_destroy_errors(pllmod_msa_errors_t * errs)
+{
+  if (!errs)
+    return;
+
+  if (errs->invalid_chars)
+    free(errs->invalid_chars);
+
+  if (errs->invalid_char_seq)
+    free(errs->invalid_char_seq);
+
+  if (errs->invalid_char_pos)
+    free(errs->invalid_char_pos);
+}
+
 /**
  *  Compute diverse alignment statistics (see @param stats_mask for details)
  *

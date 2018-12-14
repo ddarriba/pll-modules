@@ -38,6 +38,9 @@
 #define PLLMOD_MSA_STATS_SUBST_RATES (1<<8)
 #define PLLMOD_MSA_STATS_ALL         (~0)
 
+#define PLLMOD_MSA_MAX_ERRORS        100
+
+
 typedef struct msa_stats
 {
   unsigned int states;
@@ -62,9 +65,23 @@ typedef struct msa_stats
   double * subst_rates;
 } pllmod_msa_stats_t;
 
+typedef struct msa_errors
+{
+  unsigned long invalid_char_count;
+  char * invalid_chars;
+  unsigned long * invalid_char_seq;
+  unsigned long * invalid_char_pos;
+  int status;
+} pllmod_msa_errors_t;
+
 PLL_EXPORT double * pllmod_msa_empirical_frequencies(pll_partition_t * partition);
 PLL_EXPORT double * pllmod_msa_empirical_subst_rates(pll_partition_t * partition);
 PLL_EXPORT double pllmod_msa_empirical_invariant_sites(pll_partition_t *partition);
+
+PLL_EXPORT pllmod_msa_errors_t * pllmod_msa_check(const pll_msa_t * msa,
+                                                  const pll_state_t * tipmap);
+
+PLL_EXPORT void pllmod_msa_destroy_errors(pllmod_msa_errors_t * errs);
 
 PLL_EXPORT pllmod_msa_stats_t * pllmod_msa_compute_stats(const pll_msa_t * msa,
                                                          unsigned int states,
