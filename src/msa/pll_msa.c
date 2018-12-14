@@ -515,6 +515,7 @@ PLL_EXPORT pllmod_msa_errors_t * pllmod_msa_check(const pll_msa_t * msa,
       {
         if (!errs->invalid_chars)
         {
+          errs->status = PLL_FAILURE;
           errs->invalid_chars =
               (char *) calloc(PLLMOD_MSA_MAX_ERRORS, sizeof(char));
           errs->invalid_char_seq =
@@ -526,13 +527,10 @@ PLL_EXPORT pllmod_msa_errors_t * pllmod_msa_check(const pll_msa_t * msa,
         errs->invalid_char_seq[errs->invalid_char_count] = i;
         errs->invalid_char_pos[errs->invalid_char_count] = j;
         errs->invalid_char_count++;
+        if (errs->invalid_char_count >= PLLMOD_MSA_MAX_ERRORS)
+          return errs;
       }
     }
-  }
-
-  if (errs->invalid_char_count > 0)
-  {
-    errs->status = PLL_FAILURE;
   }
 
   return errs;
