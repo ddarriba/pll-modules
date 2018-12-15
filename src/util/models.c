@@ -338,7 +338,8 @@ PLL_EXPORT void pllmod_util_model_mixture_destroy(pllmod_mixture_model_t * mixtu
  * @param states number of states
  * @param statechars characters that encode states, in respective order (e.g. "ACGT")
  * @param gapchars characters that represent gap/missing data (e.g. "-.?N")
- * @param case_sensitive if 0, statechars
+ * @param case_sensitive if 0, then letter case in statechars is irrelevant,
+ *                       i.e. 'A' and 'a' encode the same state
  *
  * @return character map
  */
@@ -408,3 +409,147 @@ PLL_EXPORT pll_state_t * pllmod_util_charmap_create(unsigned int states,
   return map;
 }
 
+/**
+ * @brief Parses a custom libpll character map (ASCII code -> bit-encoded state)
+ *        from a file
+ *
+ * @param states number of states
+ * @param fname name of the file with charmap definition
+ * @param case_sensitive if 0, then letter case in statechars is irrelevant,
+ *                       i.e. 'A' and 'a' encode the same state
+ *
+ * @return character map
+ */
+PLL_EXPORT pll_state_t * pllmod_util_charmap_parse(unsigned int states,
+                                                    const char * fname,
+                                                    int case_sensitive,
+                                                    char ** state_names)
+{
+  size_t i, j;
+  static const unsigned int maxstates = sizeof(pll_state_t) * 8;
+  unsigned int obs_states, mod_states;
+
+  if (states > maxstates)
+  {
+    pllmod_set_error(PLLMOD_UTIL_ERROR_MODEL_INVALID_DEF,
+                     "The specified number of states (%u) "
+                     "exceeds the allowed maximum (%u)",
+                     states, maxstates);
+    return NULL;
+  }
+
+  FILE * f = fopen(fname, "r");
+
+  if (!f)
+  {
+    pllmod_set_error(PLL_ERROR_FILE_OPEN, "Cannot open file: %s", fname);
+    return PLL_FAILURE;
+  }
+
+
+  if (fscanf(f, "%u %u", &obs_states, &mod_states) != 2)
+  {
+    pllmod_set_error(PLLMOD_UTIL_ERROR_MODEL_INVALID_MAPFILE,
+                     "Invalid character map file: %s", fname);
+    return PLL_FAILURE;
+  }
+
+  if (mod_states != states)
+  {
+    pllmod_set_error(PLLMOD_UTIL_ERROR_MODEL_INVALID_MAPFILE,
+                     "Invalid number of states in the charmap file: %u",
+                     mod_states);
+    return PLL_FAILURE;
+  }
+
+  char statechars[1024];
+  if (fscanf(f, "%1024s", statechars) != 1)
+  {
+    pllmod_set_error(PLLMOD_UTIL_ERROR_MODEL_INVALID_MAPFILE,
+                     "Error reading observed state list");
+    return PLL_FAILURE;
+  }
+
+  if (obs_states != strlen(statechars))
+  {
+    pllmod_set_error(PLLMOD_UTIL_ERROR_MODEL_INVALID_MAPSTRING,
+                     "Length of the character map string (%u) does not "
+                     "correspond to the declared number of observed states (%u)",
+                     strlen(statechars), obs_states);
+    return NULL;
+  }
+
+  /* read state names */
+  for (i = 0; i < mod_states;  ++i)
+  {
+    char sname[1024];
+    if (fscanf(f, "%1024s", sname) != 1)
+    {
+      pllmod_set_error(PLLMOD_UTIL_ERROR_MODEL_INVALID_MAPFILE,
+                       "Error reading name of state # %u", i);
+      return PLL_FAILURE;
+    }
+    if (state_names)
+      state_names[i] = strdup(sname);
+  }
+
+  pll_state_t * map = calloc(256, sizeof(pll_state_t));
+
+  /* fill map */
+  for (i = 0; i < obs_states;  ++i)
+  {
+    char ostate;
+    while (fscanf(f, "\n") || fscanf(f, "\r"));
+    if (fscanf(f, "%c", &ostate) != 1)
+    {
+      pllmod_set_error(PLLMOD_UTIL_ERROR_MODEL_INVALID_MAPFILE,
+                       "Error reading observed state %u", i);
+      free(map);
+      return PLL_FAILURE;
+    }
+
+    if (!strchr(statechars, ostate))
+    {
+      pllmod_set_error(PLLMOD_UTIL_ERROR_MODEL_INVALID_MAPFILE,
+                       "Undeclared observed state: %c", ostate);
+      free(map);
+      return PLL_FAILURE;
+    }
+
+    pll_state_t mstate = 1;
+    int c = (int) ostate;
+    for (j = 0; j < mod_states;  ++j)
+    {
+      int flag;
+      if (fscanf(f, "%d", &flag) != 1 && fscanf(f, ",%d", &flag) != 1)
+      {
+        pllmod_set_error(PLLMOD_UTIL_ERROR_MODEL_INVALID_MAPFILE,
+                         "Error reading state map value: %c -> %u", c, j);
+        free(map);
+        return PLL_FAILURE;
+      }
+
+      if (flag)
+      {
+        if (case_sensitive)
+        {
+          map[c] |= mstate;
+        }
+        else
+        {
+          map[tolower(c)] |= mstate;
+          map[toupper(c)] |= mstate;
+        }
+      }
+
+      mstate <<= 1;
+    }
+
+    assert(( (unsigned int) PLL_STATE_CTZ(mstate) == states) ||
+             (states == maxstates && mstate == 0));
+  }
+
+  fclose(f);
+
+  return map;
+}

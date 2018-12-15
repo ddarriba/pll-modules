@@ -31,6 +31,7 @@
 #define PLLMOD_UTIL_ERROR_MODEL_UNKNOWN                5001
 #define PLLMOD_UTIL_ERROR_MODEL_INVALID_DEF            5002
 #define PLLMOD_UTIL_ERROR_MODEL_INVALID_MAPSTRING      5003
+#define PLLMOD_UTIL_ERROR_MODEL_INVALID_MAPFILE        5004
 #define PLLMOD_UTIL_ERROR_MIXTURE_INVALID_SIZE         5011
 #define PLLMOD_UTIL_ERROR_MIXTURE_INVALID_COMPONENT    5012
 
@@ -78,8 +79,12 @@ PLL_EXPORT double * pllmod_util_get_equal_rates(unsigned int states);
 PLL_EXPORT pll_state_t * pllmod_util_charmap_create(unsigned int states,
                                                     const char * statechars,
                                                     const char * gapchars,
-                                                    int case_sensitive
-                                                    );
+                                                    int case_sensitive);
+
+PLL_EXPORT pll_state_t * pllmod_util_charmap_parse(unsigned int states,
+                                                    const char * fname,
+                                                    int case_sensitive,
+                                                    char ** state_names);
 
 PLL_EXPORT pllmod_subst_model_t * pllmod_util_model_create_custom(const char * name,
                                                                   unsigned int states,
