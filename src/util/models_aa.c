@@ -44,6 +44,7 @@ const pllmod_subst_model_t M_HIVW     = {"HIVW",      20, pll_aa_rates_hivw,    
 const pllmod_subst_model_t M_JTTDCMUT = {"JTT-DCMUT", 20, pll_aa_rates_jttdcmut, pll_aa_freqs_jttdcmut, NULL, NULL, 0 };
 const pllmod_subst_model_t M_FLU      = {"FLU",       20, pll_aa_rates_flu,      pll_aa_freqs_flu,      NULL, NULL, 0 };
 const pllmod_subst_model_t M_STMTREV  = {"STMTREV",   20, pll_aa_rates_stmtrev,  pll_aa_freqs_stmtrev,  NULL, NULL, 0 };
+const pllmod_subst_model_t M_DEN      = {"DEN",       20, pll_aa_rates_den,      pll_aa_freqs_den,      NULL, NULL, 0 };
 
 /* LG4M components */
 const pllmod_subst_model_t M_LG4M1    = {"LG4M1",     20, pll_aa_rates_lg4m[0],  pll_aa_freqs_lg4m[0],  NULL, NULL, 0 };
@@ -81,6 +82,7 @@ static const pllmod_subst_model_t * prot_model_list[] =
     &M_JTTDCMUT,
     &M_FLU,
     &M_STMTREV,
+    &M_DEN,
 
     &M_LG4M1,
     &M_LG4M2,
