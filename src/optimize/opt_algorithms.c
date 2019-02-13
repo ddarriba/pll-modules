@@ -1067,8 +1067,7 @@ static int brent_opt_alt (int xnum,
   double * fc = (double *) calloc(xnum, sizeof(double));
   double * fxmin = (double *) calloc(xnum, sizeof(double));
   double * fxmax = (double *) calloc(xnum, sizeof(double));
-  int * init_ok = (int *) calloc(xnum+1, sizeof(int));
-
+  int * converged = (int *) calloc(xnum+1, sizeof(int));
 
   double * l_xmin = NULL;
   double * l_xmax = NULL;
@@ -1154,9 +1153,6 @@ static int brent_opt_alt (int xnum,
   target_funk (params, l_xmin, fxmin, NULL);
   target_funk (params, l_xmax, fxmax, NULL);
 
-  for (i = 0; i < xnum; ++i)
-    init_ok[i] = 1;
-
   /* check if this works */
   for (i = 0; i < xnum; ++i)
   {
@@ -1179,8 +1175,8 @@ static int brent_opt_alt (int xnum,
     if (!brent_opt_init(ax[i], xguess[i], cx[i], xtol, fx, f2x,
                         fa[i], fb[i], fc[i], &brent_params[i]))
     {
-      init_ok[i] = 0;
-      break;
+      DBG("BRENT: converged for partition: %d \n", i);
+      converged[i] = 1;
     }
   }
 
@@ -1198,21 +1194,6 @@ static int brent_opt_alt (int xnum,
     free(l_xmax);
   }
 
-  // check if BRENT initialization has failed in *any* of the threads
-  target_funk (params, NULL, NULL, init_ok);
-  int init_failed = !init_ok[xnum];
-  free(init_ok);
-
-  if (init_failed)
-  {
-    /* restore the original parameter value */
-    target_funk (params, xguess, fx, NULL);
-    free(brent_params);
-    pllmod_set_error(PLLMOD_OPT_ERROR_BRENT_INIT, "BRENT: initialization failed!");
-    return PLL_FAILURE;
-  }
-
-  int * converged = (int *) calloc(xnum+1, sizeof(int));
   double * u = (double *) calloc(xnum, sizeof(double));
   double * fu = (double *) calloc(xnum, sizeof(double));
 
