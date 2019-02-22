@@ -17,6 +17,7 @@ set(TREE_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/consensus.c
   ${CMAKE_CURRENT_SOURCE_DIR}/tree_hashtable.c
   ${CMAKE_CURRENT_SOURCE_DIR}/treeinfo.c
   ${CMAKE_CURRENT_SOURCE_DIR}/utree_distances.c
+  ${CMAKE_CURRENT_SOURCE_DIR}/tbe_functions.c
   ${CMAKE_CURRENT_SOURCE_DIR}/utree_operations.c
   ${BISON_split_utree_t_OUTPUTS}
   ${FLEX_lex_split_t_OUTPUTS}
