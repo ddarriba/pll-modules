@@ -26,6 +26,8 @@
 #include "pll.h"
 #endif
 
+#include "stdbool.h"
+
 /**
  * PLL Tree utils module
  * Prefix: pll_tree_, pll_utree_, pll_rtree_
@@ -679,5 +681,21 @@ PLL_EXPORT int pllmod_treeinfo_set_constraint_tree(pllmod_treeinfo_t * treeinfo,
 PLL_EXPORT int pllmod_treeinfo_check_constraint(pllmod_treeinfo_t * treeinfo,
                                                 pll_unode_t * subtree,
                                                 pll_unode_t * regraft_edge);
+
+/* tbe_functions.c */
+
+typedef struct refsplit_info
+{
+  unsigned int p;
+  bool subtree_res;
+  unsigned int left_leaf_idx;
+  unsigned int right_leaf_index;
+} refsplit_info_t;
+
+PLL_EXPORT refsplit_info_t* init_ref_splits_tbe(pll_unode_t * ref_root, unsigned int tip_count, const pll_unode_t** split_to_node_map);
+
+/* Compute Transfer Support (Lemoine et al., Nature 2018) for every split in ref_splits. Sarahs implementation of the algorithm from the Nature paper. */
+PLL_EXPORT int pllmod_utree_split_transfer_support_nature(pll_split_t * ref_splits, pll_split_t * bs_splits, pll_unode_t* bs_root,
+		unsigned int tip_count, double * support, refsplit_info_t* split_info);
 
 #endif /* PLL_TREE_H_ */
