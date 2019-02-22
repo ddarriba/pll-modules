@@ -79,7 +79,7 @@ void run_tbe_test(char* tree1_str, char* tree2_str)
 
   assert(tree1->tip_count == tree2->tip_count);
 
-  pllmod_utree_split_transfer_support(splits1, splits2, tree1->tip_count, tbe);
+  pllmod_utree_tbe_naive(splits1, splits2, tree1->tip_count, tbe);
 
   pllmod_utree_draw_support(tree1, tbe, node_split_map, NULL);
 
