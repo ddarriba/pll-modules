@@ -407,18 +407,30 @@ static void algo_unode_fix_length(pllmod_treeinfo_t * treeinfo,
       {
         double p_brlen = treeinfo->branch_lengths[p][pmatrix_index];
         if (p_brlen < bl_min)
+        {
           pllmod_treeinfo_set_branch_length_partition(treeinfo, node, p, bl_min);
+          treeinfo->pmatrix_valid[p][pmatrix_index] = 0;
+        }
         else if (p_brlen > bl_max)
-          pllmod_treeinfo_set_branch_length_partition(treeinfo, node, p, bl_min);
+        {
+          pllmod_treeinfo_set_branch_length_partition(treeinfo, node, p, bl_max);
+          treeinfo->pmatrix_valid[p][pmatrix_index] = 0;
+        }
       }
     }
   }
   else
   {
     if (node->length < bl_min)
+    {
       pllmod_treeinfo_set_branch_length(treeinfo, node, bl_min);
+      pllmod_treeinfo_invalidate_pmatrix(treeinfo, node);
+    }
     else if (node->length > bl_max)
+    {
       pllmod_treeinfo_set_branch_length(treeinfo, node, bl_max);
+      pllmod_treeinfo_invalidate_pmatrix(treeinfo, node);
+    }
   }
 }
 
@@ -697,10 +709,6 @@ static int best_reinsert_edge(pllmod_treeinfo_t * treeinfo,
     retval = algo_utree_regraft(treeinfo, params, p_edge, r_edge);
     assert(retval == PLL_SUCCESS);
 
-    /* invalidate p-matrices */
-    pllmod_treeinfo_invalidate_pmatrix(treeinfo, p_edge->next);
-    pllmod_treeinfo_invalidate_pmatrix(treeinfo, p_edge->next->next);
-
     /* place root at the pruning branch and invalidate CLV at the new root */
     pllmod_treeinfo_set_root(treeinfo, p_edge);
     pllmod_treeinfo_invalidate_clv(treeinfo, p_edge);
@@ -713,6 +721,10 @@ static int best_reinsert_edge(pllmod_treeinfo_t * treeinfo,
     /* make sure branches are within limits */
     algo_unode_fix_length(treeinfo, p_edge->next, params->bl_min, params->bl_max);
     algo_unode_fix_length(treeinfo, p_edge->next->next, params->bl_min, params->bl_max);
+
+    /* invalidate p-matrices */
+    pllmod_treeinfo_invalidate_pmatrix(treeinfo, p_edge->next);
+    pllmod_treeinfo_invalidate_pmatrix(treeinfo, p_edge->next->next);
 
     /* recompute p-matrices for branches adjacent to regrafting point */
     algo_update_pmatrix(treeinfo, p_edge->next);

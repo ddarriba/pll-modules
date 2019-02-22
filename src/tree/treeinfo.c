@@ -459,6 +459,7 @@ int pllmod_treeinfo_set_branch_length_partition(pllmod_treeinfo_t * treeinfo,
                                                 double length)
 {
   unsigned int pmatrix_index = edge->pmatrix_index;
+  const int old_active_partition = treeinfo->active_partition;
 
   if (!pllmod_treeinfo_set_active_partition(treeinfo, partition_index))
       return PLL_FAILURE;
@@ -478,6 +479,8 @@ int pllmod_treeinfo_set_branch_length_partition(pllmod_treeinfo_t * treeinfo,
         treeinfo->branch_lengths[p][pmatrix_index] = length;
     }
   }
+
+  treeinfo->active_partition = old_active_partition;
 
 #if 0
   /* invalidate p-matrices */

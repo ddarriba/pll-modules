@@ -1772,6 +1772,10 @@ PLL_EXPORT double pllmod_opt_optimize_branch_lengths_local_multi (
     return (double)PLL_FAILURE;
   }
 
+  /* make sure p-matrices are up-to-date */
+  update_prob_matrices(partitions, partition_count, params_indices,
+                       brlen_buffers, brlen_scalers, tree);
+
   /* get the initial likelihood score */
   loglikelihood = pllmod_opt_compute_edge_loglikelihood_multi (
                                                       partitions,
