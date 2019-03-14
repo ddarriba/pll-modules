@@ -484,8 +484,7 @@ PLL_EXPORT pll_consensus_utree_t * pllmod_utree_from_splits(
 PLL_EXPORT pll_split_system_t * pllmod_utree_split_consensus(
                                                 bitv_hashtable_t * splits_hash,
                                                 unsigned int tip_count,
-                                                double threshold,
-                                                unsigned int split_len);
+                                                double threshold);
 
 PLL_EXPORT pll_consensus_utree_t * pllmod_utree_weight_consensus(
                                                     pll_utree_t * const * trees,
@@ -498,7 +497,10 @@ PLL_EXPORT pll_consensus_utree_t * pllmod_utree_consensus(
                                                     double threshold,
                                                     unsigned int * tree_count);
 
+PLL_EXPORT void pllmod_utree_split_system_destroy(pll_split_system_t * split_system);
+
 PLL_EXPORT void pllmod_utree_consensus_destroy(pll_consensus_utree_t * tree);
+
 
 /* Additional utilities */
 /* functions at pll_tree.c */

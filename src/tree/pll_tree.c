@@ -1481,7 +1481,7 @@ PLL_EXPORT int pllmod_utree_draw_support(pll_utree_t * ref_tree,
     return PLL_FAILURE;
   }
 
-  unsigned int split_count = ref_tree->tip_count - 3;
+  unsigned int split_count = ref_tree->edge_count - ref_tree->tip_count;
   for (size_t i = 0; i < split_count; ++i)
   {
     pll_unode_t * node = node_map ? node_map[i] :

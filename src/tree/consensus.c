@@ -122,9 +122,25 @@ PLL_EXPORT pll_consensus_utree_t * pllmod_utree_from_splits(
   pll_split_t * all_splits;
 
   return_tree = (pll_consensus_utree_t *) malloc (sizeof(pll_consensus_utree_t));
+
+  if (!return_tree)
+  {
+    pllmod_set_error(PLL_ERROR_MEM_ALLOC,
+                     "Cannot allocate memory for consensus tree!");
+    return NULL;
+  }
+
   return_tree->tip_count = tip_count;
   return_tree->branch_count = split_system->split_count;
   return_tree->branch_data = (pll_consensus_data_t * ) malloc (return_tree->branch_count * sizeof(pll_consensus_data_t));
+
+  if (!return_tree->branch_data)
+  {
+    free(return_tree);
+    pllmod_set_error(PLL_ERROR_MEM_ALLOC,
+                     "Cannot allocate memory for consensus tree!");
+    return NULL;
+  }
 
   if (split_system->split_count == 0)
   {
@@ -246,32 +262,49 @@ PLL_EXPORT pll_consensus_utree_t * pllmod_utree_from_splits(
   if (return_tree)
     fill_consensus(return_tree);
 
-  /* return_tree == tree if sucess, or null if the algorithm failed */
+  /* return_tree == tree if success, or null if the algorithm failed */
   return return_tree;
 }
 
 PLL_EXPORT pll_split_system_t * pllmod_utree_split_consensus(
                                                 bitv_hashtable_t * splits_hash,
                                                 unsigned int tip_count,
-                                                double threshold,
-                                                unsigned int split_len)
+                                                double threshold)
 {
   unsigned int i;
   unsigned int max_splits = tip_count - 3;
+  unsigned int split_len = bitv_length(tip_count);
   pll_split_system_t * split_system;
-  double thr_support;
   double min_support = threshold;
-  if (threshold > .5)
-    thr_support = min_support;
-  else
-    thr_support = .5 + EPSILON;
+  double max_support = 1.0;
+  double thr_support = PLL_MAX(min_support, .5);
+  if (thr_support == max_support)
+     thr_support -= EPSILON;
 
   split_system = (pll_split_system_t *) calloc(1, sizeof(pll_split_system_t));
+
+  if (!split_system)
+  {
+    pllmod_set_error(PLL_ERROR_MEM_ALLOC,
+                     "Cannot allocate memory for split system!");
+    return NULL;
+  }
+
   split_system->splits = (pll_split_t *) calloc(max_splits,
                                                sizeof(pll_split_t));
   split_system->support = (double *) calloc(max_splits, sizeof(double));
   split_system->split_count = 0;
-  split_system->max_support = 1.0;
+  split_system->max_support = max_support;
+
+  if (!split_system->splits || !split_system->support)
+  {
+    free(split_system);
+    if (split_system->splits) free(split_system->splits);
+    if (split_system->support) free(split_system->support);
+    pllmod_set_error(PLL_ERROR_MEM_ALLOC,
+                     "Cannot allocate memory for split system!");
+    return NULL;
+  }
 
   for (i=0; i<splits_hash->table_size; ++i)
   {
@@ -279,14 +312,17 @@ PLL_EXPORT pll_split_system_t * pllmod_utree_split_consensus(
     bitv_hash_entry_t ** e_ptr = &(splits_hash->table[i]);
     while (e != NULL)
     {
-      int delete_split = e->support < min_support || e->support >= thr_support;
-      if (e->support >= thr_support)
+      int delete_split = 0;
+      if (e->support > thr_support)
       {
         assert (split_system->split_count < max_splits);
         split_system->support[split_system->split_count] = e->support;
         split_system->splits[split_system->split_count] = clone_split(e->bit_vector, split_len);
         split_system->split_count++;
+        delete_split = 1;
       }
+      else
+        delete_split = (min_support > 0.) && (e->support <= min_support);
 
       if (delete_split)
       {
@@ -303,14 +339,13 @@ PLL_EXPORT pll_split_system_t * pllmod_utree_split_consensus(
     }
   }
 
-  if (min_support < thr_support)
+  if (min_support < .5 && splits_hash->entry_count > 0)
   {
     mre(splits_hash,
         split_system,
         split_len,
         max_splits);
   }
-  hash_destroy(splits_hash);
 
   return split_system;
 }
@@ -342,8 +377,7 @@ PLL_EXPORT pll_consensus_utree_t * pllmod_utree_weight_consensus(
   pll_split_t * tree_splits;
   unsigned int i, j,
                tip_count = reference_tree->tip_count,
-               n_splits  = tip_count - 3,
-               split_len = bitv_length(tip_count);
+               n_splits  = tip_count - 3;
 
   /* validate threshold */
   if (threshold > 1 || threshold < 0)
@@ -439,8 +473,7 @@ PLL_EXPORT pll_consensus_utree_t * pllmod_utree_weight_consensus(
   /* build final split system */
   pll_split_system_t * split_system = pllmod_utree_split_consensus(splits_hash,
                                                                    tip_count,
-                                                                   threshold,
-                                                                   split_len);
+                                                                   threshold);
 
   /* buld tree from splits */
   consensus_tree = pllmod_utree_from_splits(split_system,
@@ -449,12 +482,8 @@ PLL_EXPORT pll_consensus_utree_t * pllmod_utree_weight_consensus(
 
   /* cleanup */
   string_hash_destroy(string_hashtable);
-  for (i=0; i<split_system->split_count; ++i)
-    free(split_system->splits[i]);
-  free(split_system->splits);
-  free(split_system->support);
-  free(split_system);
-
+  hash_destroy(splits_hash);
+  pllmod_utree_split_system_destroy(split_system);
   return consensus_tree;
 }
 
@@ -485,7 +514,6 @@ PLL_EXPORT pll_consensus_utree_t * pllmod_utree_consensus(
   unsigned int i,
                tip_count,
                n_splits,
-               split_len,
                tree_count,         /* number of trees */
                current_tree_index; /* for error management */
   double individual_support;
@@ -533,8 +561,6 @@ PLL_EXPORT pll_consensus_utree_t * pllmod_utree_consensus(
                        string_hashtable,
                        (int) tipnodes[i]->node_index);
   }
-
-  split_len = bitv_length(tip_count);
 
   /* create hashtable */
   splits_hash = hash_init(tip_count * 10, tip_count);
@@ -590,8 +616,7 @@ PLL_EXPORT pll_consensus_utree_t * pllmod_utree_consensus(
   /* build final split system */
   pll_split_system_t * split_system = pllmod_utree_split_consensus(splits_hash,
                                                                    tip_count,
-                                                                   threshold,
-                                                                   split_len);
+                                                                   threshold);
 
   /* buld tree from splits */
   consensus_tree = pllmod_utree_from_splits(split_system,
@@ -600,12 +625,9 @@ PLL_EXPORT pll_consensus_utree_t * pllmod_utree_consensus(
 
   /* cleanup */
   string_hash_destroy(string_hashtable);
+  hash_destroy(splits_hash);
   pll_utree_destroy(reference_tree, NULL);
-  for (i=0; i<split_system->split_count; ++i)
-    free(split_system->splits[i]);
-  free(split_system->splits);
-  free(split_system->support);
-  free(split_system);
+  pllmod_utree_split_system_destroy(split_system);
 
   return consensus_tree;
 }
@@ -631,6 +653,17 @@ static void dealloc_graph_recursive(pll_unode_t * node)
   }
 
   free(node);
+}
+
+PLL_EXPORT void pllmod_utree_split_system_destroy(pll_split_system_t * split_system)
+{
+  unsigned int i;
+
+  for (i=0; i<split_system->split_count; ++i)
+    free(split_system->splits[i]);
+  free(split_system->splits);
+  free(split_system->support);
+  free(split_system);
 }
 
 PLL_EXPORT void pllmod_utree_consensus_destroy(pll_consensus_utree_t * tree)
@@ -793,16 +826,15 @@ static FILE *get_number_of_trees(unsigned int *tree_count,
 /* reverse sort splits by weight */
 static int sort_by_weight(const void *a, const void *b)
 {
-  int ca,
-      cb;
+  double ca, cb;
 
-  ca = ((*((bitv_hash_entry_t **)a))->support);
-  cb = ((*((bitv_hash_entry_t **)b))->support);
+  ca = (*((bitv_hash_entry_t **)a))->support;
+  cb = (*((bitv_hash_entry_t **)b))->support;
 
   if (ca == cb)
     return 0;
-
-  return ((ca<cb)?1:-1);
+  else
+    return ((ca<cb)?1:-1);
 }
 
 static void mre(bitv_hashtable_t *h,
@@ -837,13 +869,13 @@ static void mre(bitv_hashtable_t *h,
   /* sort by weight descending */
   qsort(split_list, h->entry_count, sizeof(bitv_hash_entry_t *), sort_by_weight);
 
-  for(i = 0; i < h->entry_count && (consensus->split_count) < max_splits; i++)
+  for(i = 0; (i < h->entry_count) && (consensus->split_count < max_splits); i++)
   {
     int compatible = 1;
     bitv_hash_entry_t * split_candidate = split_list[i];
-    for (j=0; j<consensus->split_count; ++j)
+    for (j=consensus->split_count; j>0; --j)
     {
-      pll_split_t split_consolidated = consensus->splits[j];
+      pll_split_t split_consolidated = consensus->splits[j-1];
       if (!pllmod_utree_compatible_splits(split_candidate->bit_vector,
                                           split_consolidated,
                                           split_len,
@@ -857,7 +889,7 @@ static void mre(bitv_hashtable_t *h,
     if(compatible)
     {
       consensus->splits[consensus->split_count] = clone_split(split_candidate->bit_vector, split_len);
-      consensus->support[consensus->split_count] = split_list[i]->support;
+      consensus->support[consensus->split_count] = split_candidate->support;
       ++(consensus->split_count);
     }
   }
