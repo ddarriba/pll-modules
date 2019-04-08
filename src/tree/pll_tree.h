@@ -263,6 +263,18 @@ typedef struct treeinfo
   void (*parallel_reduce_cb)(void *, double *, size_t, int);
 } pllmod_treeinfo_t;
 
+typedef struct
+{
+  unsigned int node_count;
+  pll_unode_t ** nodes;
+
+  unsigned int partition_count;
+  unsigned int * partition_indices;
+
+  pll_utree_t * tree;
+  double ** probs;
+} pllmod_ancestral_t;
+
 /* Topological rearrangements */
 /* functions at pll_tree.c */
 
@@ -678,6 +690,10 @@ PLL_EXPORT int pllmod_treeinfo_set_constraint_tree(pllmod_treeinfo_t * treeinfo,
 PLL_EXPORT int pllmod_treeinfo_check_constraint(pllmod_treeinfo_t * treeinfo,
                                                 pll_unode_t * subtree,
                                                 pll_unode_t * regraft_edge);
+
+PLL_EXPORT pllmod_ancestral_t * pllmod_treeinfo_compute_ancestral(pllmod_treeinfo_t * treeinfo);
+
+PLL_EXPORT void pllmod_treeinfo_destroy_ancestral(pllmod_ancestral_t * ancestral);
 
 /* tbe_functions.c */
 

@@ -1411,3 +1411,166 @@ PLL_EXPORT int pllmod_treeinfo_check_constraint(pllmod_treeinfo_t * treeinfo,
   else
     return PLL_SUCCESS;
 }
+
+
+static pllmod_ancestral_t * pllmod_treeinfo_create_ancestral(const pllmod_treeinfo_t * treeinfo)
+{
+  unsigned int i;
+
+  pllmod_ancestral_t * ancestral = (pllmod_ancestral_t *) calloc(1, sizeof(pllmod_ancestral_t));
+
+  if (!ancestral)
+    return NULL;
+
+  ancestral->node_count = treeinfo->tree->inner_count;
+  ancestral->partition_count = treeinfo->init_partition_count;
+
+  ancestral->nodes = (pll_unode_t **) calloc(ancestral->node_count,
+                                             sizeof(pll_unode_t *));
+  ancestral->partition_indices = (unsigned int *) calloc(ancestral->partition_count,
+                                                         sizeof(unsigned int));
+
+  ancestral->probs = (double **) calloc(ancestral->node_count, sizeof(double *));
+
+  size_t vector_size = 0;
+  for (i = 0; i < ancestral->partition_count; ++i)
+  {
+    const pll_partition_t * partition = treeinfo->init_partitions[i];
+    vector_size += partition->sites * partition->states;
+  }
+
+
+  ancestral->tree = pll_utree_clone(treeinfo->tree);
+
+  for (i = 0; i < ancestral->node_count; ++i)
+    ancestral->probs[i] = (double *) calloc(vector_size, sizeof(double));
+
+  return ancestral;
+}
+
+PLL_EXPORT void pllmod_treeinfo_destroy_ancestral(pllmod_ancestral_t * ancestral)
+{
+  unsigned int i;
+
+  if (!ancestral)
+    return;
+
+  free(ancestral->nodes);
+  free(ancestral->partition_indices);
+
+  for (i = 0; i < ancestral->node_count; ++i)
+    free(ancestral->probs[i]);
+
+  pll_utree_destroy(ancestral->tree, NULL);
+  free(ancestral->probs);
+}
+
+PLL_EXPORT
+pllmod_ancestral_t * pllmod_treeinfo_compute_ancestral(pllmod_treeinfo_t * treeinfo)
+{
+  unsigned int i, p;
+  unsigned int traversal_size;
+  unsigned int node_count = treeinfo->tree->tip_count + treeinfo->tree->inner_count;
+
+  pll_unode_t * old_root = treeinfo->root;
+
+  pll_unode_t ** travbuffer = (pll_unode_t **) calloc(node_count, sizeof(pll_unode_t *));
+
+  pllmod_ancestral_t * ancestral = pllmod_treeinfo_create_ancestral(treeinfo);
+
+  if (!travbuffer || !ancestral)
+  {
+    if (travbuffer)
+      free(travbuffer);
+    if (ancestral)
+      pllmod_treeinfo_destroy_ancestral(ancestral);
+    pllmod_set_error(PLL_ERROR_MEM_ALLOC,
+                     "Can't allocate memory for ancestral probabilities\n");
+    return NULL;
+  }
+
+  /* perform a FULL postorder traversal of the unrooted tree */
+  if (!pll_utree_traverse(ancestral->tree->vroot,
+                          PLL_TREE_TRAVERSE_POSTORDER,
+                          cb_full_traversal,
+                          travbuffer,
+                          &traversal_size))
+  {
+    free(travbuffer);
+    pllmod_treeinfo_destroy_ancestral(ancestral);
+    return NULL;
+  }
+
+  assert(traversal_size == node_count);
+
+#ifdef DEBUG
+  printf("\nTraversal: ");
+  for (i = 0; i < traversal_size; ++i)
+    printf("%u ", travbuffer[i]->clv_index);
+  printf("\n\n");
+#endif
+
+  /* collect internal nodes from the traversal */
+  unsigned int n = 0;
+  for (i = 0; i < traversal_size; ++i)
+  {
+    pll_unode_t * node = travbuffer[i];
+
+    if (pllmod_utree_is_tip(node))
+      continue;
+
+    /* generate inner node label if it is empty */
+    if (!node->label)
+    {
+      char buf[100];
+      snprintf(buf, 100, "Node%u", n+1);
+      node->label = node->next->label = node->next->next->label = strdup(buf);
+    }
+
+    ancestral->nodes[n] = node;
+    ++n;
+  }
+
+  assert(n == ancestral->node_count);
+
+  free(travbuffer);
+
+  /* now compute ancestral state probs for every internal node */
+  for (i = 0; i < ancestral->node_count; ++i)
+  {
+    pll_unode_t * node = ancestral->nodes[i];
+    pll_unode_t * treeinfo_node = treeinfo->subnodes[node->node_index];
+    double * ancp = ancestral->probs[i];
+
+    treeinfo->root = treeinfo_node;
+    pllmod_treeinfo_compute_loglh(treeinfo, 1);
+
+    for (p = 0; p < treeinfo->init_partition_count; ++p)
+    {
+      pll_partition_t * partition = treeinfo->init_partitions[p];
+      size_t part_span = partition->sites * partition->states_padded;
+      unsigned int pidx = treeinfo->init_partition_idx[p];
+
+      ancestral->partition_indices[p] = pidx;
+
+      if (!pll_compute_node_ancestral(partition,
+                                      node->clv_index,
+                                      node->scaler_index,
+                                      node->back->clv_index,
+                                      node->back->scaler_index,
+                                      node->pmatrix_index,
+                                      treeinfo->param_indices[pidx],
+                                      ancp))
+      {
+        pllmod_treeinfo_destroy_ancestral(ancestral);
+        return NULL;
+      }
+
+      ancp += part_span;
+    }
+  }
+
+  treeinfo->root = old_root;
+
+  return ancestral;
+}
