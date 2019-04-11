@@ -31,11 +31,11 @@ ifeq ($(CC),clang)
 endif
 WARN=-Wall -Wsign-compare $(ADD_WARN)
 
-CFLAGS = -g -O3 -Wall -Wsign-compare $(PROFILING) $(WARN)
+CFLAGS = -g -O3 -Wall -Wsign-compare -static $(PROFILING) $(WARN)
 LDFLAGS = -lpll_algorithm -lpll_optimize -lpll_tree -lpll_util -lpll -lm
 
 # temp workaround
-CFLAGS += -I$(INSTALLPATH)/include/libpll -L$(INSTALLPATH)/lib
+CFLAGS += -I$(INSTALLPATH)/include -L$(INSTALLPATH)/lib
 
 OBJS = spr-round.o
 PROG = spr-round

@@ -19,9 +19,10 @@
     Schloss-Wolfsbrunnenweg 35, D-69118 Heidelberg, Germany
 */
 
-#include "pll_tree.h"
-#include "pll_optimize.h"
-#include "pllmod_algorithm.h"
+#include "libpll/pllmod_common.h"
+#include "libpll/pll_tree.h"
+#include "libpll/pll_optimize.h"
+#include "libpll/pllmod_algorithm.h"
 #include <stdarg.h>
 #include <search.h>
 #include <time.h>
@@ -30,43 +31,9 @@
 #define RATE_CATS 4
 #define BRLEN_MIN 1e-6
 #define BRLEN_MAX 1e+2
+#define PHYLIP_INTERLEAVED 0
 
 static void fatal(const char * format, ...) __attribute__ ((noreturn));
-
-typedef struct
-{
-  int clv_valid;
-} node_info_t;
-
-static void set_missing_branch_length_recursive(pll_utree_t * tree,
-                                                double length)
-{
-  if (tree)
-  {
-    /* set branch length to default if not set */
-    if (!tree->length)
-      tree->length = length;
-
-    if (tree->next)
-    {
-      if (!tree->next->length)
-        tree->next->length = length;
-
-      if (!tree->next->next->length)
-        tree->next->next->length = length;
-
-      set_missing_branch_length_recursive(tree->next->back, length);
-      set_missing_branch_length_recursive(tree->next->next->back, length);
-    }
-  }
-}
-
-/* branch lengths not present in the newick file get a value of 0.000001 */
-static void set_missing_branch_length(pll_utree_t * tree, double length)
-{
-  set_missing_branch_length_recursive(tree, length);
-  set_missing_branch_length_recursive(tree->back, length);
-}
 
 static void fatal(const char * format, ...)
 {
@@ -82,7 +49,6 @@ int main(int argc, char * argv[])
 {
   unsigned int i;
   unsigned int tip_nodes_count, inner_nodes_count, nodes_count, branch_count;
-  unsigned int sequence_count;
   pll_partition_t * partition;
 
   /* we accept only two arguments - the newick tree (unrooted binary) and the
@@ -92,18 +58,19 @@ int main(int argc, char * argv[])
 
   /* parse the unrooted binary tree in newick format, and store the number
      of tip nodes in tip_nodes_count */
-  pll_utree_t * tree = pll_utree_parse_newick(argv[1], &tip_nodes_count);
+  pll_utree_t * tree = pll_utree_parse_newick(argv[1]);
   if (!tree)
     fatal("Tree must be an unrooted binary tree");
 
   /* fix all missing branch lengths (i.e. those that did not appear in the
      newick) to 0.000001 */
-  set_missing_branch_length(tree, BRLEN_MIN);
+  pllmod_utree_set_length_recursive(tree, BRLEN_MIN, 1);
 
   /* compute and show node count information */
-  inner_nodes_count = tip_nodes_count - 2;
+  tip_nodes_count = tree->tip_count;
+  inner_nodes_count = tree->inner_count;
   nodes_count = inner_nodes_count + tip_nodes_count;
-  branch_count = nodes_count - 1;
+  branch_count = tree->edge_count;
 
   printf("Number of tip/leaf nodes in tree: %d\n", tip_nodes_count);
   printf("Number of inner nodes in tree: %d\n", inner_nodes_count);
@@ -124,10 +91,9 @@ int main(int argc, char * argv[])
 
   */
 
-  /*  obtain an array of pointers to tip nodes */
-  pll_utree_t ** tipnodes = (pll_utree_t  **)calloc(tip_nodes_count,
-                                                    sizeof(pll_utree_t *));
-  pll_utree_query_tipnodes(tree, tipnodes);
+  /* obtain an array of pointers to tip nodes:
+   * they are always stored at the beginning of the tree->nodes array  */
+  pll_unode_t ** tipnodes = tree->nodes;
 
   /* create a libc hash table of size tip_nodes_count */
   hcreate(tip_nodes_count);
@@ -145,12 +111,10 @@ int main(int argc, char * argv[])
   }
 
   /* read PHYLIP alignment */
-  pll_msa_t * msa = pll_phylip_parse_msa(argv[2], &sequence_count);
-  if (!msa)
-    fatal(pll_errmsg);
+  pll_msa_t * msa = pll_phylip_load(argv[2], PLL_FALSE);
 
   /* compress site patterns */
-  if (sequence_count != tip_nodes_count)
+  if (msa->count != (int) tip_nodes_count)
     fatal("Number of sequences does not match number of leaves in tree");
 
   printf("Original sequence (alignment) length : %d\n", msa->length);
@@ -197,7 +161,7 @@ int main(int argc, char * argv[])
 
   /* compute the discretized category rates from a gamma distribution
      with alpha shape 1 and store them in rate_cats  */
-  pll_compute_gamma_cats(1, 4, rate_cats);
+  pll_compute_gamma_cats(1, 4, rate_cats, PLL_GAMMA_RATES_MEAN);
 
   /* set frequencies at model with index 0 (we currently have only one model) */
   pll_set_frequencies(partition, 0, frequencies);
@@ -237,7 +201,6 @@ int main(int argc, char * argv[])
 
   /* we no longer need these two arrays (keys and values of hash table... */
   free(data);
-  free(tipnodes);
 
 
   /* update matrix_count probability matrices using the rate matrix with
@@ -250,15 +213,16 @@ int main(int argc, char * argv[])
   int params_to_optimize = PLLMOD_OPT_PARAM_BRANCHES_ITERATIVE;
 
   /* create treeinfo structure */
-  pllmod_treeinfo_t * treeinfo = pllmod_treeinfo_create(tree,
+  pllmod_treeinfo_t * treeinfo = pllmod_treeinfo_create(tree->vroot,
                                                         tip_nodes_count,
                                                         1,
-                                                        PLLMOD_TREE_BRLEN_LINKED);
+                                                        PLLMOD_COMMON_BRLEN_LINKED);
 
   int retval = pllmod_treeinfo_init_partition(treeinfo,
                                               0,
                                               partition,
                                               params_to_optimize,
+                                              PLL_GAMMA_RATES_MEAN,
                                               1.0, /* alpha*/
                                               params_indices, /* param_indices */
                                               NULL /* subst matrix symmetries*/
@@ -287,6 +251,7 @@ int main(int argc, char * argv[])
                                 spr_radius_max,
                                 spr_ntopol_keep,
                                 spr_thorough,
+                                PLLMOD_OPT_BLO_NEWTON_FAST,
                                 BRLEN_MIN,
                                 BRLEN_MAX,
                                 spr_blo_smoothings,
@@ -303,7 +268,7 @@ int main(int argc, char * argv[])
   pll_partition_destroy(partition);
 
   /* we will no longer need the tree structure */
-  pll_utree_destroy(treeinfo->root);
+  pll_utree_destroy(tree, NULL);
 
   return (EXIT_SUCCESS);
 }
