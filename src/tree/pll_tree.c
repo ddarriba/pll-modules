@@ -1063,20 +1063,18 @@ PLL_EXPORT void pllmod_utree_set_length_recursive(pll_utree_t * tree,
   unsigned int i;
   unsigned int tip_count = tree->tip_count;
   unsigned int inner_count = tree->inner_count;
-  pll_unode_t ** nodes = tree->nodes;
-  for (i=0; i<tip_count; ++i)
+  for (i = 0; i < tip_count + inner_count; ++i)
   {
-    if (!nodes[i]->length || !missing_only)
-      pllmod_utree_set_length(nodes[i], length);
-  }
-  for (i=tip_count; i<tip_count+inner_count; ++i)
-  {
-    if (!nodes[i]->length || !missing_only)
-      pllmod_utree_set_length(nodes[i], length);
-    if (!nodes[i]->length || !missing_only)
-      pllmod_utree_set_length(nodes[i], length);
-    if (!nodes[i]->length || !missing_only)
-      pllmod_utree_set_length(nodes[i], length);
+    pll_unode_t * node = tree->nodes[i];
+    if (!node->length || !missing_only)
+      pllmod_utree_set_length(node, length);
+    if (node->next)
+    {
+      if (!node->next->length || !missing_only)
+        pllmod_utree_set_length(node->next, length);
+      if (!node->next->next->length || !missing_only)
+        pllmod_utree_set_length(node->next->next, length);
+    }
   }
 }
 
