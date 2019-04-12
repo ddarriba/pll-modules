@@ -1548,7 +1548,7 @@ pllmod_ancestral_t * pllmod_treeinfo_compute_ancestral(pllmod_treeinfo_t * treei
     for (p = 0; p < treeinfo->init_partition_count; ++p)
     {
       pll_partition_t * partition = treeinfo->init_partitions[p];
-      size_t part_span = partition->sites * partition->states_padded;
+      size_t part_span = partition->sites * partition->states;
       unsigned int pidx = treeinfo->init_partition_idx[p];
 
       ancestral->partition_indices[p] = pidx;
