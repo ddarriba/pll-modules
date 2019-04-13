@@ -23,6 +23,10 @@
 
 #include "../pllmod_common.h"
 
+static int treeinfo_check_tree(pllmod_treeinfo_t * treeinfo,
+                               pll_utree_t * tree);
+static int treeinfo_init_tree(pllmod_treeinfo_t * treeinfo);
+
 /* a callback function for performing a full traversal */
 static int cb_full_traversal(pll_unode_t * node)
 {
@@ -84,18 +88,19 @@ PLL_EXPORT pllmod_treeinfo_t * pllmod_treeinfo_create(pll_unode_t * root,
   treeinfo->brlen_linkage = brlen_linkage;
 
   /* create pll_utree structure and store it in treeinfo */
-  pll_utree_t * tree = pll_utree_wraptree(root, tips);
+  treeinfo->tree = pll_utree_wraptree(root, tips);
 
-  if (!tree)
+  if (!treeinfo->tree || !treeinfo_check_tree(treeinfo, treeinfo->tree))
   {
     assert(pll_errno);
+    free(treeinfo);
     return NULL;
   }
 
   /* compute some derived dimensions */
-  unsigned int inner_nodes_count = tree->inner_count;
+  unsigned int inner_nodes_count = treeinfo->tree->inner_count;
   unsigned int nodes_count       = inner_nodes_count + tips;
-  unsigned int branch_count      = tree->edge_count;
+  unsigned int branch_count      = treeinfo->tree->edge_count;
   treeinfo->subnode_count        = tips + 3 * inner_nodes_count;
 
   /* allocate a buffer for storing pointers to nodes of the tree in postorder
@@ -195,14 +200,12 @@ PLL_EXPORT pllmod_treeinfo_t * pllmod_treeinfo_create(pll_unode_t * root,
   treeinfo->active_partition = PLLMOD_TREEINFO_PARTITION_ALL;
 
   /* needs to be here since we use some of the arrays allocated above */
-  if (!pllmod_treeinfo_set_tree(treeinfo, tree))
+  if (!treeinfo_init_tree(treeinfo))
   {
     pllmod_treeinfo_destroy(treeinfo);
     assert(pll_errno);
     return NULL;
   }
-
-  free(tree);
 
   assert(treeinfo->tree && treeinfo->tree->tip_count == tips);
 
@@ -810,10 +813,14 @@ PLL_EXPORT void pllmod_treeinfo_destroy(pllmod_treeinfo_t * treeinfo)
 
   /* deallocate partition array */
   free(treeinfo->partitions);
+  free(treeinfo->init_partitions);
   free(treeinfo->init_partition_idx);
 
   if (treeinfo->tree)
+  {
+    free(treeinfo->tree->nodes);
     free(treeinfo->tree);
+  }
 
   /* finally, deallocate treeinfo object itself */
   free(treeinfo);
@@ -1178,8 +1185,8 @@ int pllmod_treeinfo_normalize_brlen_scalers(pllmod_treeinfo_t * treeinfo)
   return PLL_SUCCESS;
 }
 
-PLL_EXPORT int pllmod_treeinfo_set_tree(pllmod_treeinfo_t * treeinfo,
-                                        pll_utree_t * tree)
+static int treeinfo_check_tree(pllmod_treeinfo_t * treeinfo,
+                               pll_utree_t * tree)
 {
   if (!treeinfo || !tree)
   {
@@ -1203,20 +1210,24 @@ PLL_EXPORT int pllmod_treeinfo_set_tree(pllmod_treeinfo_t * treeinfo,
     return PLL_FAILURE;
   }
 
-  if (!treeinfo->tree)
-    treeinfo->tree = (pll_utree_t *) malloc(sizeof(pll_utree_t));
+  return PLL_SUCCESS;
+}
 
-  memcpy(treeinfo->tree, tree, sizeof(pll_utree_t));
-  treeinfo->root = treeinfo->tree->vroot;
+static int treeinfo_init_tree(pllmod_treeinfo_t * treeinfo)
+{
+  pll_utree_t * tree = treeinfo->tree;
+  unsigned int node_count = tree->tip_count + tree->inner_count;
+  unsigned int edge_count = tree->edge_count;
+
+  /* save virtual root */
+  treeinfo->root = tree->vroot;
 
   /* 1. save back pointer to treeinfo stuct in in eacn node's _data_ field
    * 2. collect branch length from the tree and store in a separate array
    *    indexed by pmatrix_index */
-  unsigned int node_count = treeinfo->tree->tip_count + treeinfo->tree->inner_count;
-  unsigned int edge_count = treeinfo->tree->edge_count;
   for (unsigned int i = 0; i < node_count; ++i)
   {
-    pll_unode_t * snode = treeinfo->tree->nodes[i];
+    pll_unode_t * snode = tree->nodes[i];
     do
     {
       unsigned int pmat_idx = snode->pmatrix_index;
@@ -1235,7 +1246,7 @@ PLL_EXPORT int pllmod_treeinfo_set_tree(pllmod_treeinfo_t * treeinfo,
       snode->data = treeinfo;
       snode = snode->next;
     }
-    while (snode && snode != treeinfo->tree->nodes[i]);
+    while (snode && snode != tree->nodes[i]);
   }
 
   /* in unlinked branch length mode, copy brlen to other partitions */
@@ -1253,6 +1264,24 @@ PLL_EXPORT int pllmod_treeinfo_set_tree(pllmod_treeinfo_t * treeinfo,
   }
 
   return PLL_SUCCESS;
+}
+
+PLL_EXPORT int pllmod_treeinfo_set_tree(pllmod_treeinfo_t * treeinfo,
+                                        pll_utree_t * tree)
+{
+  if (!treeinfo_check_tree(treeinfo, tree))
+    return PLL_FAILURE;
+
+  unsigned int node_count = tree->tip_count + tree->inner_count;
+
+  /* make a shallow copy of pll_utree_t structure, that is,
+   * pll_unodes will not be cloned! */
+  pll_unode_t ** nodes = treeinfo->tree->nodes;
+  memcpy(treeinfo->tree, tree, sizeof(pll_utree_t));
+  treeinfo->tree->nodes = nodes;
+  memcpy(treeinfo->tree->nodes, tree->nodes, node_count*sizeof(pll_unode_t *));
+
+  return treeinfo_init_tree(treeinfo);
 }
 
 PLL_EXPORT int pllmod_treeinfo_set_constraint_clvmap(pllmod_treeinfo_t * treeinfo,

@@ -272,5 +272,7 @@ int main(int argc, char * argv[])
   /* we will no longer need the tree structure */
   pll_utree_destroy(tree, NULL);
 
+  pllmod_util_model_destroy(model);
+
   return (EXIT_SUCCESS);
 }
