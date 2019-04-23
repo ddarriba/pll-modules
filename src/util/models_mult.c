@@ -113,6 +113,11 @@ PLL_EXPORT pllmod_subst_model_t * pllmod_util_model_info_mult(const char * model
                                            pllmod_util_get_equal_freqs(states),
                                            NULL, NULL);
   }
+  else if (strncasecmp("USER", subst_model_name, 4) == 0)
+  {
+    return pllmod_util_model_create_custom(model_name, states,
+                                           NULL, NULL, subst_model_name+4, NULL);
+  }
   else
   {
     pllmod_set_error(PLLMOD_UTIL_ERROR_MODEL_UNKNOWN, "MULTISTATE model not found: %s",
