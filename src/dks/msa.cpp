@@ -155,7 +155,7 @@ double msa_t::row_entropy() const {
   return 1 - (entropy / taxa_count) / -std::log2(1.0 / max_states);
 }
 
-inline size_t msa_t::states() const { return _states; }
+size_t msa_t::states() const { return _states; }
 void msa_t::set_states(size_t s) { _states = s; }
 
 msa_compressed_t::msa_compressed_t(const msa_t &msa) {
