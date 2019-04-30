@@ -11,7 +11,6 @@ msa_t::msa_t(const pll_msa_t *msa) {
   _states = 4;
 }
 
-
 msa_t::msa_t(const pll_msa_t *msa, size_t states) : _states(states) {
   init(msa);
 }

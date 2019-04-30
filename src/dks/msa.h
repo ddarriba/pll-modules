@@ -13,7 +13,7 @@ public:
   msa_t() = default;
   msa_t(const pll_msa_t *);
   msa_t(const pll_msa_t *, size_t);
-  msa_t(const std::string & f) : msa_t(f, 4) {};
+  msa_t(const std::string &f) : msa_t(f, 4){};
   msa_t(const std::string &, size_t);
   void init(const pll_msa_t *msa);
   size_t count() const;

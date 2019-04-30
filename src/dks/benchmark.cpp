@@ -151,8 +151,7 @@ attributes_time_t select_kernel_slow_verbose(const model_t &model,
 
       attributes_t attribs(static_cast<bool>(bit_attribs & (1 << 0)),
                            static_cast<bool>(bit_attribs & (1 << 1)),
-                           static_cast<bool>(0),
-                           static_cast<test_cpu_t>(simd));
+                           static_cast<bool>(0), static_cast<test_cpu_t>(simd));
       test_case_t tc(attribs);
       times[attribs] = weight_kernel_times(kw, tc.benchmark(msa, model));
     }
