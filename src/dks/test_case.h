@@ -4,7 +4,6 @@
 #include "partition.h"
 #include "tree.h"
 #include <chrono>
-#include <iostream>
 #include <memory>
 #include <pll.h>
 #include <unordered_map>

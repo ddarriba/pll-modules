@@ -2,7 +2,6 @@
 #include "test_case.h"
 #include <chrono>
 #include <exception>
-#include <iostream>
 #include <random>
 
 namespace dks {
