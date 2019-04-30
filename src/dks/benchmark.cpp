@@ -88,8 +88,15 @@ attributes_time_t select_kernel_verbose(const model_t &model, const msa_t &msa,
 } // namespace dks
 
 attributes_t select_kernel(const model_t &model, const msa_t &msa,
-                           const kernel_weight_t &kw, bool fast) {
-  auto times = select_kernel_verbose(model, msa, kw);
+                           const kernel_weight_t &kw,
+                           attributes_generator_t gen) {
+  auto times = select_kernel_verbose(model, msa, kw, gen);
   return best_attrib_time(times);
+}
+
+attributes_t select_kernel(const model_t &model, const msa_t &msa,
+                           const kernel_weight_t &kw) {
+  attributes_generator_t gen;
+  return select_kernel(model, msa, kw, gen);
 }
 } // namespace dks
