@@ -137,7 +137,7 @@ void tree_t::fill_branch_lengths(const std::vector<pll_unode_t *> &nodes) {
 
 void tree_t::fill_matrix_indices(const std::vector<pll_unode_t *> &nodes) {
   if (_matrix_indices.size() != nodes.size()) {
-    _matrix_indices.resize(nodes.size(), 0.1);
+    _matrix_indices.resize(nodes.size(), 0);
   }
   for (size_t i = 0; i < nodes.size(); i++) {
     _matrix_indices[i] = nodes[i]->pmatrix_index;

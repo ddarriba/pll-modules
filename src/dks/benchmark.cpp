@@ -6,6 +6,13 @@
 #include <unordered_map>
 #include <utility>
 
+#ifdef __linux__
+#include <fstream>
+#include <unistd.h>
+#elif _WIN32
+// nothing
+#endif
+
 namespace dks {
 
 inline benchmark_time_t weight_kernel_times(kernel_weight_t kw,
@@ -26,6 +33,27 @@ inline attributes_t best_attrib_time(const attributes_time_t &at) {
 }
 
 kernel_weight_t suggest_weights(const msa_t &msa) {
+  kernel_weight_t kw;
+  double taxa = msa.count();
+  double sites = msa.length();
+  double states = msa.states();
+
+  kw[test_kernel_t::partial] =
+      0.007156765 * taxa + -2.719444e-05 * sites + 1.328822 + states + 37.70555;
+  kw[test_kernel_t::likelihood] = 0.0001289232 * sites + -0.004789004 * taxa +
+                                  -0.9559354 * states + 35.20843;
+  kw[test_kernel_t::derivative] = 2.240574e-06 * sites + -0.003947451 * taxa +
+                                  -0.6615589 * states + 25.72586;
+  kw[test_kernel_t::pmatrix] = -0.0001090363 * sites + 0.001506259 * sites +
+                               0.2866474 * states + 1.448459;
+
+  for (auto &kv : kw) {
+    kv.second = kv.second < 0.0 ? 0.0 : kv.second;
+  }
+  return kw;
+}
+
+kernel_weight_t suggest_weights_2(const msa_t &msa) {
   kernel_weight_t kw;
   double taxa = msa.count();
   double sites = msa.length();
@@ -123,7 +151,8 @@ attributes_time_t select_kernel_slow_verbose(const model_t &model,
 
       attributes_t attribs(static_cast<bool>(bit_attribs & (1 << 0)),
                            static_cast<bool>(bit_attribs & (1 << 1)),
-                           static_cast<bool>(0), static_cast<test_cpu_t>(simd));
+                           static_cast<bool>(0),
+                           static_cast<test_cpu_t>(simd));
       test_case_t tc(attribs);
       times[attribs] = weight_kernel_times(kw, tc.benchmark(msa, model));
     }
@@ -136,4 +165,39 @@ attributes_t select_kernel(const model_t &model, const msa_t &msa,
   auto times = select_kernel_verbose(model, msa, kw, fast);
   return best_attrib_time(times);
 }
+
+#ifdef __linux__
+std::string build_path(size_t cpu_number) {
+  std::string s;
+  s += "/sys/devices/system/cpu/cpu";
+  int leading_zeros = static_cast<int>(std::floor(std::log10(cpu_number)));
+  for (int i = 0; i < leading_zeros; ++i) {
+    s += "0";
+  }
+  s += std::to_string(cpu_number);
+  s += "/topology/core_id";
+  return s;
+}
+
+size_t get_core_id(size_t cpu_number) {
+  std::string filename = build_path(cpu_number);
+  std::ifstream f(filename.c_str());
+  char buf[32];
+  f.getline(buf, 32);
+  return std::stoul(buf);
+}
+
+size_t physical_cpu_count() {
+  size_t cpu_max = 0;
+  size_t n_cpu = static_cast<size_t>(sysconf(_SC_NPROCESSORS_ONLN));
+  for (size_t i = 0; i < n_cpu; ++i) {
+    size_t core_id = get_core_id(i);
+    cpu_max = core_id > cpu_max ? core_id : cpu_max;
+  }
+  return cpu_max + 1;
+}
+
+#elif _WIN32
+size_t physical_cpu_count() { return 0; }
+#endif
 } // namespace dks

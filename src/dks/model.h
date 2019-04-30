@@ -12,20 +12,24 @@ public:
   model_t(size_t tip_count) : model_t{tip_count, 0} {};
 
   model_t(const msa_t &msa, uint64_t seed)
-      : _tree{msa.count(), seed}, _states{msa.states()},
+      : _tree{msa.count(), seed}, _states{msa.states()}, _rate_categories{1},
         _subst_params((_states - 1) * (_states - 2), 1.0),
         _frequencies(_states, 1.0 / _states){};
 
   model_t(size_t tip_count, uint64_t seed)
-      : _tree{tip_count, seed}, _subst_params{6, 1.0}, _frequencies{4, .25} {};
+      : _tree{tip_count, seed}, _rate_categories{1}, _subst_params{6, 1.0},
+        _frequencies{4, .25} {};
 
   model_t(const pll_partition_t *pll_partition)
       : model_t(pll_partition->tips, pll_partition->states, 0,
-                pll_partition->subst_params, pll_partition->frequencies){};
+                pll_partition->rate_cats, pll_partition->subst_params,
+                pll_partition->frequencies, *(pll_partition->prop_invar)){};
 
   model_t(size_t tip_count, size_t states, size_t model_index,
-          double **subst_params, double **frequencies)
+          size_t rate_categories, double **subst_params, double **frequencies,
+          double pinv)
       : _tree{tree_t(tip_count)}, _states{states},
+        _rate_categories{rate_categories}, _prop_invar{pinv},
         _subst_params{subst_params[model_index],
                       subst_params[model_index] +
                           (_states - 1) * (_states - 2)},
@@ -48,6 +52,8 @@ public:
 private:
   tree_t _tree;
   size_t _states;
+  size_t _rate_categories;
+  double _prop_invar;
   std::vector<double> _subst_params;
   std::vector<double> _frequencies;
 };

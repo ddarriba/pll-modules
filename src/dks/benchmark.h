@@ -7,6 +7,7 @@ typedef std::unordered_map<test_kernel_t, double> kernel_weight_t;
 typedef std::unordered_map<attributes_t, benchmark_time_t> attributes_time_t;
 
 kernel_weight_t suggest_weights(const msa_t& msa);
+kernel_weight_t suggest_weights_2(const msa_t& msa);
 
 attributes_time_t select_kernel_fast_verbose(const model_t &model, const msa_t &msa,
                            const kernel_weight_t &);
@@ -21,6 +22,6 @@ attributes_t select_kernel(const model_t &, const msa_t &,
 attributes_time_t select_kernel_verbose(const model_t &, const msa_t &,
                                         const kernel_weight_t &, bool fast);
 
-int physical_cpu_count();
+size_t physical_cpu_count();
 
 } // namespace dks

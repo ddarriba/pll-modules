@@ -5,7 +5,7 @@ namespace dks {
 
 unsigned int model_t::submodels() const { return 1; }
 
-unsigned int model_t::rate_categories() const { return 1; }
+unsigned int model_t::rate_categories() const { return _rate_categories; }
 
 uint64_t model_t::states() const { return _states; }
 

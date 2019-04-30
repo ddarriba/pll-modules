@@ -37,8 +37,8 @@ struct attributes_t {
 
   attributes_t() = default;
 
-  attributes_t(bool pt, bool sr, bool rs, test_cpu_t simd)
-      : pattern_tip{pt}, site_repeats{sr}, rate_scalers{rs}, simd{simd} {};
+  attributes_t(bool pt, bool sr, bool rs, test_cpu_t s)
+      : pattern_tip{pt}, site_repeats{sr}, rate_scalers{rs}, simd{s} {};
 
   bool operator==(const attributes_t &other) const {
     return pattern_tip == other.pattern_tip &&
@@ -102,7 +102,7 @@ template <> struct hash<dks::test_kernel_t> {
   typedef dks::test_kernel_t argument_type;
   typedef size_t result_type;
   result_type operator()(const argument_type &s) const noexcept {
-    return static_cast<int>(s);
+    return static_cast<size_t>(s);
   }
 };
 } // namespace std
