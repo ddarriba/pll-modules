@@ -21,7 +21,4 @@ attributes_t select_kernel(const model_t &, const msa_t &,
 
 attributes_time_t select_kernel_verbose(const model_t &, const msa_t &,
                                         const kernel_weight_t &, bool fast);
-
-size_t physical_cpu_count();
-
 } // namespace dks
