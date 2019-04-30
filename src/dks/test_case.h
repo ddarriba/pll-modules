@@ -16,7 +16,10 @@ enum test_cpu_t {
   avx,
   avx2,
   avx512,
+  invalid,
 };
+
+test_cpu_t test_cpu_from_attribs(uint32_t attribs);
 
 enum test_kernel_t {
   partial,
@@ -45,6 +48,95 @@ struct attributes_t {
            site_repeats == other.site_repeats &&
            rate_scalers == other.rate_scalers && simd == other.simd;
   }
+
+  bool operator!=(const attributes_t &other) const { return !(*this == other); }
+
+  int cpu_attrib() const {
+    if (simd == dks::test_cpu_t::avx2) {
+      return PLL_ATTRIB_ARCH_AVX2;
+    }
+    if (simd == dks::test_cpu_t::avx) {
+      return PLL_ATTRIB_ARCH_AVX;
+    }
+    if (simd == dks::test_cpu_t::sse) {
+      return PLL_ATTRIB_ARCH_SSE;
+    }
+    if (simd == dks::test_cpu_t::none) {
+      return PLL_ATTRIB_ARCH_CPU;
+    }
+    if (simd == dks::test_cpu_t::avx512) {
+      return PLL_ATTRIB_ARCH_AVX512;
+    }
+  }
+
+  int siterepeat_attrib() const {
+    return site_repeats ? PLL_ATTRIB_SITE_REPEATS : 0;
+  }
+
+  int patterntip_attrib() const {
+    return pattern_tip ? PLL_ATTRIB_PATTERN_TIP : 0;
+  }
+
+  int pll_attributes() const {
+    return cpu_attrib() | siterepeat_attrib() | patterntip_attrib();
+  }
+};
+
+class attributes_generator_t {
+public:
+  attributes_generator_t()
+      : _off_flags{PLL_ATTRIB_AB_MASK | PLL_ATTRIB_AB_FLAG |
+                   PLL_ATTRIB_RATE_SCALERS | PLL_ATTRIB_ARCH_AVX512},
+        _on_flags{0}, _max{(1 << 11) - 1}, _state{0} {};
+
+  attributes_t next() {
+    while (!valid()) {
+      _state++;
+      if (_state > _max) {
+        return end();
+      }
+    }
+    attributes_t attrib(_state & PLL_ATTRIB_PATTERN_TIP,
+                        _state & PLL_ATTRIB_SITE_REPEATS, 0,
+                        test_cpu_from_attribs(_state));
+    _state++;
+    return attrib;
+  }
+
+  attributes_t end() {
+    return attributes_t(false, false, false, dks::test_cpu_t::invalid);
+  }
+
+  void disable(int attribs) { _off_flags |= attribs; }
+  void enable(int attribs) { _on_flags |= attribs; }
+
+private:
+  inline bool check_cases() const {
+    // do some bit math to check that a bit is only set if the corrisponding
+    // flag is set
+
+    return ((_on_flags & _off_flags) | (~_on_flags & _off_flags & _state) |
+            (_on_flags & ~_off_flags & ~_state)) & 0x3ff;
+  }
+
+  bool check_xor(int attrib) const {
+    return __builtin_popcount(attrib & _state) <= 1;
+  }
+
+  bool valid() const {
+    if (!check_xor(PLL_ATTRIB_SITE_REPEATS | PLL_ATTRIB_PATTERN_TIP)) {
+      return false;
+    }
+    if (!check_xor(PLL_ATTRIB_ARCH_MASK)) {
+      return false;
+    }
+    return !check_cases();
+  }
+
+  uint32_t _off_flags;
+  uint32_t _on_flags;
+  uint32_t _max;
+  uint32_t _state;
 };
 
 class test_case_t {

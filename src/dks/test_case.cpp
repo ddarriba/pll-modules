@@ -6,6 +6,15 @@
 #include <random>
 
 namespace dks {
+
+test_cpu_t test_cpu_from_attribs(uint32_t attribs) {
+  if ((attribs & PLL_ATTRIB_ARCH_MASK) == 0){
+    return dks::test_cpu_t::none;
+  }
+  return static_cast<test_cpu_t>(32 -
+                                 __builtin_clz(attribs & PLL_ATTRIB_ARCH_MASK));
+}
+
 benchmark_result_t test_case_t::benchmark(const msa_t &msa,
                                           const model_t &model) {
   partition_t partition(msa, model, attributes());
