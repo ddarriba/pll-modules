@@ -77,7 +77,6 @@ attributes_time_t select_kernel_verbose(const model_t &model, const msa_t &msa,
                                         const kernel_weight_t &kw,
                                         attributes_generator_t att_gen) {
   attributes_time_t times;
-  msa_compressed_t cmsa(msa);
   for (attributes_t attribs = att_gen.next(); attribs != att_gen.end();
        attribs = att_gen.next()) {
 
