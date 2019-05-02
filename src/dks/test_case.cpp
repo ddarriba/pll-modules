@@ -2,22 +2,72 @@
 #include "test_case.h"
 #include <chrono>
 #include <exception>
+#include <ostream>
 #include <random>
 
 namespace dks {
 
 test_cpu_t test_cpu_from_attribs(uint32_t attribs) {
-  if ((attribs & PLL_ATTRIB_ARCH_MASK) == 0){
+  if ((attribs & PLL_ATTRIB_ARCH_MASK) == 0) {
     return dks::test_cpu_t::none;
   }
   return static_cast<test_cpu_t>(32 -
                                  __builtin_clz(attribs & PLL_ATTRIB_ARCH_MASK));
 }
 
+int attributes_t::cpu_attrib() const {
+  if (simd == dks::test_cpu_t::avx2) {
+    return PLL_ATTRIB_ARCH_AVX2;
+  }
+  if (simd == dks::test_cpu_t::avx) {
+    return PLL_ATTRIB_ARCH_AVX;
+  }
+  if (simd == dks::test_cpu_t::sse) {
+    return PLL_ATTRIB_ARCH_SSE;
+  }
+  if (simd == dks::test_cpu_t::none) {
+    return PLL_ATTRIB_ARCH_CPU;
+  }
+  if (simd == dks::test_cpu_t::avx512) {
+    return PLL_ATTRIB_ARCH_AVX512;
+  }
+  throw std::runtime_error("Unrecognized CPU type");
+}
+
+int attributes_t::siterepeat_attrib() const {
+  return site_repeats ? PLL_ATTRIB_SITE_REPEATS : 0;
+}
+
+int attributes_t::patterntip_attrib() const {
+  return pattern_tip ? PLL_ATTRIB_PATTERN_TIP : 0;
+}
+
+int attributes_t::pll_attributes() const {
+  return cpu_attrib() | siterepeat_attrib() | patterntip_attrib();
+}
+
+attributes_t attributes_generator_t::next() {
+  while (!valid()) {
+    _state++;
+    if (_state > _max) {
+      return end();
+    }
+  }
+  attributes_t attrib(_state & PLL_ATTRIB_PATTERN_TIP,
+                      _state & PLL_ATTRIB_SITE_REPEATS, 0,
+                      test_cpu_from_attribs(_state));
+  _state++;
+  return attrib;
+}
+
+attributes_t attributes_generator_t::end() {
+  return attributes_t(false, false, false, dks::test_cpu_t::invalid);
+}
+
 benchmark_result_t test_case_t::benchmark(const msa_t &msa,
+                                          const msa_weight_t &weights,
                                           const model_t &model) {
-  partition_t partition(msa, model, attributes());
-  partition.set_pattern_weights(msa);
+  partition_t partition(msa, model, weights, _charmap, attributes());
   benchmark_result_t br;
 
   br[test_kernel_t::partial] = benchmark_partials(partition, model);

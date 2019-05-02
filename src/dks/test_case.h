@@ -1,9 +1,9 @@
 #pragma once
 #include "model.h"
-#include "msa.h"
 #include "partition.h"
 #include "tree.h"
 #include <chrono>
+#include <exception>
 #include <memory>
 #include <pll.h>
 #include <unordered_map>
@@ -52,35 +52,13 @@ struct attributes_t {
 
   bool operator!=(const attributes_t &other) const { return !(*this == other); }
 
-  int cpu_attrib() const {
-    if (simd == dks::test_cpu_t::avx2) {
-      return PLL_ATTRIB_ARCH_AVX2;
-    }
-    if (simd == dks::test_cpu_t::avx) {
-      return PLL_ATTRIB_ARCH_AVX;
-    }
-    if (simd == dks::test_cpu_t::sse) {
-      return PLL_ATTRIB_ARCH_SSE;
-    }
-    if (simd == dks::test_cpu_t::none) {
-      return PLL_ATTRIB_ARCH_CPU;
-    }
-    if (simd == dks::test_cpu_t::avx512) {
-      return PLL_ATTRIB_ARCH_AVX512;
-    }
-  }
+  int cpu_attrib() const;
 
-  int siterepeat_attrib() const {
-    return site_repeats ? PLL_ATTRIB_SITE_REPEATS : 0;
-  }
+  int siterepeat_attrib() const;
 
-  int patterntip_attrib() const {
-    return pattern_tip ? PLL_ATTRIB_PATTERN_TIP : 0;
-  }
+  int patterntip_attrib() const;
 
-  int pll_attributes() const {
-    return cpu_attrib() | siterepeat_attrib() | patterntip_attrib();
-  }
+  int pll_attributes() const;
 };
 
 class attributes_generator_t {
@@ -88,25 +66,11 @@ public:
   attributes_generator_t()
       : _off_flags{PLL_ATTRIB_AB_MASK | PLL_ATTRIB_AB_FLAG |
                    PLL_ATTRIB_RATE_SCALERS | PLL_ATTRIB_ARCH_AVX512},
-        _on_flags{0}, _max{(1 << 11) - 1}, _state{0} {};
+        _on_flags{0}, _max{DKS_ATTRIB_MASK + 1}, _state{0} {};
 
-  attributes_t next() {
-    while (!valid()) {
-      _state++;
-      if (_state > _max) {
-        return end();
-      }
-    }
-    attributes_t attrib(_state & PLL_ATTRIB_PATTERN_TIP,
-                        _state & PLL_ATTRIB_SITE_REPEATS, 0,
-                        test_cpu_from_attribs(_state));
-    _state++;
-    return attrib;
-  }
+  attributes_t next();
 
-  attributes_t end() {
-    return attributes_t(false, false, false, dks::test_cpu_t::invalid);
-  }
+  attributes_t end();
 
   void disable(int attribs) { _off_flags |= attribs; }
   void enable(int attribs) { _on_flags |= attribs; }
@@ -119,11 +83,11 @@ private:
     return ((_off_flags & _state) | (_on_flags & ~_state)) & DKS_ATTRIB_MASK;
   }
 
-  bool check_xor(int attrib) const {
+  inline bool check_xor(int attrib) const {
     return __builtin_popcount(attrib & _state) <= 1;
   }
 
-  bool valid() const {
+  inline bool valid() const {
     if (!check_xor(PLL_ATTRIB_SITE_REPEATS | PLL_ATTRIB_PATTERN_TIP)) {
       return false;
     }
@@ -141,21 +105,17 @@ private:
 
 class test_case_t {
 public:
-  test_case_t()
-      : _cpu{test_cpu_t::none}, _trials{30}, _random_seed{0},
-        _pattern_tip{false}, _site_repeats{false}, _rate_scalers{false} {}
+  test_case_t(test_cpu_t cpu, bool pt, bool sr, bool rs, uint64_t seed,
+              const pll_state_t *charmap)
+      : _charmap{charmap}, _cpu{cpu}, _trials{30}, _random_seed{seed},
+        _pattern_tip{pt}, _site_repeats{sr}, _rate_scalers{rs} {}
 
-  test_case_t(test_cpu_t cpu, bool pt, bool sr, bool rs, uint64_t seed)
-      : _cpu{cpu}, _trials{30}, _random_seed{seed}, _pattern_tip{pt},
-        _site_repeats{sr}, _rate_scalers{rs} {}
-
-  test_case_t(test_cpu_t cpu) : test_case_t{cpu, 0, 0, 0, 0} {}
-
-  test_case_t(const attributes_t &attribs)
+  test_case_t(const attributes_t &attribs, const pll_state_t *charmap)
       : test_case_t(attribs.simd, attribs.pattern_tip, attribs.site_repeats,
-                    attribs.rate_scalers, 0){};
+                    attribs.rate_scalers, 0, charmap){};
 
-  benchmark_result_t benchmark(const msa_t &, const model_t &);
+  benchmark_result_t benchmark(const msa_t &, const msa_weight_t &,
+                               const model_t &);
   benchmark_time_t benchmark_partials(partition_t &partition,
                                       const model_t &model);
   benchmark_time_t benchmark_likelihood(partition_t &partition,
@@ -172,6 +132,7 @@ public:
   unsigned int misc_attributes() const;
 
 private:
+  const pll_state_t *_charmap;
   test_cpu_t _cpu;
   size_t _trials;
   uint64_t _random_seed;

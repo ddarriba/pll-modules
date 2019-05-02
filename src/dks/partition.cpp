@@ -7,23 +7,25 @@ constexpr unsigned int partition_t::_params_indices[];
 constexpr double partition_t::_rate_cats[];
 
 partition_t::partition_t(const msa_t &msa, const model_t &model,
-                         unsigned int attributes) {
+                         const msa_weight_t &weights,
+                         const pll_state_t *charmap, unsigned int attributes) {
 
-  unsigned int tip_count = msa.count();
+  unsigned int tip_count = msa.size();
   unsigned int inner_count = tip_count - 2;
 
   _partition = pll_partition_create(tip_count,               // tips
                                     inner_count,             // clv_buffers
-                                    msa.states(),            // states
-                                    msa.length(),            // sites
+                                    model.states(),          // states
+                                    msa[0].size(),           // sites
                                     model.submodels(),       // rate_matrices
                                     2 * tip_count - 3,       // prob_matrices
                                     model.rate_categories(), // rate_cats
                                     inner_count,             // scale_buffes
                                     attributes               // attributes
   );
-  initialize_tips(msa);
+  initialize_tips(msa, charmap);
   initialize_rates(model);
+  set_pattern_weights(weights);
   update_probability_matrices(model.tree());
   alloc_sumtable(attributes);
 }
@@ -48,10 +50,10 @@ void partition_t::alloc_sumtable(unsigned int attribs) {
       align);
 }
 
-void partition_t::initialize_tips(const msa_t &msa) {
-  for (size_t tip_id = 0; tip_id < msa.count(); tip_id++) {
-    pll_set_tip_states(_partition, tip_id, msa.char_map(),
-                       msa.sequence(tip_id));
+void partition_t::initialize_tips(const msa_t &msa,
+                                  const pll_state_t *charmap) {
+  for (size_t tip_id = 0; tip_id < msa.size(); tip_id++) {
+    pll_set_tip_states(_partition, tip_id, charmap, msa[tip_id].data());
   }
 }
 
@@ -87,11 +89,9 @@ void partition_t::update_site_repeats(const std::vector<pll_operation_t> &ops) {
   }
 }
 
-void partition_t::set_pattern_weights(const msa_compressed_t &msa) {
-  pll_set_pattern_weights(_partition, msa.weights());
+void partition_t::set_pattern_weights(const msa_weight_t &weights) {
+  pll_set_pattern_weights(_partition, weights.data());
 }
-
-void partition_t::set_pattern_weights(const msa_t &) {}
 
 void partition_t::update_partials(const tree_t &tree) {
   update_partials(tree.make_operations());

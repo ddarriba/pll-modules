@@ -5,29 +5,32 @@
 #include <vector>
 
 namespace dks {
+typedef std::vector<std::vector<char>> msa_t;
+typedef std::vector<unsigned int> msa_weight_t;
 class model_t {
 public:
-  model_t(const msa_t &msa) : model_t{msa, 0} {};
+  model_t(const msa_t &msa, unsigned int states) : model_t{msa, states, 0} {};
 
-  model_t(size_t tip_count) : model_t{tip_count, 0} {};
+  model_t(size_t tip_count, unsigned int states)
+      : model_t{tip_count, states, 0} {};
 
-  model_t(const msa_t &msa, uint64_t seed)
-      : _tree{msa.count(), seed}, _states{msa.states()}, _rate_categories{1},
-        _subst_params((_states - 1) * (_states - 2), 1.0),
+  model_t(const msa_t &msa, unsigned int states, uint64_t seed)
+      : _tree{msa.size(), seed}, _states{states}, _rate_categories{1},
+        _prop_invar{0.0}, _subst_params((_states - 1) * (_states - 2), 1.0),
         _frequencies(_states, 1.0 / _states){};
 
-  model_t(size_t tip_count, uint64_t seed)
-      : _tree{tip_count, seed}, _rate_categories{1}, _subst_params{6, 1.0},
-        _frequencies{4, .25} {};
+  model_t(size_t tip_count, unsigned int states, uint64_t seed)
+      : _tree{tip_count, seed}, _states{states}, _rate_categories{1},
+        _prop_invar{0.0}, _subst_params{6, 1.0}, _frequencies{4, .25} {};
 
   model_t(const pll_partition_t *pll_partition)
       : model_t(pll_partition->tips, pll_partition->states, 0,
                 pll_partition->rate_cats, pll_partition->subst_params,
                 pll_partition->frequencies, *(pll_partition->prop_invar)){};
 
-  model_t(size_t tip_count, size_t states, size_t model_index,
-          size_t rate_categories, double **subst_params, double **frequencies,
-          double pinv)
+  model_t(size_t tip_count, unsigned int states, size_t model_index,
+          unsigned int rate_categories, double **subst_params,
+          double **frequencies, double pinv)
       : _tree{tree_t(tip_count)}, _states{states},
         _rate_categories{rate_categories}, _prop_invar{pinv},
         _subst_params{subst_params[model_index],
@@ -35,6 +38,13 @@ public:
                           (_states - 1) * (_states - 2)},
         _frequencies{frequencies[model_index],
                      frequencies[model_index] + _states} {};
+
+  model_t(size_t tip_count, unsigned int states, unsigned int rate_categories,
+          unsigned int seed)
+      : _tree{tip_count, seed}, _states{states},
+        _rate_categories{rate_categories}, _prop_invar{0.0},
+        _subst_params((_states - 1) * (_states - 2) / 2, 1.0),
+        _frequencies(_states, 1.0 / _states) {}
 
   unsigned int submodels() const;
   unsigned int rate_categories() const;
@@ -51,8 +61,8 @@ public:
 
 private:
   tree_t _tree;
-  size_t _states;
-  size_t _rate_categories;
+  unsigned int _states;
+  unsigned int _rate_categories;
   double _prop_invar;
   std::vector<double> _subst_params;
   std::vector<double> _frequencies;

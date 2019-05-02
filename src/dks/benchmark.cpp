@@ -1,17 +1,9 @@
 #include "benchmark.h"
-#include "msa.h"
 #include "partition.h"
 #include <algorithm>
 #include <cmath>
 #include <unordered_map>
 #include <utility>
-
-#ifdef __linux__
-#include <fstream>
-#include <unistd.h>
-#elif _WIN32
-// nothing
-#endif
 
 namespace dks {
 
@@ -50,8 +42,8 @@ kernel_weight_t suggest_weights(double sites, double states, double taxa) {
   return kw;
 }
 
-kernel_weight_t suggest_weights(const msa_t &msa) {
-  return suggest_weights(msa.count(), msa.length(), msa.states());
+kernel_weight_t suggest_weights(const msa_t &msa, unsigned int states) {
+  return suggest_weights(msa.size(), msa[0].size(), states);
 }
 
 kernel_weight_t suggest_weights(const pllmod_msa_stats_t *msa, int sites,
@@ -59,43 +51,36 @@ kernel_weight_t suggest_weights(const pllmod_msa_stats_t *msa, int sites,
   return suggest_weights(sites, taxa, msa->states);
 }
 
-attributes_t select_kernel(const pll_partition_t *pll_partition,
-                           const pll_msa_t *pll_msa,
-                           const kernel_weight_t &kw) {
-  msa_t msa{pll_msa};
-  model_t model{pll_partition};
-  return select_kernel(model, msa, kw);
-}
-
-attributes_t select_kernel_auto(const pll_partition_t *pll_partition,
-                                const pll_msa_t *pll_msa) {
-  auto kw = suggest_weights(pll_msa);
-  return select_kernel(pll_partition, pll_msa, kw);
-}
-
 attributes_time_t select_kernel_verbose(const model_t &model, const msa_t &msa,
+                                        const msa_weight_t &weights,
+                                        const pll_state_t *charmap,
                                         const kernel_weight_t &kw,
                                         attributes_generator_t att_gen) {
   attributes_time_t times;
   for (attributes_t attribs = att_gen.next(); attribs != att_gen.end();
        attribs = att_gen.next()) {
 
-    test_case_t tc(attribs);
-    times[attribs] = weight_kernel_times(kw, tc.benchmark(msa, model));
+    test_case_t tc(attribs, charmap);
+    times[attribs] = weight_kernel_times(kw, tc.benchmark(msa, weights, model));
   }
   return times;
-} // namespace dks
-
-attributes_t select_kernel(const model_t &model, const msa_t &msa,
-                           const kernel_weight_t &kw,
-                           attributes_generator_t gen) {
-  auto times = select_kernel_verbose(model, msa, kw, gen);
-  return best_attrib_time(times);
 }
 
-attributes_t select_kernel(const model_t &model, const msa_t &msa,
-                           const kernel_weight_t &kw) {
+unsigned int select_kernel_auto(const msa_t &msa, const msa_weight_t &weights,
+                                const pll_state_t *charmap, unsigned int states,
+                                unsigned int rate_cats,
+                                attributes_generator_t gen) {
+  auto kw = suggest_weights(weights.size(), msa.size(), states);
+  model_t model{msa, states, rate_cats};
+  auto result = select_kernel_verbose(model, msa, weights, charmap, kw, gen);
+  return best_attrib_time(result).pll_attributes();
+}
+
+unsigned int select_kernel_auto(const msa_t &msa, const msa_weight_t &weights,
+                                const pll_state_t *charmap, unsigned int states,
+                                unsigned int rate_cats) {
   attributes_generator_t gen;
-  return select_kernel(model, msa, kw, gen);
+  return select_kernel_auto(msa, weights, charmap, states, rate_cats, gen);
 }
+
 } // namespace dks

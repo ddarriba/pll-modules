@@ -1,14 +1,12 @@
 #pragma once
-#include "msa.h"
+#include "pll.h"
+#include <vector>
 #include <memory>
 #include <utility>
 
 namespace dks {
 class tree_t {
 public:
-  tree_t(const msa_t &msa) : tree_t{msa.count(), 0} {}
-  tree_t(const msa_t &msa, uint64_t random_seed)
-      : tree_t{msa.count(), random_seed} {}
   tree_t(size_t tip_count) : tree_t{tip_count, 0} {};
   tree_t(size_t tip_count, uint64_t random_seed);
   pll_unode_t *vroot() const;
