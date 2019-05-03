@@ -64,10 +64,8 @@ attributes_t attributes_generator_t::end() {
   return attributes_t(false, false, false, dks::test_cpu_t::invalid);
 }
 
-benchmark_result_t test_case_t::benchmark(const msa_t &msa,
-                                          const msa_weight_t &weights,
-                                          const model_t &model) {
-  partition_t partition(msa, model, weights, _charmap, attributes());
+benchmark_result_t test_case_t::run_benchmarks(partition_t &partition,
+                                               const model_t &model) {
   benchmark_result_t br;
 
   br[test_kernel_t::partial] = benchmark_partials(partition, model);
@@ -76,6 +74,22 @@ benchmark_result_t test_case_t::benchmark(const msa_t &msa,
   br[test_kernel_t::derivative] = benchmark_derivative(partition, model);
 
   return br;
+}
+
+benchmark_result_t
+test_case_t::benchmark(const std::vector<std::vector<double>> &clvs ,
+                       const msa_weight_t &weights, const model_t &model) {
+  partition_t partition(clvs, model, weights, _charmap, attributes());
+
+  return run_benchmarks(partition, model);
+}
+
+benchmark_result_t test_case_t::benchmark(const msa_t &msa,
+                                          const msa_weight_t &weights,
+                                          const model_t &model) {
+  partition_t partition(msa, model, weights, _charmap, attributes());
+
+  return run_benchmarks(partition, model);
 }
 
 benchmark_time_t test_case_t::benchmark_partials(partition_t &partition,

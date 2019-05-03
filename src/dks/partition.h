@@ -10,9 +10,13 @@ class partition_t {
 public:
   partition_t(const msa_t &, const model_t &, const msa_weight_t &,
               const pll_state_t *, unsigned int);
+  partition_t(const std::vector<std::vector<double>> &, const model_t &,
+              const msa_weight_t &, const pll_state_t *, unsigned int);
   ~partition_t();
 
   void initialize_tips(const msa_t &, const pll_state_t *);
+  void initialize_tips(const std::vector<std::vector<double>> &);
+
   void initialize_rates(const model_t &model);
   void set_pattern_weights(const msa_weight_t &);
   void update_probability_matrices(const tree_t &tree);

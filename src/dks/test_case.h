@@ -81,7 +81,8 @@ private:
     // flag is set
 
     return ((_on_flags & _off_flags) | (~_on_flags & _off_flags & _state) |
-            (_on_flags & ~_off_flags & ~_state)) & DKS_ATTRIB_MASK;
+            (_on_flags & ~_off_flags & ~_state)) &
+           DKS_ATTRIB_MASK;
   }
 
   inline bool check_xor(int attrib) const {
@@ -111,12 +112,22 @@ public:
       : _charmap{charmap}, _cpu{cpu}, _trials{30}, _random_seed{seed},
         _pattern_tip{pt}, _site_repeats{sr}, _rate_scalers{rs} {}
 
+  test_case_t(const attributes_t &attribs)
+      : test_case_t(attribs.simd, attribs.pattern_tip, attribs.site_repeats,
+                    attribs.rate_scalers, 0, nullptr){};
+
   test_case_t(const attributes_t &attribs, const pll_state_t *charmap)
       : test_case_t(attribs.simd, attribs.pattern_tip, attribs.site_repeats,
                     attribs.rate_scalers, 0, charmap){};
 
   benchmark_result_t benchmark(const msa_t &, const msa_weight_t &,
                                const model_t &);
+  benchmark_result_t benchmark(const std::vector<std::vector<double>> &,
+                               const msa_weight_t &, const model_t &);
+
+  benchmark_result_t run_benchmarks(partition_t &partition,
+                                                 const model_t &model);
+
   benchmark_time_t benchmark_partials(partition_t &partition,
                                       const model_t &model);
   benchmark_time_t benchmark_likelihood(partition_t &partition,

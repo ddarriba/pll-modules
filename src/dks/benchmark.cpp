@@ -51,6 +51,21 @@ kernel_weight_t suggest_weights(const pllmod_msa_stats_t *msa, int sites,
   return suggest_weights(sites, taxa, msa->states);
 }
 
+attributes_time_t
+select_kernel_verbose(const model_t &model,
+                      const std::vector<std::vector<double>> &clvs,
+                      const msa_weight_t &weights, const kernel_weight_t &kw,
+                      attributes_generator_t att_gen) {
+  attributes_time_t times;
+  for (attributes_t attribs = att_gen.next(); attribs != att_gen.end();
+       attribs = att_gen.next()) {
+
+    test_case_t tc(attribs);
+    times[attribs] = weight_kernel_times(kw, tc.benchmark(clvs, weights, model));
+  }
+  return times;
+}
+
 attributes_time_t select_kernel_verbose(const model_t &model, const msa_t &msa,
                                         const msa_weight_t &weights,
                                         const pll_state_t *charmap,
@@ -83,4 +98,20 @@ unsigned int select_kernel_auto(const msa_t &msa, const msa_weight_t &weights,
   return select_kernel_auto(msa, weights, charmap, states, rate_cats, gen);
 }
 
+unsigned int select_kernel_auto(const std::vector<std::vector<double>> &clvs,
+                                const msa_weight_t &weights,
+                                unsigned int states, unsigned int rate_cats,
+                                attributes_generator_t gen) {
+  auto kw = suggest_weights(weights.size(), clvs.size(), states);
+  model_t model{clvs.size(), states, rate_cats};
+  auto result = select_kernel_verbose(model, clvs, weights, kw, gen);
+  return best_attrib_time(result).pll_attributes();
+}
+
+unsigned int select_kernel_auto(const std::vector<std::vector<double>> &clvs,
+                                const msa_weight_t &weights,
+                                unsigned int states, unsigned int rate_cats) {
+  attributes_generator_t gen;
+  return select_kernel_auto(clvs, weights, states, rate_cats, gen);
+}
 } // namespace dks

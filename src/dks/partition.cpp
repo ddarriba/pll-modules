@@ -30,6 +30,30 @@ partition_t::partition_t(const msa_t &msa, const model_t &model,
   alloc_sumtable(attributes);
 }
 
+partition_t::partition_t(const std::vector<std::vector<double>> &clvs,
+                         const model_t &model, const msa_weight_t &weights,
+                         const pll_state_t *charmap, unsigned int attributes) {
+
+  unsigned int tip_count = clvs.size();
+  unsigned int inner_count = tip_count - 2;
+
+  _partition = pll_partition_create(tip_count,               // tips
+                                    inner_count,             // clv_buffers
+                                    model.states(),          // states
+                                    clvs[0].size(),          // sites
+                                    model.submodels(),       // rate_matrices
+                                    2 * tip_count - 3,       // prob_matrices
+                                    model.rate_categories(), // rate_cats
+                                    inner_count,             // scale_buffes
+                                    attributes               // attributes
+  );
+  initialize_tips(clvs);
+  initialize_rates(model);
+  set_pattern_weights(weights);
+  update_probability_matrices(model.tree());
+  alloc_sumtable(attributes);
+}
+
 void partition_t::alloc_sumtable(unsigned int attribs) {
   unsigned int align = PLL_ALIGNMENT_CPU;
   switch (attribs & PLL_ATTRIB_ARCH_MASK) {
@@ -54,6 +78,12 @@ void partition_t::initialize_tips(const msa_t &msa,
                                   const pll_state_t *charmap) {
   for (size_t tip_id = 0; tip_id < msa.size(); tip_id++) {
     pll_set_tip_states(_partition, tip_id, charmap, msa[tip_id].data());
+  }
+}
+
+void partition_t::initialize_tips(const std::vector<std::vector<double>> &clvs){
+  for (size_t tip_id = 0; tip_id < clvs.size(); tip_id++) {
+    pll_set_tip_clv(_partition, tip_id, clvs[tip_id].data(), PLL_FALSE);
   }
 }
 
