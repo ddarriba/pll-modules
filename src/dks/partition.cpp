@@ -32,7 +32,7 @@ partition_t::partition_t(const msa_t &msa, const model_t &model,
 
 partition_t::partition_t(const std::vector<std::vector<double>> &clvs,
                          const model_t &model, const msa_weight_t &weights,
-                         const pll_state_t *charmap, unsigned int attributes) {
+                         unsigned int attributes) {
 
   unsigned int tip_count = clvs.size();
   unsigned int inner_count = tip_count - 2;

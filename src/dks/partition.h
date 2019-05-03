@@ -11,7 +11,7 @@ public:
   partition_t(const msa_t &, const model_t &, const msa_weight_t &,
               const pll_state_t *, unsigned int);
   partition_t(const std::vector<std::vector<double>> &, const model_t &,
-              const msa_weight_t &, const pll_state_t *, unsigned int);
+              const msa_weight_t &, unsigned int);
   ~partition_t();
 
   void initialize_tips(const msa_t &, const pll_state_t *);

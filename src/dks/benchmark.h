@@ -40,13 +40,11 @@ unsigned int select_kernel_auto(const msa_t &msa, const msa_weight_t &weights,
 
 unsigned int select_kernel_auto(const std::vector<std::vector<double>> &clvs,
                                 const msa_weight_t &weights,
-                                const pll_state_t *charmap, unsigned int states,
-                                unsigned int rate_cats,
+                                unsigned int states, unsigned int rate_cats,
                                 attributes_generator_t gen);
 
 unsigned int select_kernel_auto(const std::vector<std::vector<double>> &clvs,
                                 const msa_weight_t &weights,
-                                const pll_state_t *charmap, unsigned int states,
-                                unsigned int rate_cats);
+                                unsigned int states, unsigned int rate_cats);
 
 } // namespace dks

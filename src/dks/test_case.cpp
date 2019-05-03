@@ -79,7 +79,7 @@ benchmark_result_t test_case_t::run_benchmarks(partition_t &partition,
 benchmark_result_t
 test_case_t::benchmark(const std::vector<std::vector<double>> &clvs ,
                        const msa_weight_t &weights, const model_t &model) {
-  partition_t partition(clvs, model, weights, _charmap, attributes());
+  partition_t partition(clvs, model, weights, attributes());
 
   return run_benchmarks(partition, model);
 }
