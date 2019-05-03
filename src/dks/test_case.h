@@ -80,7 +80,8 @@ private:
     // do some bit math to check that a bit is only set if the corrisponding
     // flag is set
 
-    return ((_off_flags & _state) | (_on_flags & ~_state)) & DKS_ATTRIB_MASK;
+    return ((_on_flags & _off_flags) | (~_on_flags & _off_flags & _state) |
+            (_on_flags & ~_off_flags & ~_state)) & DKS_ATTRIB_MASK;
   }
 
   inline bool check_xor(int attrib) const {
