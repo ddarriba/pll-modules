@@ -61,7 +61,8 @@ select_kernel_verbose(const model_t &model,
        attribs = att_gen.next()) {
 
     test_case_t tc(attribs);
-    times[attribs] = weight_kernel_times(kw, tc.benchmark(clvs, weights, model));
+    times[attribs] =
+        weight_kernel_times(kw, tc.benchmark(clvs, weights, model));
   }
   return times;
 }

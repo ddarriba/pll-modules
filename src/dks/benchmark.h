@@ -13,12 +13,17 @@ kernel_weight_t suggest_weights(const msa_t &msa);
 kernel_weight_t suggest_weights(const pllmod_msa_stats_t *msa, int sites,
                                 int taxa);
 
-template <typename T>
-attributes_time_t select_kernel_verbose(const model_t &model, const T &msa,
+attributes_time_t select_kernel_verbose(const model_t &model, const msa_t &msa,
                                         const msa_weight_t &weights,
                                         const pll_state_t *charmap,
                                         const kernel_weight_t &kw,
                                         attributes_generator_t att_gen);
+
+attributes_time_t
+select_kernel_verbose(const model_t &model,
+                      const std::vector<std::vector<double>> &clvs,
+                      const msa_weight_t &weights, const kernel_weight_t &kw,
+                      attributes_generator_t att_gen);
 
 attributes_t select_kernel(const pll_partition_t *, const pll_msa_t *,
                            const kernel_weight_t &);

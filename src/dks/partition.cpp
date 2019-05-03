@@ -81,7 +81,8 @@ void partition_t::initialize_tips(const msa_t &msa,
   }
 }
 
-void partition_t::initialize_tips(const std::vector<std::vector<double>> &clvs){
+void partition_t::initialize_tips(
+    const std::vector<std::vector<double>> &clvs) {
   for (size_t tip_id = 0; tip_id < clvs.size(); tip_id++) {
     pll_set_tip_clv(_partition, tip_id, clvs[tip_id].data(), PLL_FALSE);
   }

@@ -80,9 +80,7 @@ private:
     // do some bit math to check that a bit is only set if the corrisponding
     // flag is set
 
-    return ((_on_flags & _off_flags) | (~_on_flags & _off_flags & _state) |
-            (_on_flags & ~_off_flags & ~_state)) &
-           DKS_ATTRIB_MASK;
+    return ((_off_flags & _state) | (_on_flags & ~_state)) & DKS_ATTRIB_MASK;
   }
 
   inline bool check_xor(int attrib) const {
@@ -126,7 +124,7 @@ public:
                                const msa_weight_t &, const model_t &);
 
   benchmark_result_t run_benchmarks(partition_t &partition,
-                                                 const model_t &model);
+                                    const model_t &model);
 
   benchmark_time_t benchmark_partials(partition_t &partition,
                                       const model_t &model);
