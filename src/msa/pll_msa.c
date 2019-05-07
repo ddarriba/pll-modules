@@ -142,7 +142,7 @@ PLL_EXPORT double * pllmod_msa_empirical_frequencies(pll_partition_t * partition
 void compute_pair_rates(unsigned int states, unsigned int tips,
                         unsigned long sites, unsigned char ** tipchars,
                         const unsigned int * w, const pll_state_t * tipmap,
-                        unsigned * state_freq, unsigned * pair_rates)
+                        size_t * state_freq, size_t * pair_rates)
 {
   unsigned int i, j, k;
   unsigned long n;
@@ -192,9 +192,8 @@ PLL_EXPORT double * pllmod_msa_empirical_subst_rates(pll_partition_t * partition
   unsigned int n_subst_rates  = (states * (states - 1) / 2);
   double * subst_rates = (double *) calloc ((size_t) n_subst_rates, sizeof(double));
 
-  unsigned *pair_rates = (unsigned *) calloc(
-      states * states, sizeof(unsigned));
-  unsigned *state_freq = (unsigned *) malloc(states * sizeof(unsigned));
+  size_t * pair_rates = (size_t *) calloc(states * states, sizeof(size_t));
+  size_t * state_freq = (size_t *) malloc(states * sizeof(size_t));
 
   if (!(subst_rates && pair_rates && state_freq))
   {
@@ -607,8 +606,8 @@ PLL_EXPORT pllmod_msa_stats_t * pllmod_msa_compute_stats(const pll_msa_t * msa,
   unsigned long total_gap_count = 0;
   unsigned long * col_gap_weight = NULL;
   unsigned long * seq_gap_weight = NULL;
-  unsigned * pair_rates = NULL;
-  unsigned * col_state_freq = NULL;
+  size_t * pair_rates = NULL;
+  size_t * col_state_freq = NULL;
 
   pll_state_t * inv_state = NULL;
   unsigned long inv_weight = 0;
@@ -651,8 +650,8 @@ PLL_EXPORT pllmod_msa_stats_t * pllmod_msa_compute_stats(const pll_msa_t * msa,
   {
     size_t n_subst_rates = pllmod_util_subst_rate_count(states);
     stats->subst_rates = (double *) calloc(n_subst_rates, sizeof(double));
-    pair_rates = (unsigned *) calloc(states * states, sizeof(unsigned));
-    col_state_freq = (unsigned *) malloc(states * sizeof(unsigned));
+    pair_rates = (size_t *) calloc(states * states, sizeof(size_t));
+    col_state_freq = (size_t *) calloc(states, sizeof(size_t));
 
     if (!pair_rates || !stats->subst_rates ||  !col_state_freq)
     {
@@ -833,7 +832,7 @@ PLL_EXPORT pllmod_msa_stats_t * pllmod_msa_compute_stats(const pll_msa_t * msa,
     inv_state = NULL;
   }
 
-  const unsigned long total_chars = sum_weights * msa_count;
+  const size_t total_chars = sum_weights * msa_count;
 
   /* normalize frequencies */
   if (stats_mask & PLLMOD_MSA_STATS_FREQS)
