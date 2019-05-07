@@ -7,6 +7,18 @@
 
 namespace dks {
 
+msa_t convert_pll_msa_t(const pll_msa_t *pll_msa) {
+  msa_t msa;
+  msa.reserve(pll_msa->count);
+  for (size_t i = 0; i < pll_msa->count; i++) {
+    msa.emplace_back(pll_msa->length);
+    for (size_t j = 0; j < pll_msa->length; j++) {
+      msa[i][j] = pll_msa->sequence[i][j];
+    }
+  }
+  return msa;
+}
+
 inline benchmark_time_t weight_kernel_times(kernel_weight_t kw,
                                             benchmark_result_t bmr) {
   return kw[test_kernel_t::partial] * bmr[test_kernel_t::partial] +
@@ -80,6 +92,46 @@ attributes_time_t select_kernel_verbose(const model_t &model, const msa_t &msa,
     times[attribs] = weight_kernel_times(kw, tc.benchmark(msa, weights, model));
   }
   return times;
+}
+
+unsigned int select_kernel_auto(const pll_partition_t *pll_partition,
+                                const pll_msa_t *pll_msa,
+                                const pll_state_t *charmap,
+                                const kernel_weight_t &kw,
+                                attributes_generator_t gen) {
+  auto msa = convert_pll_msa_t(pll_msa);
+  model_t model{pll_partition};
+  msa_weight_t weights(pll_partition->pattern_weights,
+                       pll_partition->pattern_weights + pll_msa->length);
+  return best_attrib_time(
+             select_kernel_verbose(model, msa, weights, charmap, kw, gen))
+      .pll_attributes();
+}
+
+unsigned int select_kernel_auto(const pll_partition_t *pll_partition,
+                                const pll_msa_t *pll_msa,
+                                const pll_state_t *charmap) {
+  auto kw =
+      suggest_weights(pll_msa->length, pll_msa->count, pll_partition->states);
+  attributes_generator_t gen;
+  return select_kernel_auto(pll_partition, pll_msa, charmap, kw, gen);
+}
+
+unsigned int select_kernel_auto(const pll_partition_t *pll_partition,
+                                const pll_msa_t *pll_msa,
+                                const pll_state_t *charmap,
+                                attributes_generator_t gen) {
+  auto kw =
+      suggest_weights(pll_msa->length, pll_msa->count, pll_partition->states);
+  return select_kernel_auto(pll_partition, pll_msa, charmap, kw, gen);
+}
+
+unsigned int select_kernel_auto(const pll_partition_t *pll_partition,
+                                const pll_msa_t *pll_msa,
+                                const pll_state_t *charmap,
+                                const msa_weight_t &weights) {
+  attributes_generator_t gen;
+  return select_kernel_auto(pll_partition, pll_msa, charmap, weights, gen);
 }
 
 unsigned int select_kernel_auto(const msa_t &msa, const msa_weight_t &weights,

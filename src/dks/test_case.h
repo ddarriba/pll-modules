@@ -8,8 +8,6 @@
 #include <pll.h>
 #include <unordered_map>
 
-#define DKS_ATTRIB_MASK 0x3ff
-
 namespace dks {
 enum test_cpu_t {
   none,
@@ -66,7 +64,7 @@ public:
   attributes_generator_t()
       : _off_flags{PLL_ATTRIB_AB_MASK | PLL_ATTRIB_AB_FLAG |
                    PLL_ATTRIB_RATE_SCALERS | PLL_ATTRIB_ARCH_AVX512},
-        _on_flags{0}, _max{DKS_ATTRIB_MASK + 1}, _state{0} {};
+        _on_flags{0}, _max{PLL_ATTRIB_MASK + 1}, _state{0} {};
 
   attributes_t next();
 
@@ -80,7 +78,7 @@ private:
     // do some bit math to check that a bit is only set if the corrisponding
     // flag is set
 
-    return ((_off_flags & _state) | (_on_flags & ~_state)) & DKS_ATTRIB_MASK;
+    return ((_off_flags & _state) | (_on_flags & ~_state)) & PLL_ATTRIB_MASK;
   }
 
   inline bool check_xor(int attrib) const {
