@@ -322,7 +322,7 @@ PLL_EXPORT pll_utree_t * pllmod_utree_resolve_multi(const pll_utree_t * multi_tr
     for (unsigned int i = 0; i < multi_node_count; ++i)
     {
       const unsigned int clv_id = bin_tree->nodes[i]->clv_index;
-      clv_index_map[clv_id] = clv_id;
+      clv_index_map[clv_id] = (int) clv_id;
     }
   }
 
@@ -359,7 +359,7 @@ PLL_EXPORT pll_utree_t * pllmod_utree_resolve_multi(const pll_utree_t * multi_tr
       for (unsigned int j = old_inner_count; j < bin_tree->inner_count; ++j)
       {
         unsigned int new_clv_id = bin_tree->nodes[tip_count + j]->clv_index;
-        clv_index_map[new_clv_id] = start->clv_index;
+        clv_index_map[new_clv_id] = (int) start->clv_index;
       }
     }
     old_inner_count = bin_tree->inner_count;
@@ -509,7 +509,7 @@ PLL_EXPORT int pllmod_utree_outgroup_root(pll_utree_t * tree,
                                                               tip_count);
 
     // check if this split is in the tree
-    size_t split_len = bitv_length(tip_count);
+    unsigned int split_len = bitv_length(tip_count);
     for (unsigned int i = 0; i < split_count; ++i)
     {
       if (!bitv_compare(tree_splits[i], outgroup_split, split_len))
@@ -599,7 +599,7 @@ int utree_insert_tips_random(pll_unode_t ** nodes, unsigned int taxa_count,
     pll_unode_t * next_inner = nodes[taxa_count + i - 2];
 
     /* select random branch from the tree */
-    unsigned int rand_branch_id = pll_random_getint(rstate, placed_branches_count);
+    int rand_branch_id = pll_random_getint(rstate, placed_branches_count);
     pll_unode_t * next_branch = branches[rand_branch_id];
 
     /* connect tip to selected branch */
@@ -1302,8 +1302,8 @@ PLL_EXPORT int pllmod_rtree_traverse_apply(pll_rnode_t * root,
 /* auxiliary structure for the callback function below */
 struct serial_tree_s {
   pll_unode_t * serialized_tree;
-  int node_count;
-  int max_nodes;
+  unsigned int node_count;
+  unsigned int max_nodes;
 };
 
 /* callback function to fill the serialized tree */
@@ -1312,7 +1312,7 @@ static int cb_serialize(pll_unode_t * tree,
 {
   struct serial_tree_s * list = (struct serial_tree_s *) data;
   pll_unode_t * serialized_tree = list->serialized_tree;
-  int cur_pos = list->node_count;
+  unsigned int cur_pos = list->node_count;
 
   assert(cur_pos < list->max_nodes);
 
@@ -1751,7 +1751,7 @@ static void split_multi_node(pll_utree_t * tree, pll_unode_t * first,
     new_link->clv_index = new_link->next->clv_index =
         new_link->next->next->clv_index = new_clv_id;
     new_link->scaler_index = new_link->next->scaler_index =
-        new_link->next->next->scaler_index = new_scaler_id;
+        new_link->next->next->scaler_index = (int) new_scaler_id;
 
     //set backpointers old<->new
     pllmod_utree_connect_nodes(old_link, new_link, PLLMOD_TREE_DEFAULT_BRANCH_LENGTH);

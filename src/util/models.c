@@ -449,6 +449,7 @@ PLL_EXPORT pll_state_t * pllmod_util_charmap_parse(unsigned int states,
 
   if (fscanf(f, "%u %u", &obs_states, &mod_states) != 2)
   {
+    fclose(f);
     pllmod_set_error(PLLMOD_UTIL_ERROR_MODEL_INVALID_MAPFILE,
                      "Invalid character map file: %s", fname);
     return PLL_FAILURE;
@@ -456,15 +457,17 @@ PLL_EXPORT pll_state_t * pllmod_util_charmap_parse(unsigned int states,
 
   if (mod_states != states)
   {
+    fclose(f);
     pllmod_set_error(PLLMOD_UTIL_ERROR_MODEL_INVALID_MAPFILE,
                      "Invalid number of states in the charmap file: %u",
                      mod_states);
     return PLL_FAILURE;
   }
 
-  char statechars[1024];
+  char statechars[1025];
   if (fscanf(f, "%1024s", statechars) != 1)
   {
+    fclose(f);
     pllmod_set_error(PLLMOD_UTIL_ERROR_MODEL_INVALID_MAPFILE,
                      "Error reading observed state list");
     return PLL_FAILURE;
@@ -472,19 +475,21 @@ PLL_EXPORT pll_state_t * pllmod_util_charmap_parse(unsigned int states,
 
   if (obs_states != strlen(statechars))
   {
+    fclose(f);
     pllmod_set_error(PLLMOD_UTIL_ERROR_MODEL_INVALID_MAPSTRING,
                      "Length of the character map string (%u) does not "
                      "correspond to the declared number of observed states (%u)",
                      strlen(statechars), obs_states);
-    return NULL;
+    return PLL_FAILURE;
   }
 
   /* read state names */
   for (i = 0; i < mod_states;  ++i)
   {
-    char sname[1024];
+    char sname[1025];
     if (fscanf(f, "%1024s", sname) != 1)
     {
+      fclose(f);
       pllmod_set_error(PLLMOD_UTIL_ERROR_MODEL_INVALID_MAPFILE,
                        "Error reading name of state # %u", i);
       return PLL_FAILURE;
@@ -505,6 +510,7 @@ PLL_EXPORT pll_state_t * pllmod_util_charmap_parse(unsigned int states,
       pllmod_set_error(PLLMOD_UTIL_ERROR_MODEL_INVALID_MAPFILE,
                        "Error reading observed state %u", i);
       free(map);
+      fclose(f);
       return PLL_FAILURE;
     }
 
@@ -513,6 +519,7 @@ PLL_EXPORT pll_state_t * pllmod_util_charmap_parse(unsigned int states,
       pllmod_set_error(PLLMOD_UTIL_ERROR_MODEL_INVALID_MAPFILE,
                        "Undeclared observed state: %c", ostate);
       free(map);
+      fclose(f);
       return PLL_FAILURE;
     }
 
@@ -526,6 +533,7 @@ PLL_EXPORT pll_state_t * pllmod_util_charmap_parse(unsigned int states,
         pllmod_set_error(PLLMOD_UTIL_ERROR_MODEL_INVALID_MAPFILE,
                          "Error reading state map value: %c -> %u", c, j);
         free(map);
+        fclose(f);
         return PLL_FAILURE;
       }
 

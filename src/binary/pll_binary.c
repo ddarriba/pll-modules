@@ -361,7 +361,7 @@ PLL_EXPORT pll_partition_t * pllmod_binary_partition_load(FILE * bin_file,
     {
       if (local_partition->clv)
       {
-        size_t start = (local_partition->attributes & PLL_ATTRIB_PATTERN_TIP) ?
+        unsigned int start = (local_partition->attributes & PLL_ATTRIB_PATTERN_TIP) ?
                         local_partition->tips : 0;
         for (i = start; i < local_partition->clv_buffers + local_partition->tips; ++i)
           pll_aligned_free(local_partition->clv[i]);
@@ -836,7 +836,7 @@ PLL_EXPORT int pllmod_binary_clv_load(FILE * bin_file,
     return PLL_FAILURE;
   }
   
-  unsigned int block_len = clv_size * sizeof(double);
+  size_t block_len = clv_size * sizeof(double);
 
   if ((partition->attributes & PLL_ATTRIB_SITE_REPEATS) 
       && partition->repeats->pernode_ids[clv_index]) 
@@ -900,14 +900,15 @@ PLL_EXPORT int pllmod_binary_utree_dump(FILE * bin_file,
   n_nodes = tip_count + n_inner;
   n_utrees = tip_count + 3 * n_inner;
 
-  travbuffer = (pll_unode_t **)malloc(n_nodes* sizeof(pll_unode_t *));
-
   if (!tree->next)
   {
     pllmod_set_error(PLLMOD_BIN_ERROR_BINARY_IO,
                      "Tree should not be a tip node");
     return PLL_FAILURE;
   }
+
+  travbuffer = (pll_unode_t **)malloc(n_nodes* sizeof(pll_unode_t *));
+
   if (!pll_utree_traverse(tree,
                           PLL_TREE_TRAVERSE_POSTORDER,
                           cb_full_traversal,
@@ -1055,6 +1056,7 @@ PLL_EXPORT pll_unode_t * pllmod_binary_utree_load(FILE * bin_file,
     if (!binary_node_apply (bin_file, t, 0, bin_fread))
     {
       assert(pll_errno);
+      free(tree_stack);
       return NULL;
     }
     if (t->next)
@@ -1075,6 +1077,7 @@ PLL_EXPORT pll_unode_t * pllmod_binary_utree_load(FILE * bin_file,
       if (!retval)
       {
         assert(pll_errno);
+        free(tree_stack);
         return NULL;
       }
       t->next = t_l; t_l->next = t_r; t_r->next = t;

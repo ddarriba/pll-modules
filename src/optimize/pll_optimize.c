@@ -675,7 +675,14 @@ PLL_EXPORT double pllmod_opt_optimize_multidim (pll_optimize_options_t * params,
     /* topology (UNIMPLEMENTED) */
     if (params->which_parameters & PLLMOD_OPT_PARAM_TOPOLOGY)
     {
-      return PLL_FAILURE;
+      free (x);
+      free (lower_bounds);
+      free (upper_bounds);
+      free (bound_type);
+      pllmod_set_error(PLLMOD_OPT_ERROR_LBFGSB_UNKNOWN,
+                       "Topology optimization is not implemented");
+
+      return (double) -INFINITY;
     }
 
     /* single branch length */
@@ -1056,7 +1063,7 @@ PLL_EXPORT double pllmod_opt_optimize_branch_lengths_local (
                                                         params_indices,
                                                         NULL);
 
-    DBG("pllmod_opt_optimize_branch_lengths_local: iters %d, old: %f, new: %f\n",
+    DBG("pllmod_opt_optimize_branch_lengths_local: iters %u, old: %f, new: %f\n",
         iters, loglikelihood, new_loglikelihood);
 
     if (new_loglikelihood - loglikelihood > new_loglikelihood * BETTER_LL_TRESHOLD)
@@ -1527,7 +1534,7 @@ static int recomp_iterative_multi(pll_newton_tree_params_multi_t * params,
         if (params->converged && params->converged[p])
           continue;
 
-        DBG("[%u] NR failed to converge after %u iterations: branch %3d - %3d "
+        DBG("[%u] NR failed to converge after %d iterations: branch %3u - %3u "
             "(old: %.12f, new: %.12f)\n",
             p, params->max_newton_iters, tr_p->clv_index, tr_p->back->clv_index,
             xorig[p], xguess[p]);
@@ -1790,7 +1797,7 @@ PLL_EXPORT double pllmod_opt_optimize_branch_lengths_local_multi (
                                                       parallel_context,
                                                       parallel_reduce_cb);
 
-  DBG("\nStarting BLO_multi: radius: %d, max_iters: %u, lh_eps: %f, old LH: %.9f\n",
+  DBG("\nStarting BLO_multi: radius: %d, max_iters: %d, lh_eps: %f, old LH: %.9f\n",
       radius, max_iters, lh_epsilon, loglikelihood);
 
   /* set parameters for N-R optimization */
@@ -1890,7 +1897,7 @@ PLL_EXPORT double pllmod_opt_optimize_branch_lengths_local_multi (
       {
         // reset branch lenghts
         params.opt_method = PLLMOD_OPT_BLO_NEWTON_SAFE;
-        iters = max_iters;
+        iters = (unsigned int) max_iters;
       }
       else
       {

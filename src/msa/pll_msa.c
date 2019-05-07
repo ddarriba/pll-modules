@@ -140,11 +140,12 @@ PLL_EXPORT double * pllmod_msa_empirical_frequencies(pll_partition_t * partition
 }
 
 void compute_pair_rates(unsigned int states, unsigned int tips,
-                        unsigned int sites, unsigned char ** tipchars,
+                        unsigned long sites, unsigned char ** tipchars,
                         const unsigned int * w, const pll_state_t * tipmap,
                         unsigned * state_freq, unsigned * pair_rates)
 {
-  unsigned int i, j, k, n;
+  unsigned int i, j, k;
+  unsigned long n;
   pll_state_t undef_state = (pll_state_t) (pow (2, states)) - 1;
 
   for (n = 0; n < sites; ++n)
@@ -523,7 +524,7 @@ PLL_EXPORT pllmod_msa_errors_t * pllmod_msa_check(const pll_msa_t * msa,
           errs->invalid_char_pos =
               (unsigned long *) calloc(PLLMOD_MSA_MAX_ERRORS, sizeof(unsigned long));
         }
-        errs->invalid_chars[errs->invalid_char_count] = c;
+        errs->invalid_chars[errs->invalid_char_count] = (char) c;
         errs->invalid_char_seq[errs->invalid_char_count] = i;
         errs->invalid_char_pos[errs->invalid_char_count] = j;
         errs->invalid_char_count++;
@@ -598,7 +599,7 @@ PLL_EXPORT pllmod_msa_stats_t * pllmod_msa_compute_stats(const pll_msa_t * msa,
     return NULL;
   }
 
-  const unsigned long msa_count = (unsigned long) msa->count;
+  const unsigned int msa_count = msa->count;
   const unsigned long msa_length = (unsigned long) msa->length;
 
   unsigned long i, j, k;
@@ -1030,8 +1031,8 @@ PLL_EXPORT pll_msa_t * pllmod_msa_filter(pll_msa_t * msa,
   else
   {
     new_msa = (pll_msa_t *) calloc(1, sizeof(pll_msa_t));
-    new_msa->count = new_count;
-    new_msa->length = new_length;
+    new_msa->count = (int) new_count;
+    new_msa->length = (int) new_length;
     new_msa->label = (char **) calloc(new_count, sizeof(char *));
     new_msa->sequence = (char **) calloc(new_count, sizeof(char *));
     if (!msa->label || !new_msa->sequence)
@@ -1092,8 +1093,8 @@ PLL_EXPORT pll_msa_t * pllmod_msa_filter(pll_msa_t * msa,
   if (inplace)
   {
     /* set new dimensions */
-    new_msa->count = new_count;
-    new_msa->length = new_length;
+    new_msa->count = (int)  new_count;
+    new_msa->length = (int)  new_length;
     /* trim arrays to the new size */
     new_msa->sequence = (char **) realloc(new_msa->sequence,
                                           new_count * sizeof(char *));
@@ -1196,7 +1197,7 @@ PLL_EXPORT pll_msa_t ** pllmod_msa_split(const pll_msa_t * msa,
     part_msa_list[p]->count = msa->count;
     part_msa_list[p]->length = 0;
     part_msa_list[p]->label = NULL;
-    part_msa_list[p]->sequence = (char **) calloc(msa->count, sizeof(char*));
+    part_msa_list[p]->sequence = (char **) calloc((size_t) msa->count, sizeof(char*));
     if (!part_msa_list[p]->sequence)
       goto malloc_error;
 

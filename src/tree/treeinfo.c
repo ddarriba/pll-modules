@@ -640,9 +640,7 @@ PLL_EXPORT
 int pllmod_treeinfo_set_topology(pllmod_treeinfo_t * treeinfo,
                                  const pllmod_treeinfo_topology_t * topol)
 {
-  unsigned int brlen_set_count =
-      (treeinfo->brlen_linkage == PLLMOD_COMMON_BRLEN_UNLINKED) ?
-          treeinfo->init_partition_count : 0;
+  unsigned int brlen_set_count;
 
   if (!treeinfo || !topol)
   {
@@ -655,6 +653,9 @@ int pllmod_treeinfo_set_topology(pllmod_treeinfo_t * treeinfo,
                      "Incompatible topology: edge count differs!\n");
     return PLL_FAILURE;
   }
+
+  brlen_set_count = (treeinfo->brlen_linkage == PLLMOD_COMMON_BRLEN_UNLINKED) ?
+                     treeinfo->init_partition_count : 0;
   if (brlen_set_count != topol->brlen_set_count)
   {
     pllmod_set_error(PLL_ERROR_PARAM_INVALID,
@@ -947,7 +948,7 @@ static double treeinfo_compute_loglh(pllmod_treeinfo_t * treeinfo,
   /* tree root must be an inner node! */
   assert(!pllmod_utree_is_tip(treeinfo->root));
 
-  unsigned int traversal_size;
+  unsigned int traversal_size = 0;
   unsigned int ops_count;
   unsigned int i, p;
 
@@ -1307,7 +1308,7 @@ PLL_EXPORT int pllmod_treeinfo_set_constraint_clvmap(pllmod_treeinfo_t * treeinf
   for (unsigned int i = 0; i < tip_count + inner_count; ++i)
   {
     const pll_unode_t * node = treeinfo->tree->nodes[i];
-    const unsigned int cons_group_id = clv_index_map[node->clv_index]+1;
+    const unsigned int cons_group_id = (unsigned int) clv_index_map[node->clv_index]+1;
 
     treeinfo->constraint[node->clv_index] = cons_group_id;
   }
@@ -1319,7 +1320,7 @@ PLL_EXPORT int pllmod_treeinfo_set_constraint_tree(pllmod_treeinfo_t * treeinfo,
                                                    const pll_utree_t * cons_tree)
 {
   unsigned int node_count = cons_tree->tip_count * 2 - 2;
-  int * clv_index_map = (int *) calloc(node_count, sizeof(int));
+  int * clv_index_map = NULL;
   int retval;
 
   if (treeinfo->tip_count < cons_tree->tip_count)
@@ -1330,12 +1331,21 @@ PLL_EXPORT int pllmod_treeinfo_set_constraint_tree(pllmod_treeinfo_t * treeinfo,
     return PLL_FAILURE;
   }
 
+  clv_index_map = (int *) calloc(node_count, sizeof(int));
+  if (!clv_index_map)
+  {
+    pllmod_set_error(PLL_ERROR_MEM_ALLOC,
+                     "Can't allocate memory for clv_index_map\n");
+    return PLL_FAILURE;
+  }
+
   pll_utree_t * bin_cons_tree = pllmod_utree_resolve_multi(cons_tree,
                                                            0, clv_index_map);
 
-  if (!bin_cons_tree || !clv_index_map)
+  if (!bin_cons_tree)
   {
     assert(pll_errno);
+    free(clv_index_map);
     return PLL_FAILURE;
   }
 

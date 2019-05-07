@@ -77,20 +77,22 @@ PLL_EXPORT int pllmod_utree_consistency_check(pll_utree_t * t1,
   unsigned int i;
   unsigned int node_id;
   int retval = PLL_SUCCESS;
-  pll_unode_t ** tipnodes = t1->nodes;
+  pll_unode_t ** tipnodes;
   char ** tipnames;
-  unsigned int tip_count = t1->tip_count;
+  unsigned int tip_count;
 
-  if (tip_count != t2->tip_count)
+  if (!t1 || !t2 || t1->tip_count != t2->tip_count)
   {
     pllmod_set_error(PLLMOD_TREE_ERROR_INVALID_TREE,
                      "Trees do not have the same number of tips\n");
     return PLL_FAILURE;
   }
 
+  tipnodes = t1->nodes;
+  tip_count = t1->tip_count;
 
   tipnames = (char **) malloc (tip_count * sizeof(char *));
-  if (!(tipnodes && tipnames))
+  if (!tipnames)
   {
     pllmod_set_error(PLL_ERROR_MEM_ALLOC,
                      "Cannot allocate memory for tipnodes and tipnames\n");
@@ -136,23 +138,25 @@ PLL_EXPORT int pllmod_utree_consistency_set(pll_utree_t * t1,
   unsigned int i, j;
   unsigned int node_id;
   int retval = PLL_SUCCESS, checkval;
-  pll_unode_t ** tipnodes = t1->nodes;
+  pll_unode_t ** tipnodes;
   char ** tipnames;
-  unsigned int tip_count = t1->tip_count;
+  unsigned int tip_count;
 
-  if (tip_count != t2->tip_count)
+  if (!t1 || !t2 || t1->tip_count != t2->tip_count)
   {
     pllmod_set_error(PLLMOD_TREE_ERROR_INVALID_TREE,
                      "Trees do not have the same number of tips\n");
     return PLL_FAILURE;
   }
 
-  tipnames = (char **) malloc (tip_count * sizeof(char *));
+  tipnodes = t1->nodes;
+  tip_count = t1->tip_count;
 
-  if (!(tipnodes && tipnames))
+  tipnames = (char **) malloc (tip_count * sizeof(char *));
+  if (!tipnames)
   {
     pllmod_set_error(PLL_ERROR_MEM_ALLOC,
-                     "Cannot allocate memory for tipnodes and tipnames\n");
+                     "Cannot allocate memory for tipnames\n");
     return PLL_FAILURE;
   }
 
@@ -352,8 +356,8 @@ PLL_EXPORT pll_split_t pllmod_utree_split_from_tips(unsigned int * subtree_tip_i
   for (unsigned int i = 0; i < subtree_size; ++i)
   {
     unsigned int tip_id = subtree_tip_ids[i];
-    int vec_id  = tip_id / split_size;
-    int bit_id  = tip_id % split_size;
+    unsigned int vec_id  = tip_id / split_size;
+    unsigned int bit_id  = tip_id % split_size;
     split[vec_id] |= (1 << bit_id);
   }
   bitv_normalize(split, tip_count);
@@ -452,6 +456,8 @@ PLL_EXPORT pll_split_t * pllmod_utree_split_create(const pll_unode_t * tree,
   {
     pllmod_set_error(PLL_ERROR_MEM_ALLOC,
                      "Cannot allocate memory for splits\n");
+    free (split_list);
+    free (split_nodes);
     return NULL;
   }
 
@@ -497,6 +503,8 @@ PLL_EXPORT pll_split_t * pllmod_utree_split_create(const pll_unode_t * tree,
     {
       pllmod_set_error(PLL_ERROR_MEM_ALLOC,
                        "Cannot allocate memory for auxiliary array\n");
+      free (split_list);
+      free (split_nodes);
       return NULL;
     }
 
@@ -823,7 +831,7 @@ static int split_is_valid_and_normalized(const pll_split_t bitv,
   unsigned int split_offset = tip_count % split_size;
   unsigned int split_len    = bitv_length(tip_count);
   unsigned int i = 0;
-  unsigned int all1 = ~0;
+  unsigned int all1 = ~0u;
   unsigned int mask = all1;
   for (i=0; i<split_len-1; ++i)
   {

@@ -66,7 +66,7 @@ PLL_EXPORT int pllmod_utree_compatible_splits(const pll_split_t s1,
   unsigned int i;
   unsigned int split_size = sizeof(pll_split_base_t) * 8;
   unsigned int split_offset = tip_count % split_size;
-  unsigned int mask = split_offset ? (1<<split_offset) - 1 : ~0;
+  unsigned int mask = split_offset ? (1u<<split_offset) - 1 : ~0u;
 
   /* check conflicts between s1 and s2 */
   for(i = 0; i < split_len; i++)
@@ -231,6 +231,7 @@ PLL_EXPORT pll_consensus_utree_t * pllmod_utree_from_splits(
         {
           pllmod_set_error(PLLMOD_TREE_ERROR_INVALID_SPLIT,
                            "Splits are incompatible");
+          free(return_tree->branch_data);
           free(return_tree);
           return_tree = NULL;
           break;
@@ -461,7 +462,7 @@ PLL_EXPORT pll_consensus_utree_t * pllmod_utree_weight_consensus(
     /* cleanup and spread error */
     char * aux_errmsg = (char *) malloc(strlen(pll_errmsg) + 1);
     strcpy(aux_errmsg, pll_errmsg);
-    snprintf(pll_errmsg, PLLMOD_ERRMSG_LEN, "%s [tree #%d]",
+    snprintf(pll_errmsg, PLLMOD_ERRMSG_LEN, "%s [tree #%u]",
                                             aux_errmsg,
                                             i);
     free(aux_errmsg);
@@ -603,7 +604,7 @@ PLL_EXPORT pll_consensus_utree_t * pllmod_utree_consensus(
     /* cleanup and spread error */
     char * aux_errmsg = (char *) malloc(strlen(pll_errmsg) + 1);
     strcpy(aux_errmsg, pll_errmsg);
-    snprintf(pll_errmsg, PLLMOD_ERRMSG_LEN, "%s [tree #%d]",
+    snprintf(pll_errmsg, PLLMOD_ERRMSG_LEN, "%s [tree #%u]",
                                             aux_errmsg,
                                             current_tree_index);
     free(aux_errmsg);
@@ -902,8 +903,8 @@ static void mre(bitv_hashtable_t *h,
 static int get_split_id(pll_split_t split,
                         unsigned int split_len)
 {
-  int i, base_id, ctz;
-  int taxa_per_split = 8 * sizeof(pll_split_base_t);
+  unsigned int i, base_id, ctz;
+  unsigned int taxa_per_split = 8 * sizeof(pll_split_base_t);
   int id = -1;
   //  unsigned int n_bits = setbit_count(split, split_len);
   unsigned int n_bits = bitv_popcount(split, taxa_per_split * split_len,
@@ -916,12 +917,12 @@ static int get_split_id(pll_split_t split,
     return -1;
   }
 
-  for (i=0; i<(int)split_len; ++i)
+  for (i=0; i<split_len; ++i)
   {
     if (split[i])
     {
       base_id = i * taxa_per_split;
-      ctz = (int)__builtin_ctz(split[i]);
+      ctz = __builtin_ctz(split[i]);
       assert (ctz < taxa_per_split);
       id = base_id + ctz;
       break;
@@ -1113,7 +1114,7 @@ static void reverse_split(pll_split_t split, unsigned int tip_count)
   for (i=0; i<split_len; ++i)
     split[i] = ~split[i];
 
-  unsigned int mask = (1<<split_offset) - 1;
+  pll_split_base_t mask = (1u<<split_offset) - 1;
   split[split_len - 1] &= mask;
 }
 

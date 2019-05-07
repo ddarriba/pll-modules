@@ -306,7 +306,7 @@ double target_func_onedim_treeinfo(void *p, double *x, double *fx, int * converg
   /* any partitions which have not converged yet? */
   double unconverged_flag = 0.;
 
-  size_t i, j=0;
+  unsigned int i, j=0;
   for (i = 0; i < treeinfo->partition_count; ++i)
   {
     pll_partition_t * partition = treeinfo->partitions[i];

@@ -258,7 +258,7 @@ PLL_EXPORT int pllmod_util_model_set_protmix(pll_partition_t * partition,
   const int model_index = get_model_index(model_name);
   if (model_index >= 0)
     {
-      pllmod_mixture_model_t * mixture = NULL;
+      const pllmod_mixture_model_t * mixture = protmix_model_list[model_index];
 
       if (partition->rate_matrices != mixture->ncomp)
         {

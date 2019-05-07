@@ -307,6 +307,16 @@ PLL_EXPORT pll_unode_t * pllmod_utree_create_node(unsigned int clv_index,
   new_node->next->next   = (pll_unode_t *)calloc(1, sizeof(pll_unode_t));
   if (!(new_node && new_node->next && new_node->next->next))
   {
+    if (new_node)
+    {
+      if (new_node->next)
+      {
+        if (new_node->next->next)
+          free(new_node->next->next);
+        free(new_node->next);
+      }
+      free(new_node);
+    }
     pllmod_set_error(PLL_ERROR_MEM_ALLOC,
                      "Cannot allocate memory for new node\n");
     return NULL;

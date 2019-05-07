@@ -189,13 +189,19 @@ pllmod_tbe_split_info_t * pllmod_utree_tbe_nature_init(pll_unode_t * ref_root,
   unsigned int a_leaf_idx[nodes_count];
   unsigned int b_leaf_idx[nodes_count];
 
-  pllmod_tbe_split_info_t* split_info =
-      (pllmod_tbe_split_info_t*) malloc(sizeof(pllmod_tbe_split_info_t) * split_count);
+  pllmod_tbe_split_info_t* split_info = NULL;
+  pll_unode_t ** travbuffer = NULL;
 
-  pll_unode_t ** travbuffer = (pll_unode_t **) malloc(nodes_count * sizeof(pll_unode_t *));
+  split_info = (pllmod_tbe_split_info_t*) malloc(sizeof(pllmod_tbe_split_info_t) * split_count);
+
+  travbuffer = (pll_unode_t **) malloc(nodes_count * sizeof(pll_unode_t *));
 
   if (!split_info || !travbuffer)
   {
+    if (split_info)
+      free(split_info);
+    if (travbuffer)
+      free(travbuffer);
     pllmod_set_error(PLL_ERROR_MEM_ALLOC, "Cannot allocate memory\n");
     return PLL_FAILURE;
   }
@@ -319,7 +325,10 @@ PLL_EXPORT int pllmod_utree_tbe_naive(pll_split_t * ref_splits,
   unsigned int split_len = bitv_length(tip_count);
   unsigned int split_size  = sizeof(pll_split_base_t) * 8;
   unsigned int split_offset = tip_count % split_size;
-  unsigned int split_mask = split_offset ? (1<<split_offset) - 1 : ~0;
+  unsigned int split_mask = split_offset ? (1u<<split_offset) - 1 : ~0u;
+
+  pll_split_t inv_split = NULL;
+  unsigned int * bs_light = NULL;
 
   if (!ref_splits || !bs_splits || !support)
   {
@@ -340,11 +349,15 @@ PLL_EXPORT int pllmod_utree_tbe_naive(pll_split_t * ref_splits,
     return PLL_FAILURE;
   }
 
-  pll_split_t inv_split = (pll_split_t) calloc(split_len, sizeof(pll_split_base_t));
-  int * bs_light = calloc(split_count, sizeof(int));
+  inv_split = (pll_split_t) calloc(split_len, sizeof(pll_split_base_t));
+  bs_light = calloc(split_count, sizeof(unsigned int));
 
   if (!inv_split || !bs_light)
   {
+    if (inv_split)
+      free(inv_split);
+    if (bs_light)
+      free(bs_light);
     pllmod_utree_split_hashtable_destroy(bs_splits_hash);
     pllmod_set_error(PLL_ERROR_MEM_ALLOC, "Cannot allocate memory\n");
     return PLL_FAILURE;

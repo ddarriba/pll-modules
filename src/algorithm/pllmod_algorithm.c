@@ -309,15 +309,15 @@ PLL_EXPORT double pllmod_algo_opt_alpha_pinv (pll_partition_t * partition,
 
   /* init alpha */
   x[0] = *alpha;
-  lb[0] = min_alpha ? min_alpha : PLLMOD_OPT_MIN_ALPHA;
-  ub[0] = max_alpha ? max_alpha : PLLMOD_OPT_MAX_ALPHA;
+  lb[0] = min_alpha > 0. ? min_alpha : PLLMOD_OPT_MIN_ALPHA;
+  ub[0] = max_alpha > 0. ? max_alpha : PLLMOD_OPT_MAX_ALPHA;
   bt[0] = PLLMOD_OPT_LBFGSB_BOUND_BOTH;
 
   /* init p-inv */
   x[1] = partition->prop_invar[params_indices[0]];
   lb[1] = min_pinv > PLLMOD_ALGO_LBFGSB_ERROR ? min_pinv :
       PLLMOD_OPT_MIN_PINV + PLLMOD_ALGO_LBFGSB_ERROR;
-  ub[1] = max_pinv ? max_pinv : PLLMOD_OPT_MAX_PINV;
+  ub[1] = max_pinv > 0. ? max_pinv : PLLMOD_OPT_MAX_PINV;
   bt[1] = PLLMOD_OPT_LBFGSB_BOUND_BOTH;
 
   cur_logl = pllmod_opt_minimize_lbfgsb(x, lb, ub, bt,
@@ -697,8 +697,8 @@ double pllmod_algo_opt_onedim_treeinfo_custom(pllmod_treeinfo_t * treeinfo,
                                               double max_value,
                                               double tolerance)
 {
-  size_t param_count = 0;
-  size_t i;
+  unsigned int param_count = 0;
+  unsigned int i;
 
   /* check how many partitions have to be optimized */
   for (i = 0; i < treeinfo->partition_count; ++i)
@@ -713,7 +713,7 @@ double pllmod_algo_opt_onedim_treeinfo_custom(pllmod_treeinfo_t * treeinfo,
     int * opt_mask = (int *) calloc(param_count, sizeof(int));
 
     /* collect current values of parameters */
-    size_t j = 0;
+    unsigned int j = 0;
     for (i = 0; i < treeinfo->partition_count; ++i)
     {
       if (treeinfo->params_to_optimize[i] & param_to_optimize)
@@ -925,7 +925,7 @@ double pllmod_algo_opt_subst_rates_treeinfo (pllmod_treeinfo_t * treeinfo,
                                              double bfgs_factor,
                                              double tolerance)
 {
-  size_t i, j, k, l;
+  unsigned int i, j, k, l;
 
   const double factor = bfgs_factor > 0. ? bfgs_factor : PLLMOD_ALGO_BFGS_FACTR;
 
@@ -935,8 +935,8 @@ double pllmod_algo_opt_subst_rates_treeinfo (pllmod_treeinfo_t * treeinfo,
 
   unsigned int * subst_free_params;
 
-  size_t part_count = 0;
-  size_t max_free_params = 0;
+  unsigned int part_count = 0;
+  unsigned int max_free_params = 0;
 
   /* check how many alphas have to be optimized */
   for (i = 0; i < treeinfo->partition_count; ++i)
@@ -949,7 +949,7 @@ double pllmod_algo_opt_subst_rates_treeinfo (pllmod_treeinfo_t * treeinfo,
       if (!treeinfo->partitions[i])
         continue;
 
-      size_t nrates = pllmod_util_subst_rate_count(treeinfo->partitions[i]->states);
+      unsigned int nrates = pllmod_util_subst_rate_count(treeinfo->partitions[i]->states);
       if (nrates > max_free_params)
         max_free_params = nrates;
     }
@@ -961,7 +961,7 @@ double pllmod_algo_opt_subst_rates_treeinfo (pllmod_treeinfo_t * treeinfo,
     double tmp = (double) max_free_params;
     treeinfo->parallel_reduce_cb(treeinfo->parallel_context, &tmp, 1,
                                  PLLMOD_COMMON_REDUCE_MAX);
-    max_free_params = (size_t) tmp;
+    max_free_params = (unsigned int) tmp;
   }
 
   /* nothing to optimize */
@@ -986,7 +986,7 @@ double pllmod_algo_opt_subst_rates_treeinfo (pllmod_treeinfo_t * treeinfo,
     ub[0][k] = max_rate;
   }
 
-  size_t part = 0;
+  unsigned int part = 0;
   for (i = 0; i < treeinfo->partition_count; ++i)
   {
     /* skip partition where no rate optimization is needed */
@@ -1108,15 +1108,15 @@ double pllmod_algo_opt_frequencies_treeinfo (pllmod_treeinfo_t * treeinfo,
 {
   const double factor = bfgs_factor > 0. ? bfgs_factor : PLLMOD_ALGO_BFGS_FACTR;
 
-  size_t i, j;
+  unsigned int i, j;
 
   double cur_logl;
   double **x, **lb, **ub;
   int **bt;
   unsigned int * num_free_params;
 
-  size_t part_count = 0;
-  size_t max_free_params = 0;
+  unsigned int part_count = 0;
+  unsigned int max_free_params = 0;
 
   /* check how many frequencies have to be optimized */
   for (i = 0; i < treeinfo->partition_count; ++i)
@@ -1129,7 +1129,7 @@ double pllmod_algo_opt_frequencies_treeinfo (pllmod_treeinfo_t * treeinfo,
       if (!treeinfo->partitions[i])
         continue;
 
-      size_t nfree_params = treeinfo->partitions[i]->states - 1;
+      unsigned int nfree_params = treeinfo->partitions[i]->states - 1;
       if (nfree_params > max_free_params)
         max_free_params = nfree_params;
     }
@@ -1145,7 +1145,7 @@ double pllmod_algo_opt_frequencies_treeinfo (pllmod_treeinfo_t * treeinfo,
     double tmp = (double) max_free_params;
     treeinfo->parallel_reduce_cb(treeinfo->parallel_context, &tmp, 1,
                                  PLLMOD_COMMON_REDUCE_MAX);
-    max_free_params = (size_t) tmp;
+    max_free_params = (unsigned int) tmp;
   }
 
   x  = (double **) malloc(sizeof(double*) * part_count);
@@ -1174,7 +1174,7 @@ double pllmod_algo_opt_frequencies_treeinfo (pllmod_treeinfo_t * treeinfo,
                                                        sizeof(unsigned int));
 
   /* now iterate over partitions and collect current frequencies values */
-  size_t part = 0;
+  unsigned int part = 0;
   for (i = 0; i < treeinfo->partition_count; ++i)
   {
     // skip partition where no freqs optimization is needed
@@ -1263,7 +1263,7 @@ double pllmod_algo_opt_alpha_pinv_treeinfo(pllmod_treeinfo_t * treeinfo,
   const double factor = bfgs_factor > 0. ? bfgs_factor : PLLMOD_ALGO_BFGS_FACTR;
   const int params_to_optimize = PLLMOD_OPT_PARAM_ALPHA | PLLMOD_OPT_PARAM_PINV;
 
-  size_t i;
+  unsigned int i;
 
   double cur_logl;
   double **x, **lb, **ub;
@@ -1271,8 +1271,8 @@ double pllmod_algo_opt_alpha_pinv_treeinfo(pllmod_treeinfo_t * treeinfo,
   int **bt;
   unsigned int * num_free_params;
 
-  size_t part_count = 0;
-  size_t max_free_params = 2;
+  unsigned int part_count = 0;
+  unsigned int max_free_params = 2;
 
   /* check in how many partitions both alpha AND p-inv have to be optimized */
   for (i = 0; i < treeinfo->partition_count; ++i)
@@ -1406,7 +1406,7 @@ static void fix_free_rates(pllmod_treeinfo_t * treeinfo,
                            double min_rate,
                            double max_rate)
 {
-  size_t i,j;
+  unsigned int i,j;
 
   for (i = 0; i < treeinfo->partition_count; ++i)
   {
@@ -1456,14 +1456,14 @@ double pllmod_algo_opt_rates_weights_treeinfo (pllmod_treeinfo_t * treeinfo,
 {
   const double factor = bfgs_factor > 0. ? bfgs_factor : PLLMOD_ALGO_BFGS_FACTR;
 
-  size_t i, j;
+  unsigned int i, j;
   double cur_logl, prev_logl;
   double **x, **lb, **ub;
   int **bt;
   unsigned int * num_free_params;
 
-  size_t part_count = 0;
-  size_t max_free_params = 0;
+  unsigned int part_count = 0;
+  unsigned int max_free_params = 0;
 
   /* check how many frequencies have to be optimized */
   for (i = 0; i < treeinfo->partition_count; ++i)
@@ -1477,7 +1477,7 @@ double pllmod_algo_opt_rates_weights_treeinfo (pllmod_treeinfo_t * treeinfo,
       if (!treeinfo->partitions[i])
         continue;
 
-      size_t nfree_params = treeinfo->partitions[i]->rate_cats;
+      unsigned int nfree_params = treeinfo->partitions[i]->rate_cats;
       if (nfree_params > max_free_params)
         max_free_params = nfree_params;
     }
@@ -1493,7 +1493,7 @@ double pllmod_algo_opt_rates_weights_treeinfo (pllmod_treeinfo_t * treeinfo,
     double tmp = (double) max_free_params;
     treeinfo->parallel_reduce_cb(treeinfo->parallel_context, &tmp, 1,
                                  PLLMOD_COMMON_REDUCE_MAX);
-    max_free_params = (size_t) tmp;
+    max_free_params = (unsigned int) tmp;
   }
 
   x  = (double **) calloc(sizeof(double*),  part_count);

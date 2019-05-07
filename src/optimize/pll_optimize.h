@@ -164,7 +164,7 @@ typedef struct
 typedef struct
 {
   pll_unode_t * tree;
-  size_t partition_count;
+  unsigned int partition_count;
   pll_partition_t ** partitions;
   unsigned int ** params_indices;
   double ** precomp_buffers;
@@ -321,7 +321,7 @@ PLL_EXPORT double pllmod_opt_optimize_branch_lengths_local_multi (
                                                                          size_t,
                                                                          int));
 
-PLL_EXPORT int pllmod_opt_minimize_brent_multi(int xnum,
+PLL_EXPORT int pllmod_opt_minimize_brent_multi(unsigned int xnum,
                                                int * opt_mask,
                                                double * xmin,
                                                double * xguess,

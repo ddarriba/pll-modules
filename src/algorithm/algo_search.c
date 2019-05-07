@@ -39,10 +39,10 @@ Schloss-Wolfsbrunnenweg 35, D-69118 Heidelberg, Germany
 
 typedef struct spr_params
 {
-  int thorough;
-  int radius_min;
-  int radius_max;
-  int ntopol_keep;
+  pll_bool_t thorough;
+  unsigned int radius_min;
+  unsigned int radius_max;
+  unsigned int ntopol_keep;
   double bl_min;
   double bl_max;
   int smoothings;
@@ -53,8 +53,8 @@ typedef struct spr_params
 typedef struct rollback_list
 {
   pll_tree_rollback_t * list;
-  int current;
-  size_t round;
+  size_t current;
+  unsigned int round;
   size_t size;
 } pllmod_rollback_list_t;
 
@@ -70,15 +70,15 @@ typedef struct node_entry {
 typedef struct bestnode_list
 {
   node_entry_t * list;
-  int current;
+  size_t current;
   size_t size;
-  size_t brlen_set_count;
+  unsigned int brlen_set_count;
   double ** brlen_buffers;
 } pllmod_bestnode_list_t;
 
 static void algo_query_allnodes_recursive(pll_unode_t * node,
                                           pll_unode_t ** buffer,
-                                          int * index)
+                                          unsigned int * index)
 {
   if (node->next)
   {
@@ -91,11 +91,11 @@ static void algo_query_allnodes_recursive(pll_unode_t * node,
   }
 }
 
-static int algo_query_allnodes(pll_unode_t * root, pll_unode_t ** buffer)
+static unsigned int algo_query_allnodes(pll_unode_t * root, pll_unode_t ** buffer)
 {
   assert(root && buffer);
 
-  int index = 0;
+  unsigned int index = 0;
 
   algo_query_allnodes_recursive(root->back, buffer, &index);
   algo_query_allnodes_recursive(root, buffer, &index);
@@ -146,7 +146,7 @@ static pll_tree_rollback_t * algo_rollback_list_prev(
 {
   if (rollback_list->current > 0)
     rollback_list->current--;
-  else if (rollback_list->round > 0)
+  else if (rollback_list->round > 0 && rollback_list->size > 0)
   {
     rollback_list->round--;
     rollback_list->current = rollback_list->size - 1;
@@ -160,7 +160,7 @@ static pll_tree_rollback_t * algo_rollback_list_prev(
 static pll_tree_rollback_t * algo_rollback_list_next(
                                pllmod_rollback_list_t * rollback_list)
 {
-  if (rollback_list->current < ((int) rollback_list->size - 1))
+  if (rollback_list->current < rollback_list->size - 1)
     rollback_list->current++;
   else
   {
@@ -197,7 +197,7 @@ static void algo_bestnode_list_destroy(pllmod_bestnode_list_t * bestnode_list)
 }
 
 static pllmod_bestnode_list_t * algo_bestnode_list_create(size_t slots,
-                                                          size_t brlen_set_count)
+                                                          unsigned int brlen_set_count)
 {
   pllmod_bestnode_list_t * bestnode_list =
     (pllmod_bestnode_list_t *) calloc(1, sizeof(pllmod_bestnode_list_t));
@@ -321,7 +321,7 @@ static int algo_bestnode_list_next_index(pllmod_bestnode_list_t * best_node_list
   assert(curr_index >= -1);
 
   node_entry_t * list = best_node_list->list;
-  const int list_size = best_node_list->size;
+  const unsigned int list_size = best_node_list->size;
 
   do
   {
@@ -587,14 +587,14 @@ static int best_reinsert_edge(pllmod_treeinfo_t * treeinfo,
   pll_unode_t ** regraft_nodes;
   pll_unode_t * r_edge;
   int regraft_edges;
-  int r_dist;
+  unsigned int r_dist;
   double *z1, *z2, *z3;
   double *b1, *b2, *b3;
   double * regraft_length;
   unsigned int redge_count = 0;
   unsigned int ncount;
   int retval;
-  int * regraft_dist;
+  unsigned int * regraft_dist;
   int descent;
   double loglh;
 
@@ -674,7 +674,7 @@ static int best_reinsert_edge(pllmod_treeinfo_t * treeinfo,
   assert(retval == PLL_SUCCESS);
 
   /* initialize regraft distances */
-  regraft_dist = (int *) calloc(total_edge_count, sizeof(int));
+  regraft_dist = (unsigned int *) calloc(total_edge_count, sizeof(unsigned int));
   if (!regraft_dist)
   {
     pllmod_set_error(PLL_ERROR_MEM_ALLOC,
@@ -941,10 +941,10 @@ static double reinsert_nodes(pllmod_treeinfo_t * treeinfo, pll_unode_t ** nodes,
 }
 
 PLL_EXPORT double pllmod_algo_spr_round(pllmod_treeinfo_t * treeinfo,
-                                        int radius_min,
-                                        int radius_max,
-                                        int ntopol_keep,
-                                        int thorough,
+                                        unsigned int radius_min,
+                                        unsigned int radius_max,
+                                        unsigned int ntopol_keep,
+                                        pll_bool_t thorough,
                                         int brlen_opt_method,
                                         double bl_min,
                                         double bl_max,
@@ -959,12 +959,12 @@ PLL_EXPORT double pllmod_algo_spr_round(pllmod_treeinfo_t * treeinfo,
   int retval;
   int brlen_unlinked;
 
-  int allnodes_count;
+  unsigned int allnodes_count;
   pll_unode_t ** allnodes = NULL;
 
   size_t rollback_slots;
   size_t toplist_slots;
-  size_t brlen_set_count;
+  unsigned int brlen_set_count;
   pllmod_rollback_list_t * rollback_list = NULL;
   pllmod_bestnode_list_t * bestnode_list = NULL;
   pll_tree_rollback_t * rollback;
@@ -1035,8 +1035,7 @@ PLL_EXPORT double pllmod_algo_spr_round(pllmod_treeinfo_t * treeinfo,
 
   /* query all nodes */
   allnodes_count = (treeinfo->tip_count - 2) * 3;
-  allnodes = (pll_unode_t **) calloc ((size_t) allnodes_count,
-                                      sizeof(pll_unode_t *));
+  allnodes = (pll_unode_t **) calloc (allnodes_count, sizeof(pll_unode_t *));
   if (!allnodes)
   {
     pllmod_set_error(PLL_ERROR_MEM_ALLOC,
@@ -1044,7 +1043,7 @@ PLL_EXPORT double pllmod_algo_spr_round(pllmod_treeinfo_t * treeinfo,
     goto error_exit;
   }
 
-  int node_count = algo_query_allnodes(treeinfo->root, allnodes);
+  unsigned int node_count = algo_query_allnodes(treeinfo->root, allnodes);
   assert(node_count == allnodes_count);
 
   loglh = reinsert_nodes(treeinfo,
@@ -1064,14 +1063,14 @@ PLL_EXPORT double pllmod_algo_spr_round(pllmod_treeinfo_t * treeinfo,
    * (i.e., in SLOW mode) */
   if (!params.thorough && bestnode_list->current > 0)
   {
-    params.thorough = 1;
+    params.thorough = PLL_TRUE;
     for (i = 0; bestnode_list->list[i].p_node != NULL; i++)
     {
       allnodes[i] = bestnode_list->list[i].p_node;
       bestnode_list->list[i].p_node = NULL;
     }
 
-    DBG("\nThorough re-insertion of %d best-scoring nodes...\n", i);
+    DBG("\nThorough re-insertion of %u best-scoring nodes...\n", i);
 
     loglh = reinsert_nodes(treeinfo,
                            allnodes,
@@ -1153,7 +1152,7 @@ PLL_EXPORT double pllmod_algo_spr_round(pllmod_treeinfo_t * treeinfo,
     }
     else
     {
-      if (toplist_index > params.ntopol_keep)
+      if ((unsigned int) toplist_index > params.ntopol_keep)
         continue;
 
       spr_entry = &bestnode_list->list[toplist_index];

@@ -197,7 +197,7 @@ PLL_EXPORT int pllmod_opt_minimize_newton_multi(unsigned int xnum,
 
       if (!isfinite(f[i]) || !isfinite(df[i]))
       {
-        DBG("[it=%d][NR deriv][p=%d] BL=%.9f   f=%.12f  df=%.12f\n",
+        DBG("[it=%u][NR deriv][p=%u] BL=%.9f   f=%.12f  df=%.12f\n",
             iter, i, x[i], f[i], df[i]);
         pllmod_set_error(PLLMOD_OPT_ERROR_NEWTON_DERIV,
                          "Wrong likelihood derivatives");
@@ -236,7 +236,7 @@ PLL_EXPORT int pllmod_opt_minimize_newton_multi(unsigned int xnum,
         continue;
       }
 
-      DBG("[it=%d][NR deriv][p=%d] BL=%.9f   f=%.12f  df=%.12f  nextBL=%.9f\n",
+      DBG("[it=%u][NR deriv][p=%u] BL=%.9f   f=%.12f  df=%.12f  nextBL=%.9f\n",
           iter, i, x[i], f[i], df[i], x[i]+dx);
 
       x[i] += dx;
@@ -358,7 +358,7 @@ PLL_EXPORT double pllmod_opt_minimize_newton_old(double x1,
 
     deriv_func((void *)params, rts, &f, &df);
 
-    DBG("[%d][NR deriv] BL=%.9f   f=%.12f  df=%.12f  nextBL=%.9f\n", i, rts, f, df, rts-f/df);
+    DBG("[%u][NR deriv] BL=%.9f   f=%.12f  df=%.12f  nextBL=%.9f\n", i, rts, f, df, rts-f/df);
 
     if (!isfinite(f) || !isfinite(df))
     {
@@ -768,7 +768,7 @@ PLL_EXPORT double pllmod_opt_minimize_lbfgsb_multi(unsigned int xnum,
           /* reset variable */
           x[p][i] = opts[p]->temp;
 
-          DBG("P%d  lh_old: %f, lh_new: %f\n", p, lh_old[p], lh_new[p]);
+          DBG("P%u  lh_old: %f, lh_new: %f\n", p, lh_old[p], lh_new[p]);
         }
       }
     }
@@ -1040,7 +1040,7 @@ double target_funk_wrapper(void * params,
   return *fxopt;
 }
 
-static int brent_opt_alt (int xnum,
+static int brent_opt_alt (unsigned int xnum,
                           int * opt_mask,
                           double * xmin,
                           double * xguess,
@@ -1072,7 +1072,7 @@ static int brent_opt_alt (int xnum,
   double * l_xmin = NULL;
   double * l_xmax = NULL;
 
-  int i;
+  unsigned int i;
   int iterate = 1;
 
   if (global_range)
@@ -1441,7 +1441,7 @@ PLL_EXPORT double pllmod_opt_minimize_brent(double xmin,
  * @param global_range 0=xmin/xmax point to arrays of size xnum with individual
  * per-variable ranges; 1=xmin/xmax is a global range for all variables
  */
-PLL_EXPORT int pllmod_opt_minimize_brent_multi(int xnum,
+PLL_EXPORT int pllmod_opt_minimize_brent_multi(unsigned int xnum,
                                                int * opt_mask,
                                                double * xmin,
                                                double * xguess,

@@ -26,17 +26,17 @@
 #include "pll.h"
 #endif
 
-#define PLLMOD_MSA_STATS_NONE        (0)
-#define PLLMOD_MSA_STATS_DUP_TAXA    (1<<0)
-#define PLLMOD_MSA_STATS_DUP_SEQS    (1<<1)
-#define PLLMOD_MSA_STATS_GAP_PROP    (1<<2)
-#define PLLMOD_MSA_STATS_GAP_SEQS    (1<<3)
-#define PLLMOD_MSA_STATS_GAP_COLS    (1<<4)
-#define PLLMOD_MSA_STATS_INV_PROP    (1<<5)
-#define PLLMOD_MSA_STATS_INV_COLS    (1<<6)
-#define PLLMOD_MSA_STATS_FREQS       (1<<7)
-#define PLLMOD_MSA_STATS_SUBST_RATES (1<<8)
-#define PLLMOD_MSA_STATS_ALL         (~0)
+#define PLLMOD_MSA_STATS_NONE        (0ul)
+#define PLLMOD_MSA_STATS_DUP_TAXA    (1ul<<0)
+#define PLLMOD_MSA_STATS_DUP_SEQS    (1ul<<1)
+#define PLLMOD_MSA_STATS_GAP_PROP    (1ul<<2)
+#define PLLMOD_MSA_STATS_GAP_SEQS    (1ul<<3)
+#define PLLMOD_MSA_STATS_GAP_COLS    (1ul<<4)
+#define PLLMOD_MSA_STATS_INV_PROP    (1ul<<5)
+#define PLLMOD_MSA_STATS_INV_COLS    (1ul<<6)
+#define PLLMOD_MSA_STATS_FREQS       (1ul<<7)
+#define PLLMOD_MSA_STATS_SUBST_RATES (1ul<<8)
+#define PLLMOD_MSA_STATS_ALL         (~0ul)
 
 #define PLLMOD_MSA_MAX_ERRORS        100
 
