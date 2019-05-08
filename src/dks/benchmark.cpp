@@ -126,14 +126,6 @@ unsigned int select_kernel_auto(const pll_partition_t *pll_partition,
   return select_kernel_auto(pll_partition, pll_msa, charmap, kw, gen);
 }
 
-unsigned int select_kernel_auto(const pll_partition_t *pll_partition,
-                                const pll_msa_t *pll_msa,
-                                const pll_state_t *charmap,
-                                const msa_weight_t &weights) {
-  attributes_generator_t gen;
-  return select_kernel_auto(pll_partition, pll_msa, charmap, weights, gen);
-}
-
 unsigned int select_kernel_auto(const msa_t &msa, const msa_weight_t &weights,
                                 const pll_state_t *charmap, unsigned int states,
                                 unsigned int rate_cats,
