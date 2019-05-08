@@ -1,4 +1,5 @@
-#pragma once
+#ifndef DKS_PARTITION_H_
+#define DKS_PARTITION_H_
 #include "model.h"
 #include <memory>
 #include <pll.h>
@@ -52,3 +53,4 @@ private:
   constexpr static double _rate_cats[] = {1.0};
 };
 } // namespace dks
+#endif

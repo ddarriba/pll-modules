@@ -1,4 +1,5 @@
-#pragma once
+#ifndef DKS_TREE_H_
+#define DKS_TREE_H_
 #include "pll.h"
 #include <vector>
 #include <memory>
@@ -37,3 +38,4 @@ private:
   std::vector<unsigned int> _matrix_indices;
 };
 } // namespace dks
+#endif

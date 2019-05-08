@@ -1,4 +1,5 @@
-#pragma once
+#ifndef DKS_MODEL_H_
+#define DKS_MODEL_H_
 #include "tree.h"
 #include <memory>
 #include <pll.h>
@@ -68,3 +69,4 @@ private:
   std::vector<double> _frequencies;
 };
 } // namespace dks
+#endif

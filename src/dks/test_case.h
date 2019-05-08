@@ -1,4 +1,5 @@
-#pragma once
+#ifndef DKS_TESTCASE_H_
+#define DKS_TESTCASE_H_
 #include "model.h"
 #include "partition.h"
 #include "tree.h"
@@ -171,3 +172,4 @@ template <> struct hash<dks::test_kernel_t> {
 std::ostream &operator<<(std::ostream &stream, const dks::test_cpu_t &cpu);
 std::ostream &operator<<(std::ostream &stream,
                          const dks::attributes_t &attribs);
+#endif

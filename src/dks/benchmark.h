@@ -1,4 +1,5 @@
-#pragma once
+#ifndef DKS_BENCHMARK_H_
+#define DKS_BENCHMARK_H_
 #include "pll_msa.h"
 #include "test_case.h"
 #include <unordered_map>
@@ -65,3 +66,4 @@ unsigned int select_kernel_auto(const pll_partition_t *pll_partition,
                                 const msa_weight_t &weights);
 
 } // namespace dks
+#endif// DKS_BENCHMARK_H_
