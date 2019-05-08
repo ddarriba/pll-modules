@@ -10,9 +10,9 @@ namespace dks {
 msa_t convert_pll_msa_t(const pll_msa_t *pll_msa) {
   msa_t msa;
   msa.reserve(pll_msa->count);
-  for (size_t i = 0; i < pll_msa->count; i++) {
+  for (int i = 0; i < pll_msa->count; i++) {
     msa.emplace_back(pll_msa->length);
-    for (size_t j = 0; j < pll_msa->length; j++) {
+    for (int j = 0; j < pll_msa->length; j++) {
       msa[i][j] = pll_msa->sequence[i][j];
     }
   }
