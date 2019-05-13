@@ -717,7 +717,9 @@ PLL_EXPORT int pllmod_utree_tbe_nature(pll_split_t * ref_splits,
                                        pll_unode_t* bs_root,
                                        unsigned int tip_count,
                                        double * support,
-                                       pllmod_tbe_split_info_t* split_info);
+                                       pllmod_tbe_split_info_t* split_info,
+									   unsigned int d,
+									   double** extra_taxa_table);
 
 /* This is an old, naive and rather inefficient TBE computation method by Alexey.
  * Keep it here just in case */
