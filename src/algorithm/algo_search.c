@@ -149,7 +149,7 @@ static pll_tree_rollback_t * algo_rollback_list_prev(
   else if (rollback_list->round > 0 && rollback_list->size > 0)
   {
     rollback_list->round--;
-    rollback_list->current = rollback_list->size - 1;
+    rollback_list->current = rollback_list->size ? rollback_list->size - 1 : 0;
   }
   else
     return NULL;
@@ -160,7 +160,7 @@ static pll_tree_rollback_t * algo_rollback_list_prev(
 static pll_tree_rollback_t * algo_rollback_list_next(
                                pllmod_rollback_list_t * rollback_list)
 {
-  if (rollback_list->current < rollback_list->size - 1)
+  if (rollback_list->current + 1 < rollback_list->size)
     rollback_list->current++;
   else
   {
