@@ -39,7 +39,7 @@ double target_freqs_func(void *p, double *x)
   pll_unode_t * root              = params->tree;
   unsigned int * params_indices   = params->params_indices;
   unsigned int params_index       = params->params_index;
-  unsigned int highest_freq_state = params->highest_freq_state;
+  unsigned int fixed_freq_state   = params->fixed_freq_state;
   unsigned int states             = partition->states;
   double *freqs                   = partition->frequencies[params_index];
   double sum_ratios = 1.0;
@@ -56,13 +56,13 @@ double target_freqs_func(void *p, double *x)
   cur_index = 0;
   for (i = 0; i < states; ++i)
   {
-    if (i != highest_freq_state)
+    if (i != fixed_freq_state)
     {
       freqs[i] = x[cur_index] / sum_ratios;
       cur_index++;
     }
   }
-  freqs[highest_freq_state] = 1.0 / sum_ratios;
+  freqs[fixed_freq_state] = 1.0 / sum_ratios;
 
   /* important!! invalidate eigen-decomposition */
   partition->eigen_decomp_valid[params_index] = 0;
@@ -237,7 +237,7 @@ double target_weights_func(void *p, double *x)
   pll_partition_t * partition       = params->partition;
   pll_unode_t * root                = params->tree;
   unsigned int * params_indices     = params->params_indices;
-  unsigned int highest_weight_state = params->highest_weight_state;
+  unsigned int fixed_weight_state   = params->fixed_weight_state;
   unsigned int n_weights            = partition->rate_cats;
   double sum_ratios = 1.0;
 
@@ -250,11 +250,11 @@ double target_weights_func(void *p, double *x)
 
   cur_weight = 0;
   for (i = 0; i < (n_weights); ++i)
-    if (i != highest_weight_state)
+    if (i != fixed_weight_state)
     {
       weights[i] = x[cur_weight++] / sum_ratios;
     }
-  weights[highest_weight_state] = 1.0 / sum_ratios;
+  weights[fixed_weight_state] = 1.0 / sum_ratios;
 
   /* update weights */
   // memcpy(partition->rate_weights, weights, partition->rate_cats*sizeof(double));
@@ -433,7 +433,7 @@ double target_func_multidim_treeinfo(void * p, double ** x, double * fx,
           break;
         case PLLMOD_OPT_PARAM_RATE_WEIGHTS:
         {
-          unsigned int highest_weight_state = fixed_var_index[part];
+          unsigned int fixed_weight_state = fixed_var_index[part];
           unsigned int n_weights            = partition->rate_cats;
           double sum_ratios = 1.0;
 
@@ -445,11 +445,11 @@ double target_func_multidim_treeinfo(void * p, double ** x, double * fx,
 
           cur_weight = 0;
           for (i = 0; i < (n_weights); ++i)
-            if (i != highest_weight_state)
+            if (i != fixed_weight_state)
             {
               weights[i] = x[part][cur_weight++] / sum_ratios;
             }
-          weights[highest_weight_state] = 1.0 / sum_ratios;
+          weights[fixed_weight_state] = 1.0 / sum_ratios;
           break;
         }
         default:
@@ -599,7 +599,7 @@ double target_freqs_func_multi(void * p, double ** x, double * fx,
   pllmod_treeinfo_t * treeinfo      = params->treeinfo;
   unsigned int num_parts            = params->num_opt_partitions;
   unsigned int params_index         = params->params_index;
-  unsigned int * highest_freq_state = params->fixed_var_index;
+  unsigned int * fixed_freq_state   = params->fixed_var_index;
 
   double score = -INFINITY;
 
@@ -633,7 +633,8 @@ double target_freqs_func_multi(void * p, double ** x, double * fx,
       unsigned int states             = partition->states;
       double * freqs                  = partition->frequencies[params_index];
 
-      double sum_ratios = 1.0;
+      unsigned int fixed            = fixed_freq_state[part];
+      double sum_ratios               = 1.0;
       unsigned int cur_index;
 
       /* update frequencies */
@@ -645,15 +646,25 @@ double target_freqs_func_multi(void * p, double ** x, double * fx,
       cur_index = 0;
       for (j = 0; j < states; ++j)
       {
-        if (j != highest_freq_state[part])
+        if (j != fixed)
         {
           freqs[j] = x[part][cur_index] / sum_ratios;
           cur_index++;
         }
       }
-      freqs[highest_freq_state[part]] = 1.0 / sum_ratios;
+      freqs[fixed] = 1.0 / sum_ratios;
 
-//      printf("freqs: %f %f %f %f ", freqs[0], freqs[1], freqs[2], freqs[3]);
+#ifdef DEBUG
+      cur_index = 0;
+      printf("freqs denorm / norm: ");
+      for (size_t i = 0; i < states; ++i)
+        printf("%f ", i == fixed ? 1.0 : x[part][cur_index++]);
+      printf("  ||  ");
+
+      for (size_t i = 0; i < states; ++i)
+        printf("%f ", freqs[i]);
+      printf("\n");
+#endif
 
       /* important!! invalidate eigen-decomposition */
       partition->eigen_decomp_valid[params_index] = 0;

@@ -42,7 +42,7 @@ static void fill_rates   (double *rates,
                           unsigned int n_rates);
 
 static void fill_weights (double *weights,
-                          unsigned int * highest_weight_index,
+                          unsigned int * fixed_weight_index,
                           double *x, int *bt, double *lb, double *ub,
                           unsigned int n_weights);
 
@@ -75,19 +75,27 @@ PLL_EXPORT double pllmod_algo_opt_frequencies (pll_partition_t * partition,
   ub = (double *) malloc(sizeof(double) * (states - 1));
   bt = (int *)    malloc(sizeof(int)    * (states - 1));
 
-  /* find highest frequency */
-  opt_params.highest_freq_state = 0;
-  for (i = 1; i < states; ++i)
-    if (frequencies[i] > frequencies[opt_params.highest_freq_state])
-      opt_params.highest_freq_state = i;
+  /* find first state with frequency > min_freq, and use it as fixed freq */
+  opt_params.fixed_freq_state = states;
+  for (i = 0; i < states; ++i)
+  {
+    if (frequencies[i] > PLLMOD_OPT_MIN_FREQ)
+    {
+      opt_params.fixed_freq_state = i;
+      break;
+    }
+  }
+
+  assert(opt_params.fixed_freq_state < states);
+  assert(frequencies[opt_params.fixed_freq_state] > 0.);
 
   cur_index = 0;
   for (i = 0; i < states; ++i)
   {
-    if (i != opt_params.highest_freq_state)
+    if (i != opt_params.fixed_freq_state)
     {
       x[cur_index] = frequencies[i]
-        / frequencies[opt_params.highest_freq_state];
+        / frequencies[opt_params.fixed_freq_state];
       lb[cur_index] = PLLMOD_OPT_MIN_FREQ;
       ub[cur_index] = PLLMOD_OPT_MAX_FREQ;
       bt[cur_index] = PLLMOD_OPT_LBFGSB_BOUND_BOTH;
@@ -413,7 +421,7 @@ PLL_EXPORT double pllmod_algo_opt_rates_weights (pll_partition_t * partition,
 
     /* optimize mixture weights */
 
-    fill_weights(weights, &(opt_params.highest_weight_state), x,
+    fill_weights(weights, &(opt_params.fixed_weight_state), x,
                       bt, lb, ub, rate_cats);
 
     cur_logl = 1
@@ -499,7 +507,7 @@ static void fill_rates   (double *rates,
 }
 
 static void fill_weights (double *weights,
-                          unsigned int * highest_weight_index,
+                          unsigned int * fixed_weight_index,
                           double *x,
                           int *bt,
                           double *lb,
@@ -508,18 +516,26 @@ static void fill_weights (double *weights,
 {
   unsigned int i, cur_index = 0;
 
-  *highest_weight_index = 0;
-  for (i = 1; i < n_weights; ++i)
-    if (weights[i] > weights[*highest_weight_index])
-      *highest_weight_index = i;
+  *fixed_weight_index = n_weights;
+  for (i = 0; i < n_weights; ++i)
+  {
+    if (weights[i] > PLLMOD_OPT_MIN_FREQ)
+    {
+      *fixed_weight_index = i;
+      break;
+    }
+  }
+
+  assert(*fixed_weight_index < n_weights);
+  assert(weights[*fixed_weight_index] > 0.);
 
   for (i = 0; i < n_weights; ++i)
   {
-    if (i != *highest_weight_index)
+    if (i != *fixed_weight_index)
     {
       bt[cur_index] = PLLMOD_OPT_LBFGSB_BOUND_BOTH;
 
-      double r = weights[i] / weights[*highest_weight_index];
+      double r = weights[i] / weights[*fixed_weight_index];
       lb[cur_index] = PLLMOD_ALGO_MIN_WEIGHT_RATIO;
       ub[cur_index] = PLLMOD_ALGO_MAX_WEIGHT_RATIO;
       if (r < lb[cur_index])
@@ -1201,23 +1217,47 @@ double pllmod_algo_opt_frequencies_treeinfo (pllmod_treeinfo_t * treeinfo,
     lb[part] = lb[0];
     ub[part] = ub[0];
 
-    /* find highest frequency */
-    unsigned int highest_freq_state = 0;
-    for (j = 1; j < states; ++j)
-      if (frequencies[j] > frequencies[highest_freq_state])
-        highest_freq_state = j;
+#ifdef DEBUG
+      printf("INITIAL freqs: ");
+      for (size_t i = 0; i < states; ++i)
+        printf("%f ", frequencies[i]);
+      printf("\n");
+#endif
+
+    /* find first state with frequency > min_freq, and use it as fixed freq */
+    unsigned int fixed_freq_state = states;
+    for (j = 0; j < states; ++j)
+    {
+      if (frequencies[j] > min_freq)
+      {
+        fixed_freq_state = j;
+        break;
+      }
+    }
+
+    assert(fixed_freq_state < states);
+    assert(frequencies[fixed_freq_state] > 0.);
 
     cur_index = 0;
     for (j = 0; j < states; ++j)
     {
-      if (j != highest_freq_state)
+      if (j != fixed_freq_state)
       {
-        x[part][cur_index] = frequencies[j] / frequencies[highest_freq_state];
+        x[part][cur_index] = frequencies[j] / frequencies[fixed_freq_state];
         cur_index++;
       }
     }
 
-    opt_params.fixed_var_index[part] = highest_freq_state;
+    assert(cur_index == num_free_params[part]);
+
+#ifdef DEBUG
+      printf("INITIAL denorm freqs: ");
+      for (size_t i = 0; i < cur_index; ++i)
+        printf("%f ", x[part][i]);
+      printf("\n");
+#endif
+
+    opt_params.fixed_var_index[part] = fixed_freq_state;
 
     part++;
   }
