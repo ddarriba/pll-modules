@@ -718,7 +718,7 @@ typedef struct tbe_extra_info
 typedef struct tbe_extra_all_result
 {
   double* support;
-  pllmod_tbe_extra_info_t extra_info;
+  pllmod_tbe_extra_info_t* extra_info;
 } pllmod_tbe_extra_all_result_t;
 
 

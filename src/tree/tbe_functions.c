@@ -409,7 +409,7 @@ PLL_EXPORT pllmod_tbe_extra_info_t * pllmod_tbe_extra_info_create(unsigned int r
 	}
 	if (doTable) {
 	  extra_info->extra_taxa_table = calloc(refsplit_count, sizeof(unsigned short*));
-	  int i;
+	  unsigned int i;
 	  for (i = 0; i < refsplit_count; ++i) {
 	    extra_info->extra_taxa_table[i] = calloc(tip_count, sizeof(unsigned short));
 	  }
