@@ -710,9 +710,8 @@ typedef struct tbe_extra_info
   double tbe_cutoff;
   unsigned int min_p; // minimum size of "light side" to be considered a "close enough" branch
   unsigned short** extra_taxa_table;
-  unsigned long * extra_taxa_array;
+  double * extra_taxa_array;
   double * extra_avg_dist_array;
-  unsigned long num_close_enough_branches;
   unsigned long num_bs_trees;
 } pllmod_tbe_extra_info_t;
 

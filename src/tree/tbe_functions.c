@@ -104,12 +104,12 @@ void free_tbe_data(tbe_data_t* data)
   free(data);
 }
 
-void update_moved_taxa(pllmod_tbe_extra_info_t* info, unsigned int refsplit_id, unsigned int taxon_id)
+void update_moved_taxa(pllmod_tbe_extra_info_t* info, unsigned int refsplit_id, unsigned int taxon_id, unsigned int* extra_taxa_array_single, unsigned int* num_close_enough_branches)
 {
   if (info) {
     if (info->extra_taxa_array) {
-    	info->extra_taxa_array[taxon_id]++;
-    	info->num_close_enough_branches++;
+    	extra_taxa_array_single[taxon_id]++;
+    	(*num_close_enough_branches)++;
     }
     if (info->extra_taxa_table) {
     	info->extra_taxa_table[refsplit_id][taxon_id]++;
@@ -118,11 +118,11 @@ void update_moved_taxa(pllmod_tbe_extra_info_t* info, unsigned int refsplit_id, 
 }
 
 void fill_extra_taxa_entries_recursive(unsigned int act_node_idx, int want_ones_now, tbe_data_t* data, unsigned int dist, unsigned int best_clv_idx,
-		                               pllmod_tbe_extra_info_t * extra_info, unsigned int* clv_idx_to_postorder_idx, unsigned int refsplit_id) {
+		                               pllmod_tbe_extra_info_t * extra_info, unsigned int* clv_idx_to_postorder_idx, unsigned int refsplit_id, unsigned int* extra_taxa_array_single, unsigned int* num_close_enough_branches) {
   // check if the current node is a leaf node
   if (act_node_idx < data->tip_count) { // leaf node
     // update the array
-	update_moved_taxa(extra_info, refsplit_id, act_node_idx);
+	update_moved_taxa(extra_info, refsplit_id, act_node_idx, extra_taxa_array_single, num_close_enough_branches);
     return;
   }
 
@@ -136,18 +136,18 @@ void fill_extra_taxa_entries_recursive(unsigned int act_node_idx, int want_ones_
     return; // we don't need to go further down this subtree.
   } else {
     unsigned int postorder_idx = clv_idx_to_postorder_idx[act_node_idx];
-    fill_extra_taxa_entries_recursive(data->idx_infos[postorder_idx].idx_left, want_ones_now, data, dist, best_clv_idx, extra_info, clv_idx_to_postorder_idx, refsplit_id);
-    fill_extra_taxa_entries_recursive(data->idx_infos[postorder_idx].idx_right, want_ones_now, data, dist, best_clv_idx, extra_info, clv_idx_to_postorder_idx, refsplit_id);
+    fill_extra_taxa_entries_recursive(data->idx_infos[postorder_idx].idx_left, want_ones_now, data, dist, best_clv_idx, extra_info, clv_idx_to_postorder_idx, refsplit_id, extra_taxa_array_single, num_close_enough_branches);
+    fill_extra_taxa_entries_recursive(data->idx_infos[postorder_idx].idx_right, want_ones_now, data, dist, best_clv_idx, extra_info, clv_idx_to_postorder_idx, refsplit_id, extra_taxa_array_single, num_close_enough_branches);
   }
 }
 
 void fill_extra_taxa_entries(const pllmod_tbe_split_info_t* query, tbe_data_t* data, unsigned int dist, unsigned int best_clv_idx,
-		                     pllmod_tbe_extra_info_t * extra_info, unsigned int* clv_idx_to_postorder_idx, unsigned int refsplit_id) {
+		                     pllmod_tbe_extra_info_t * extra_info, unsigned int* clv_idx_to_postorder_idx, unsigned int refsplit_id, unsigned int* extra_taxa_array_single, unsigned int* num_close_enough_branches) {
   assert(extra_info != NULL);
   if (dist == 1) {
     // easy case. If dist == 1, the reference split has a subtree with only two taxa. Both taxa would be potential move candidates.
     unsigned int moved_taxon = query->left_leaf_idx; // we arbitrarily choose the left leaf
-    update_moved_taxa(extra_info, refsplit_id, moved_taxon);
+    update_moved_taxa(extra_info, refsplit_id, moved_taxon, extra_taxa_array_single, num_close_enough_branches);
     return;
   }
 
@@ -166,10 +166,10 @@ void fill_extra_taxa_entries(const pllmod_tbe_split_info_t* query, tbe_data_t* d
   int want_ones_outside = (ops_zeros_subtree <= ops_ones_subtree) ? 1 : 0;
 
   // now we do the preorder traversal, starting from the root node.
-  fill_extra_taxa_entries_recursive(root_idx, want_ones_outside, data, dist, best_clv_idx, extra_info, clv_idx_to_postorder_idx, refsplit_id);
+  fill_extra_taxa_entries_recursive(root_idx, want_ones_outside, data, dist, best_clv_idx, extra_info, clv_idx_to_postorder_idx, refsplit_id, extra_taxa_array_single, num_close_enough_branches);
 }
 
-unsigned int search_mindist(const pllmod_tbe_split_info_t* query, tbe_data_t* data, pllmod_tbe_extra_info_t * extra_info, unsigned int* clv_idx_to_postorder_idx, unsigned int refsplit_id)
+unsigned int search_mindist(const pllmod_tbe_split_info_t* query, tbe_data_t* data, pllmod_tbe_extra_info_t * extra_info, unsigned int* clv_idx_to_postorder_idx, unsigned int refsplit_id, unsigned int* extra_taxa_array_single, unsigned int* num_close_enough_branches)
 {
   unsigned int min_dist = query->p - 1;
   unsigned int* count_ones = data->count_ones;
@@ -216,7 +216,7 @@ unsigned int search_mindist(const pllmod_tbe_split_info_t* query, tbe_data_t* da
   if (extra_info && query->p >= extra_info->min_p) {
 	  double norm_dist = ((double)min_dist) * 1.0 / (((double)query->p) - 1.0);
 	  if (norm_dist <= extra_info->tbe_cutoff) {
-	    fill_extra_taxa_entries(query, data, min_dist, best_clv_idx, extra_info, clv_idx_to_postorder_idx, refsplit_id);
+	    fill_extra_taxa_entries(query, data, min_dist, best_clv_idx, extra_info, clv_idx_to_postorder_idx, refsplit_id, extra_taxa_array_single, num_close_enough_branches);
 	  }
   }
   return min_dist;
@@ -362,6 +362,12 @@ PLL_EXPORT int pllmod_utree_tbe_nature_extra(pll_split_t * ref_splits,
 
   tbe_data_t* tbe_data = NULL;
   unsigned int* clv_idx_to_postorder_idx = NULL; // only needed for exta_taxa_table or extra_taxa_array
+  unsigned int* extra_taxa_array_single = NULL; // only needed for extra_taxa_array
+  unsigned int num_close_enough_branches = 0; // only needed for extra_taxa_array
+
+  if (extra_info && extra_info->extra_taxa_array) {
+    extra_taxa_array_single = calloc(tip_count, sizeof(unsigned int));
+  }
 
   /* iterate over all splits of the reference tree */
   for (i = 0; i < split_count; i++)
@@ -381,7 +387,7 @@ PLL_EXPORT int pllmod_utree_tbe_nature_extra(pll_split_t * ref_splits,
       // double norm = ((double)min_dist) * 1.0 / (((double)split_info[i].p) - 1.0);
       if (extra_info && 2 >= extra_info->min_p && 1.0 <= extra_info->tbe_cutoff) {
         unsigned int moved_taxon = split_info[i].left_leaf_idx; // we arbitrarily choose the left leaf
-        update_moved_taxa(extra_info, i, moved_taxon);
+        update_moved_taxa(extra_info, i, moved_taxon, extra_taxa_array_single, &num_close_enough_branches);
       }
       continue;
     }
@@ -394,8 +400,18 @@ PLL_EXPORT int pllmod_utree_tbe_nature_extra(pll_split_t * ref_splits,
     }
 
     // else, we are in the search for minimum distance...
-    unsigned int min_hdist = search_mindist(&split_info[i], tbe_data, extra_info, clv_idx_to_postorder_idx, i);
+    unsigned int min_hdist = search_mindist(&split_info[i], tbe_data, extra_info, clv_idx_to_postorder_idx, i, extra_taxa_array_single, &num_close_enough_branches);
     support[i] = 1.0 - (((double) min_hdist) / (split_info[i].p - 1));
+  }
+
+  // update extra taxa array
+  if (extra_info && extra_info->extra_taxa_array) {
+	  for (i = 0; i < tip_count; ++i) {
+		  if (extra_taxa_array_single[i] > 0) {
+		    extra_info->extra_taxa_array[i] += (double) extra_taxa_array_single[i] / (double) num_close_enough_branches;
+		  }
+	  }
+	  free(extra_taxa_array_single);
   }
 
   pllmod_utree_split_hashtable_destroy(bs_splits_hash);
@@ -409,7 +425,7 @@ PLL_EXPORT int pllmod_utree_tbe_nature_extra(pll_split_t * ref_splits,
 PLL_EXPORT pllmod_tbe_extra_info_t * pllmod_tbe_extra_info_create(unsigned int refsplit_count, unsigned int tip_count, double tbe_cutoff, bool doTable, bool doArray, bool doTree) {
 	pllmod_tbe_extra_info_t * extra_info = malloc(sizeof(pllmod_tbe_extra_info_t));
 	if (doArray) {
-	  extra_info->extra_taxa_array = calloc(tip_count, sizeof(unsigned long));
+	  extra_info->extra_taxa_array = calloc(tip_count, sizeof(double));
 	}
 	if (doTable) {
 	  extra_info->extra_taxa_table = calloc(refsplit_count, sizeof(unsigned short*));
