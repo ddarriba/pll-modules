@@ -707,7 +707,8 @@ typedef struct refsplit_info
 
 typedef struct tbe_extra_info
 {
-  unsigned int d; // maximum distance to be considered a "close enough" branch
+  double tbe_cutoff;
+  unsigned int min_p; // minimum size of "light side" to be considered a "close enough" branch
   unsigned short** extra_taxa_table;
   unsigned long * extra_taxa_array;
   double * extra_avg_dist_array;
@@ -744,7 +745,7 @@ PLL_EXPORT int pllmod_utree_tbe_nature_extra(pll_split_t * ref_splits,
                                        pllmod_tbe_split_info_t* split_info,
 									   pllmod_tbe_extra_info_t* extra_info);
 
-PLL_EXPORT pllmod_tbe_extra_info_t * pllmod_tbe_extra_info_create(unsigned int refsplit_count, unsigned int tip_count, bool doTable, bool doArray, bool doTree);
+PLL_EXPORT pllmod_tbe_extra_info_t * pllmod_tbe_extra_info_create(unsigned int refsplit_count, unsigned int tip_count, double tbe_cutoff, bool doTable, bool doArray, bool doTree);
 
 PLL_EXPORT void pllmod_tbe_extra_info_destroy(pllmod_tbe_extra_info_t * extra_info, unsigned int refsplit_count);
 

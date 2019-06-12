@@ -213,8 +213,11 @@ unsigned int search_mindist(const pllmod_tbe_split_info_t* query, tbe_data_t* da
     }
   }
 
-  if (extra_info && min_dist < extra_info->d) {
-    fill_extra_taxa_entries(query, data, min_dist, best_clv_idx, extra_info, clv_idx_to_postorder_idx, refsplit_id);
+  if (extra_info && query->p >= extra_info->min_p) {
+	  double norm_dist = ((double)min_dist) * 1.0 / (((double)query->p) - 1.0);
+	  if (norm_dist <= extra_info->tbe_cutoff) {
+	    fill_extra_taxa_entries(query, data, min_dist, best_clv_idx, extra_info, clv_idx_to_postorder_idx, refsplit_id);
+	  }
   }
   return min_dist;
 }
@@ -375,7 +378,8 @@ PLL_EXPORT int pllmod_utree_tbe_nature_extra(pll_split_t * ref_splits,
     if (split_info[i].p == 2)
     { // no need for further searching
       support[i] = 0.0;
-      if (extra_info && extra_info->d > 1) {
+      // double norm = ((double)min_dist) * 1.0 / (((double)split_info[i].p) - 1.0);
+      if (extra_info && 2 >= extra_info->min_p && 1.0 <= extra_info->tbe_cutoff) {
         unsigned int moved_taxon = split_info[i].left_leaf_idx; // we arbitrarily choose the left leaf
         update_moved_taxa(extra_info, i, moved_taxon);
       }
@@ -402,7 +406,7 @@ PLL_EXPORT int pllmod_utree_tbe_nature_extra(pll_split_t * ref_splits,
   return PLL_SUCCESS;
 }
 
-PLL_EXPORT pllmod_tbe_extra_info_t * pllmod_tbe_extra_info_create(unsigned int refsplit_count, unsigned int tip_count, bool doTable, bool doArray, bool doTree) {
+PLL_EXPORT pllmod_tbe_extra_info_t * pllmod_tbe_extra_info_create(unsigned int refsplit_count, unsigned int tip_count, double tbe_cutoff, bool doTable, bool doArray, bool doTree) {
 	pllmod_tbe_extra_info_t * extra_info = malloc(sizeof(pllmod_tbe_extra_info_t));
 	if (doArray) {
 	  extra_info->extra_taxa_array = calloc(tip_count, sizeof(unsigned long));
@@ -418,6 +422,8 @@ PLL_EXPORT pllmod_tbe_extra_info_t * pllmod_tbe_extra_info_create(unsigned int r
 	  extra_info->extra_avg_dist_array = calloc(refsplit_count, sizeof(unsigned long));
 	}
 	extra_info->num_bs_trees = 0;
+	extra_info->tbe_cutoff = tbe_cutoff;
+	extra_info->min_p = (unsigned int)(ceil(1.0/tbe_cutoff + 1.0));
 	return extra_info;
 }
 
@@ -438,7 +444,7 @@ PLL_EXPORT void pllmod_tbe_extra_info_destroy(pllmod_tbe_extra_info_t * extra_in
 	free(extra_info);
 }
 
-pllmod_tbe_extra_all_result_t * create_tbe_extra_all_result(unsigned int refsplit_count, unsigned int tip_count) {
+/*pllmod_tbe_extra_all_result_t * create_tbe_extra_all_result(unsigned int refsplit_count, unsigned int tip_count) {
   pllmod_tbe_extra_all_result_t* result = malloc(sizeof(pllmod_tbe_extra_all_result_t));
   result->support = calloc(refsplit_count, sizeof(double));
   result->extra_info = pllmod_tbe_extra_info_create(refsplit_count, tip_count, true, true, true);
@@ -463,7 +469,7 @@ PLL_EXPORT void pllmod_tbe_nature_extra_all_print(pllmod_tbe_extra_all_result_t 
   }
 }
 
-/*PLL_EXPORT pllmod_tbe_extra_all_result_t* pllmod_tbe_nature_extra_all(pll_unode_t * ref_root, unsigned int tip_count,
+PLL_EXPORT pllmod_tbe_extra_all_result_t* pllmod_tbe_nature_extra_all(pll_unode_t * ref_root, unsigned int tip_count,
 		pll_unode_t ** bs_roots, unsigned int bs_count)
 {
   pllmod_tbe_extra_all_result_t* result = create_tbe_extra_all_result(refsplit_count, tip_count);
