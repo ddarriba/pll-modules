@@ -24,6 +24,8 @@
 
 #include "../pllmod_common.h"
 
+unsigned int dbg_counter = 0;
+
 typedef struct index_information
 {
   unsigned int idx;
@@ -89,10 +91,23 @@ tbe_data_t* init_tbe_data(pll_unode_t * root, unsigned int tip_count, unsigned i
   data->tip_count_div_2 = tip_count / 2;
   data->trav_size = 0;
   data->nodes_count = 2 * tip_count - 2;
-  data->subtree_size = (unsigned int*) malloc(sizeof(unsigned int) * data->nodes_count);
-  data->idx_infos = (index_information_t*) malloc(sizeof(index_information_t) * data->nodes_count);
-  data->count_ones = (unsigned int*) malloc(sizeof(unsigned int) * data->nodes_count);
+  data->subtree_size = (unsigned int*) malloc(sizeof(unsigned int) * (data->nodes_count + 1));
+  data->idx_infos = (index_information_t*) malloc(sizeof(index_information_t) * (data->nodes_count + 1));
+  data->count_ones = (unsigned int*) malloc(sizeof(unsigned int) * (data->nodes_count + 1));
   postorder_init(root, &data->trav_size, data->subtree_size, data->idx_infos, clv_idx_to_postorder_idx);
+
+  // add new fake_root node for the preorder-extra-info-stuff
+  index_information_t root_info;
+  root_info.idx = data->nodes_count;
+  root_info.idx_left = root->clv_index;
+  root_info.idx_right = root->back->clv_index;
+  data->trav_size++;
+  data->subtree_size[data->nodes_count] = data->subtree_size[root->clv_index] + data->subtree_size[root->back->clv_index];
+  data->idx_infos[data->trav_size - 1] = root_info;
+  if (clv_idx_to_postorder_idx) {
+    clv_idx_to_postorder_idx[data->nodes_count] = data->trav_size - 1;
+  }
+
   return data;
 }
 
@@ -115,6 +130,7 @@ void update_moved_taxa(pllmod_tbe_extra_info_t* info, unsigned int refsplit_id, 
     	info->extra_taxa_table[refsplit_id][taxon_id]++;
     }
   }
+  dbg_counter++;
 }
 
 void fill_extra_taxa_entries_recursive(unsigned int act_node_idx, int want_ones_now, tbe_data_t* data, unsigned int dist, unsigned int best_clv_idx,
@@ -122,7 +138,9 @@ void fill_extra_taxa_entries_recursive(unsigned int act_node_idx, int want_ones_
   // check if the current node is a leaf node
   if (act_node_idx < data->tip_count) { // leaf node
     // update the array
-	update_moved_taxa(extra_info, refsplit_id, act_node_idx, extra_taxa_array_single, num_close_enough_branches);
+	if ((want_ones_now && data->count_ones[act_node_idx] == 0) || (!want_ones_now && data->count_ones[act_node_idx] == 1)) {
+	  update_moved_taxa(extra_info, refsplit_id, act_node_idx, extra_taxa_array_single, num_close_enough_branches);
+	}
     return;
   }
 
@@ -144,6 +162,7 @@ void fill_extra_taxa_entries_recursive(unsigned int act_node_idx, int want_ones_
 void fill_extra_taxa_entries(const pllmod_tbe_split_info_t* query, tbe_data_t* data, unsigned int dist, unsigned int best_clv_idx,
 		                     pllmod_tbe_extra_info_t * extra_info, unsigned int* clv_idx_to_postorder_idx, unsigned int refsplit_id, unsigned int* extra_taxa_array_single, unsigned int* num_close_enough_branches) {
   assert(extra_info != NULL);
+  dbg_counter = 0;
   if (dist == 1) {
     // easy case. If dist == 1, the reference split has a subtree with only two taxa. Both taxa would be potential move candidates.
     unsigned int moved_taxon = query->left_leaf_idx; // we arbitrarily choose the left leaf
@@ -155,10 +174,12 @@ void fill_extra_taxa_entries(const pllmod_tbe_split_info_t* query, tbe_data_t* d
 
   // First question: Do we want to transform into only ones in subtree & zeros outside or only zeros in subtree & ones outside?
   unsigned int root_idx = data->idx_infos[data->trav_size - 1].idx;
+
   unsigned int n = data->tip_count;
   unsigned int n_s = data->subtree_size[best_clv_idx];
   unsigned int ones_total = data->count_ones[root_idx];
-  unsigned int zeros_total = n - ones_total;
+  unsigned int zeros_total = query->p;
+  assert(ones_total + zeros_total == n);
   unsigned int ones_s = data->count_ones[best_clv_idx];
   unsigned int zeros_s = n_s - ones_s;
   unsigned int ops_ones_subtree = (n_s - ones_s) + (n - n_s) - (zeros_total - zeros_s);
@@ -167,6 +188,8 @@ void fill_extra_taxa_entries(const pllmod_tbe_split_info_t* query, tbe_data_t* d
 
   // now we do the preorder traversal, starting from the root node.
   fill_extra_taxa_entries_recursive(root_idx, want_ones_outside, data, dist, best_clv_idx, extra_info, clv_idx_to_postorder_idx, refsplit_id, extra_taxa_array_single, num_close_enough_branches);
+
+  assert(dbg_counter == dist);
 }
 
 unsigned int search_mindist(const pllmod_tbe_split_info_t* query, tbe_data_t* data, pllmod_tbe_extra_info_t * extra_info, unsigned int* clv_idx_to_postorder_idx, unsigned int refsplit_id, unsigned int* extra_taxa_array_single, unsigned int* num_close_enough_branches)
