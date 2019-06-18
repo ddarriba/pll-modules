@@ -24,8 +24,6 @@
 
 #include "../pllmod_common.h"
 
-unsigned int dbg_counter = 0;
-
 typedef struct index_information
 {
   unsigned int idx;
@@ -130,7 +128,6 @@ void update_moved_taxa(pllmod_tbe_extra_info_t* info, unsigned int refsplit_id, 
     	info->extra_taxa_table[refsplit_id][taxon_id]++;
     }
   }
-  dbg_counter++;
 }
 
 void fill_extra_taxa_entries_recursive(unsigned int act_node_idx, int want_ones_now, tbe_data_t* data, unsigned int dist, unsigned int best_clv_idx,
@@ -162,7 +159,6 @@ void fill_extra_taxa_entries_recursive(unsigned int act_node_idx, int want_ones_
 void fill_extra_taxa_entries(const pllmod_tbe_split_info_t* query, tbe_data_t* data, unsigned int dist, unsigned int best_clv_idx,
 		                     pllmod_tbe_extra_info_t * extra_info, unsigned int* clv_idx_to_postorder_idx, unsigned int refsplit_id, unsigned int* extra_taxa_array_single, unsigned int* num_close_enough_branches) {
   assert(extra_info != NULL);
-  dbg_counter = 0;
   if (dist == 1) {
     // easy case. If dist == 1, the reference split has a subtree with only two taxa. Both taxa would be potential move candidates.
     unsigned int moved_taxon = query->left_leaf_idx; // we arbitrarily choose the left leaf
@@ -188,8 +184,6 @@ void fill_extra_taxa_entries(const pllmod_tbe_split_info_t* query, tbe_data_t* d
 
   // now we do the preorder traversal, starting from the root node.
   fill_extra_taxa_entries_recursive(root_idx, want_ones_outside, data, dist, best_clv_idx, extra_info, clv_idx_to_postorder_idx, refsplit_id, extra_taxa_array_single, num_close_enough_branches);
-
-  assert(dbg_counter == dist);
 }
 
 unsigned int search_mindist(const pllmod_tbe_split_info_t* query, tbe_data_t* data, pllmod_tbe_extra_info_t * extra_info, unsigned int* clv_idx_to_postorder_idx, unsigned int refsplit_id, unsigned int* extra_taxa_array_single, unsigned int* num_close_enough_branches)
@@ -486,49 +480,6 @@ PLL_EXPORT void pllmod_tbe_extra_info_destroy(pllmod_tbe_extra_info_t * extra_in
 	}
 	free(extra_info);
 }
-
-/*pllmod_tbe_extra_all_result_t * create_tbe_extra_all_result(unsigned int refsplit_count, unsigned int tip_count) {
-  pllmod_tbe_extra_all_result_t* result = malloc(sizeof(pllmod_tbe_extra_all_result_t));
-  result->support = calloc(refsplit_count, sizeof(double));
-  result->extra_info = pllmod_tbe_extra_info_create(refsplit_count, tip_count, true, true, true);
-  return result;
-}
-
-PLL_EXPORT void pllmod_tbe_nature_extra_all_print(pllmod_tbe_extra_all_result_t * result, unsigned int refsplit_count, unsigned int tip_count, unsigned int bs_count, char* file_path) {
-  unsigned int i, j;
-  for (i = 0; i < refsplit_count; ++i) {
-    double val = (double) (result->support[i]) / bs_count;
-    // TODO: print val
-  }
-  for (i = 0; i < refsplit_count; ++i) {
-    for (j = 0; j < tip_count; ++j) {
-  	  double val = (double) (result->extra_info->extra_taxa_table[i][j]) / bs_count;
-  	  // TODO: print val
-    }
-  }
-  for (i = 0; i < tip_count; ++i) {
-    double val = (double) (result->extra_info->extra_taxa_array[i]) / result->extra_info->num_close_enough_branches;
-    // TODO: print val
-  }
-}
-
-PLL_EXPORT pllmod_tbe_extra_all_result_t* pllmod_tbe_nature_extra_all(pll_unode_t * ref_root, unsigned int tip_count,
-		pll_unode_t ** bs_roots, unsigned int bs_count)
-{
-  pllmod_tbe_extra_all_result_t* result = create_tbe_extra_all_result(refsplit_count, tip_count);
-
-  pllmod_tbe_split_info_t * refsplit_info = pllmod_utree_tbe_nature_init(ref_root, tip_count, split_to_node_map);
-  unsigned int i, j;
-  for (i = 0; i < bs_count; ++i) {
-	  pllmod_utree_tbe_nature_extra(ref_splits, bs_splits, bs_roots[i], tip_count, result->support, refsplit_info, result->extra_info);
-  }
-  return result;
-}
-
-PLL_EXPORT void pllmod_tbe_extra_all_fake_main() {
-	pllmod_tbe_extra_all_result_t* result = pllmod_tbe_nature_extra_all(ref_root, tip_count, bs_roots, bs_count);
-	pllmod_tbe_nature_extra_all_print(result, refsplit_count, tip_count, bs_count, file_path);
-}*/
 
 /* This is an old, naive and rather inefficient TBE computation method by Alexey,
  * keep it here just in case */
