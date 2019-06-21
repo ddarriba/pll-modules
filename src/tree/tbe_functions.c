@@ -159,13 +159,6 @@ void fill_extra_taxa_entries_recursive(unsigned int act_node_idx, int want_ones_
 void fill_extra_taxa_entries(const pllmod_tbe_split_info_t* query, tbe_data_t* data, unsigned int dist, unsigned int best_clv_idx,
 		                     pllmod_tbe_extra_info_t * extra_info, unsigned int* clv_idx_to_postorder_idx, unsigned int refsplit_id, unsigned int* extra_taxa_array_single, unsigned int* num_close_enough_branches) {
   assert(extra_info != NULL);
-  if (dist == 1) {
-    // easy case. If dist == 1, the reference split has a subtree with only two taxa. Both taxa would be potential move candidates.
-    unsigned int moved_taxon = query->left_leaf_idx; // we arbitrarily choose the left leaf
-    update_moved_taxa(extra_info, refsplit_id, moved_taxon, extra_taxa_array_single, num_close_enough_branches);
-    return;
-  }
-
   // we re-use the count_ones information that we got in the postorder-traversal done for finding mindist.
 
   // First question: Do we want to transform into only ones in subtree & zeros outside or only zeros in subtree & ones outside?
