@@ -121,10 +121,14 @@ void update_moved_taxa(pllmod_tbe_extra_info_t* info, unsigned int refsplit_id, 
 {
   if (info) {
     if (info->extra_taxa_array) {
+#pragma omp critical
+    	{
     	extra_taxa_array_single[taxon_id]++;
     	(*num_close_enough_branches)++;
+    	}
     }
     if (info->extra_taxa_table) {
+#pragma omp atomic
     	info->extra_taxa_table[refsplit_id][taxon_id]++;
     }
   }
@@ -380,6 +384,7 @@ PLL_EXPORT int pllmod_utree_tbe_nature_extra(pll_split_t * ref_splits,
   }
 
   /* iterate over all splits of the reference tree */
+#pragma omp parallel for schedule(dynamic)
   for (i = 0; i < split_count; i++)
   {
     pll_split_t ref_split = ref_splits[i];
@@ -388,6 +393,7 @@ PLL_EXPORT int pllmod_utree_tbe_nature_extra(pll_split_t * ref_splits,
     {
       if (split_info[i].p >= extra_info->min_p)
       {
+#pragma omp atomic
         num_close_enough_branches++;
       }
       /* found identical split in a bootstrap tree -> assign full support */
