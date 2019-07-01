@@ -727,8 +727,7 @@ PLL_EXPORT int pllmod_utree_tbe_nature(pll_split_t * ref_splits,
                                        pll_unode_t* bs_root,
                                        unsigned int tip_count,
                                        double * support,
-                                       pllmod_tbe_split_info_t* split_info,
-									   void (*lock_callback)(bool ));
+                                       pllmod_tbe_split_info_t* split_info);
 
 PLL_EXPORT int pllmod_utree_tbe_nature_extra(pll_split_t * ref_splits,
                                        pll_split_t * bs_splits,
@@ -736,8 +735,7 @@ PLL_EXPORT int pllmod_utree_tbe_nature_extra(pll_split_t * ref_splits,
                                        unsigned int tip_count,
                                        double * support,
                                        pllmod_tbe_split_info_t* split_info,
-									   pllmod_tbe_extra_info_t* extra_info,
-									   void (*lock_callback)(bool ));
+									   pllmod_tbe_extra_info_t* extra_info);
 
 PLL_EXPORT pllmod_tbe_extra_info_t * pllmod_tbe_extra_info_create(unsigned int refsplit_count, unsigned int tip_count, double tbe_cutoff, bool doTable, bool doArray, bool doTree);
 
