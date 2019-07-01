@@ -35,7 +35,6 @@ typedef struct tbe_data
 {
   unsigned int* subtree_size;
   index_information_t* idx_infos;
-  unsigned int* count_ones;
   unsigned int nodes_count;
   unsigned int trav_size;
   unsigned int tip_count;
@@ -91,7 +90,6 @@ tbe_data_t* init_tbe_data(pll_unode_t * root, unsigned int tip_count, unsigned i
   data->nodes_count = 2 * tip_count - 2;
   data->subtree_size = (unsigned int*) malloc(sizeof(unsigned int) * (data->nodes_count + 1));
   data->idx_infos = (index_information_t*) malloc(sizeof(index_information_t) * (data->nodes_count + 1));
-  data->count_ones = (unsigned int*) malloc(sizeof(unsigned int) * (data->nodes_count + 1));
   postorder_init(root, &data->trav_size, data->subtree_size, data->idx_infos, clv_idx_to_postorder_idx);
 
   // add new fake_root node for the preorder-extra-info-stuff
@@ -101,6 +99,7 @@ tbe_data_t* init_tbe_data(pll_unode_t * root, unsigned int tip_count, unsigned i
   root_info.idx_right = root->back->clv_index;
   data->trav_size++;
   data->subtree_size[data->nodes_count] = data->subtree_size[root->clv_index] + data->subtree_size[root->back->clv_index];
+  assert(data->subtree_size[data->nodes_count] == tip_count);
   data->idx_infos[data->trav_size - 1] = root_info;
   if (clv_idx_to_postorder_idx) {
     clv_idx_to_postorder_idx[data->nodes_count] = data->trav_size - 1;
@@ -113,7 +112,6 @@ void free_tbe_data(tbe_data_t* data)
 {
   free(data->subtree_size);
   free(data->idx_infos);
-  free(data->count_ones);
   free(data);
 }
 
@@ -134,12 +132,12 @@ void update_moved_taxa(pllmod_tbe_extra_info_t* info, unsigned int refsplit_id, 
   }
 }
 
-void fill_extra_taxa_entries_recursive(unsigned int act_node_idx, int want_ones_now, tbe_data_t* data, unsigned int dist, unsigned int best_clv_idx,
+void fill_extra_taxa_entries_recursive(unsigned int act_node_idx, int want_ones_now, tbe_data_t* data, unsigned int* count_ones, unsigned int dist, unsigned int best_clv_idx,
 		                               pllmod_tbe_extra_info_t * extra_info, unsigned int* clv_idx_to_postorder_idx, unsigned int refsplit_id, unsigned int* extra_taxa_array_single, unsigned int* num_close_enough_branches) {
   // check if the current node is a leaf node
   if (act_node_idx < data->tip_count) { // leaf node
     // update the array
-	if ((want_ones_now && data->count_ones[act_node_idx] == 0) || (!want_ones_now && data->count_ones[act_node_idx] == 1)) {
+	if ((want_ones_now && count_ones[act_node_idx] == 0) || (!want_ones_now && count_ones[act_node_idx] == 1)) {
 	  update_moved_taxa(extra_info, refsplit_id, act_node_idx, extra_taxa_array_single, num_close_enough_branches);
 	}
     return;
@@ -150,17 +148,17 @@ void fill_extra_taxa_entries_recursive(unsigned int act_node_idx, int want_ones_
   }
 
   unsigned int n_s = data->subtree_size[act_node_idx];
-  unsigned int ones_s = data->count_ones[act_node_idx];
+  unsigned int ones_s = count_ones[act_node_idx];
   if ((want_ones_now && ones_s == n_s) || (!want_ones_now && ones_s == 0)) {
     return; // we don't need to go further down this subtree.
   } else {
     unsigned int postorder_idx = clv_idx_to_postorder_idx[act_node_idx];
-    fill_extra_taxa_entries_recursive(data->idx_infos[postorder_idx].idx_left, want_ones_now, data, dist, best_clv_idx, extra_info, clv_idx_to_postorder_idx, refsplit_id, extra_taxa_array_single, num_close_enough_branches);
-    fill_extra_taxa_entries_recursive(data->idx_infos[postorder_idx].idx_right, want_ones_now, data, dist, best_clv_idx, extra_info, clv_idx_to_postorder_idx, refsplit_id, extra_taxa_array_single, num_close_enough_branches);
+    fill_extra_taxa_entries_recursive(data->idx_infos[postorder_idx].idx_left, want_ones_now, data, count_ones, dist, best_clv_idx, extra_info, clv_idx_to_postorder_idx, refsplit_id, extra_taxa_array_single, num_close_enough_branches);
+    fill_extra_taxa_entries_recursive(data->idx_infos[postorder_idx].idx_right, want_ones_now, data, count_ones, dist, best_clv_idx, extra_info, clv_idx_to_postorder_idx, refsplit_id, extra_taxa_array_single, num_close_enough_branches);
   }
 }
 
-void fill_extra_taxa_entries(const pllmod_tbe_split_info_t* query, tbe_data_t* data, unsigned int dist, unsigned int best_clv_idx,
+void fill_extra_taxa_entries(const pllmod_tbe_split_info_t* query, tbe_data_t* data, unsigned int* count_ones, unsigned int dist, unsigned int best_clv_idx,
 		                     pllmod_tbe_extra_info_t * extra_info, unsigned int* clv_idx_to_postorder_idx, unsigned int refsplit_id, unsigned int* extra_taxa_array_single, unsigned int* num_close_enough_branches) {
   assert(extra_info != NULL);
   // we re-use the count_ones information that we got in the postorder-traversal done for finding mindist.
@@ -170,23 +168,23 @@ void fill_extra_taxa_entries(const pllmod_tbe_split_info_t* query, tbe_data_t* d
 
   unsigned int n = data->tip_count;
   unsigned int n_s = data->subtree_size[best_clv_idx];
-  unsigned int ones_total = data->count_ones[root_idx];
+  unsigned int ones_total = count_ones[root_idx];
   unsigned int zeros_total = query->p;
   assert(ones_total + zeros_total == n);
-  unsigned int ones_s = data->count_ones[best_clv_idx];
+  unsigned int ones_s = count_ones[best_clv_idx];
   unsigned int zeros_s = n_s - ones_s;
   unsigned int ops_ones_subtree = (n_s - ones_s) + (n - n_s) - (zeros_total - zeros_s);
   unsigned int ops_zeros_subtree = (n_s - zeros_s) + (n - n_s) - (ones_total - ones_s);
   int want_ones_outside = (ops_zeros_subtree <= ops_ones_subtree) ? 1 : 0;
 
   // now we do the preorder traversal, starting from the root node.
-  fill_extra_taxa_entries_recursive(root_idx, want_ones_outside, data, dist, best_clv_idx, extra_info, clv_idx_to_postorder_idx, refsplit_id, extra_taxa_array_single, num_close_enough_branches);
+  fill_extra_taxa_entries_recursive(root_idx, want_ones_outside, data, count_ones, dist, best_clv_idx, extra_info, clv_idx_to_postorder_idx, refsplit_id, extra_taxa_array_single, num_close_enough_branches);
 }
 
 unsigned int search_mindist(const pllmod_tbe_split_info_t* query, tbe_data_t* data, pllmod_tbe_extra_info_t * extra_info, unsigned int* clv_idx_to_postorder_idx, unsigned int refsplit_id, unsigned int* extra_taxa_array_single, unsigned int* num_close_enough_branches)
 {
   unsigned int min_dist = query->p - 1;
-  unsigned int* count_ones = data->count_ones;
+  unsigned int* count_ones = malloc(sizeof(unsigned int) * (data->nodes_count + 1));
 
   // initialize the leaf node informations...
   for (size_t i = 0; i < query->left_leaf_idx; ++i)
@@ -220,7 +218,7 @@ unsigned int search_mindist(const pllmod_tbe_split_info_t* query, tbe_data_t* da
     {
       min_dist = dist_cand;
       best_clv_idx = idx;
-      if (min_dist == 1)
+      if (min_dist == 1 && !extra_info)
       {
     	break;
       }
@@ -230,9 +228,11 @@ unsigned int search_mindist(const pllmod_tbe_split_info_t* query, tbe_data_t* da
   if (extra_info && query->p >= extra_info->min_p) {
 	  double norm_dist = ((double)min_dist) * 1.0 / (((double)query->p) - 1.0);
 	  if (norm_dist <= extra_info->tbe_cutoff) {
-	    fill_extra_taxa_entries(query, data, min_dist, best_clv_idx, extra_info, clv_idx_to_postorder_idx, refsplit_id, extra_taxa_array_single, num_close_enough_branches);
+	    fill_extra_taxa_entries(query, data, count_ones, min_dist, best_clv_idx, extra_info, clv_idx_to_postorder_idx, refsplit_id, extra_taxa_array_single, num_close_enough_branches);
 	  }
   }
+  free(count_ones);
+
   return min_dist;
 }
 
