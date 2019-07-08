@@ -413,10 +413,13 @@ PLL_EXPORT int pllmod_utree_tbe_nature_extra(pll_split_t * ref_splits,
     }
 
     if (!tbe_data) {
-      if (extra_info) {
-        clv_idx_to_postorder_idx = (unsigned int*) malloc((2*tip_count-1) * sizeof(unsigned int));
+      #pragma omp critical
+      if (!tbe_data) {
+        if (extra_info) {
+          clv_idx_to_postorder_idx = (unsigned int*) malloc((2*tip_count-1) * sizeof(unsigned int));
+        }
+        tbe_data = init_tbe_data(bs_root, tip_count, clv_idx_to_postorder_idx);
       }
-      tbe_data = init_tbe_data(bs_root, tip_count, clv_idx_to_postorder_idx);
     }
 
     // else, we are in the search for minimum distance...
