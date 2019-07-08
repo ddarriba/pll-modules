@@ -391,7 +391,7 @@ PLL_EXPORT int pllmod_utree_tbe_nature_extra(pll_split_t * ref_splits,
 
     if (pllmod_utree_split_hashtable_lookup(bs_splits_hash, ref_split, tip_count))
     {
-      if (split_info[i].p >= extra_info->min_p)
+      if (extra_info && (split_info[i].p >= extra_info->min_p))
       {
 #pragma omp atomic
         num_close_enough_branches++;
