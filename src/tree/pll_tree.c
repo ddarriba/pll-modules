@@ -1495,20 +1495,6 @@ PLL_EXPORT int pllmod_utree_draw_support(pll_utree_t * ref_tree,
         cb_serialize ? cb_serialize(support[i]) : default_support_fmt(support[i]);
   }
 
-  /* set support value for the root branch to both adjacent nodes */
-  pll_unode_t * root = ref_tree->vroot;
-  if (!root->label && root->back->next)
-  {
-    assert(root->back->label);
-    root->label = root->next->label = root->next->next->label = strdup(root->back->label);
-  }
-  else if (!root->back->label && root->next)
-  {
-    assert(root->label);
-    root->back->label = root->back->next->label = root->back->next->next->label =
-        strdup(root->label);
-  }
-
   return PLL_SUCCESS;
 }
 
