@@ -947,7 +947,7 @@ static int recomp_iterative (pll_newton_tree_params_t * params,
  * reproducible if several branches are optimized in parallel.
  *
  * @param[in,out]  partition         the PLL partition structure
- * @param[in,out]  tree              the PLL unrotted tree structure
+ * @param[in,out]  tree              the PLL unrooted tree structure
  * @param  params_indices    the indices of the parameter sets
  * @param  branch_length_min lower bound for branch lengths
  * @param  branch_length_max upper bound for branch lengths
@@ -1102,7 +1102,7 @@ PLL_EXPORT double pllmod_opt_optimize_branch_lengths_local (
  * Check `pllmod_opt_optimize_branch_lengths_local` documentation.
  *
  * @param[in,out]  partition         the PLL partition structure
- * @param[in,out]  tree              the PLL unrotted tree structure
+ * @param[in,out]  tree              the PLL unrooted tree structure
  * @param  params_indices    the indices of the parameter sets
  * @param  branch_length_min lower bound for branch lengths
  * @param  branch_length_max upper bound for branch lengths
@@ -1895,7 +1895,7 @@ PLL_EXPORT double pllmod_opt_optimize_branch_lengths_local_multi (
         assert(new_loglikelihood - loglikelihood > new_loglikelihood * BETTER_LL_TRESHOLD);
       else if (opt_method == PLLMOD_OPT_BLO_NEWTON_FALLBACK)
       {
-        // reset branch lenghts
+        // reset branch lengths
         params.opt_method = PLLMOD_OPT_BLO_NEWTON_SAFE;
         iters = (unsigned int) max_iters;
       }

@@ -416,7 +416,7 @@ PLL_EXPORT unsigned int pllmod_utree_rf_distance(pll_unode_t * t1,
 PLL_EXPORT int pllmod_utree_consistency_check(pll_utree_t * t1,
                                               pll_utree_t * t2);
 
-/* if 2 different trees are parsed from newick node ids migh have been set
+/* if 2 different trees are parsed from newick node ids might have been set
    in a different order, so this function sets node ids in t2 such that
    node ids and tip labels agree in both trees */
 PLL_EXPORT int pllmod_utree_consistency_set(pll_utree_t * t1,
