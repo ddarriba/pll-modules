@@ -35,6 +35,10 @@ Schloss-Wolfsbrunnenweg 35, D-69118 Heidelberg, Germany
 * the same starting set of branch lengths for every topology */
 #define PLLMOD_SEARCH_GREEDY_BLO
 
+/* if defined, branch length array will be always dynamically allocated,
+* i.e. also in linked and scaled brlen modes; otherwise only in unlinked mode */
+//#define PLLMOD_SEARCH_BRLEN_DYNALLOC
+
 #define BRLEN_BUF_COUNT 12
 
 typedef struct spr_params
@@ -221,7 +225,19 @@ static pllmod_bestnode_list_t * algo_bestnode_list_create(size_t slots,
       return NULL;
     }
 
-    if (brlen_set_count > 1)
+#ifndef PLLMOD_SEARCH_BRLEN_DYNALLOC
+    if (brlen_set_count == 1)
+    {
+      bestnode_list->brlen_buffers = NULL;
+      for (size_t i = 0; i < slots; ++i)
+      {
+        bestnode_list->list[i].b1 = &bestnode_list->list[i].bb1;
+        bestnode_list->list[i].b2 = &bestnode_list->list[i].bb2;
+        bestnode_list->list[i].b3 = &bestnode_list->list[i].bb3;
+      }
+    }
+    else
+#endif
     {
       /* allocate branch length buffers to store unlinked branches */
       bestnode_list->brlen_buffers = (double **) calloc(slots, sizeof(double *));
@@ -246,16 +262,6 @@ static pllmod_bestnode_list_t * algo_bestnode_list_create(size_t slots,
             bestnode_list->brlen_buffers[i] + brlen_set_count;
         bestnode_list->list[i].b3 =
             bestnode_list->brlen_buffers[i] + 2*brlen_set_count;
-      }
-    }
-    else
-    {
-      bestnode_list->brlen_buffers = NULL;
-      for (size_t i = 0; i < slots; ++i)
-      {
-        bestnode_list->list[i].b1 = &bestnode_list->list[i].bb1;
-        bestnode_list->list[i].b2 = &bestnode_list->list[i].bb2;
-        bestnode_list->list[i].b3 = &bestnode_list->list[i].bb3;
       }
     }
   }
@@ -305,7 +311,7 @@ static void algo_bestnode_list_save(pllmod_bestnode_list_t * best_node_list,
   j = list_size - 1;
   while (j > idx)
   {
-    memcpy(&list[j], &list[j-1], sizeof(node_entry_t));
+    algo_bestnode_list_copy_entry(best_node_list, j, &list[j-1]);
     --j;
   }
 
@@ -333,6 +339,20 @@ static int algo_bestnode_list_next_index(pllmod_bestnode_list_t * best_node_list
 
   return curr_index;
 }
+
+#ifdef DEBUG
+static void algo_bestnode_list_print(pllmod_bestnode_list_t * best_node_list)
+{
+  printf("\nBESTNODE_LIST (%lu / %lu): \n", best_node_list->current, best_node_list->size);
+  for (size_t i = 0; i < best_node_list->size; ++i)
+  {
+    node_entry_t * entry = &best_node_list->list[i];
+    printf("%.9lf  %.9lf   %.9lf\n", entry->b1[0], entry->b2[0], entry->b3[0]);
+  }
+  printf("\n");
+}
+#endif
+
 
 static double algo_optimize_bl_iterative(pll_unode_t * node,
                                          pllmod_treeinfo_t * treeinfo,
@@ -920,6 +940,10 @@ static double reinsert_nodes(pllmod_treeinfo_t * treeinfo, pll_unode_t ** nodes,
     {
       /* LH didn't improve but could be still high enough to be in top-20 */
       spr_entry.rollback_num = algo_rollback_list_abspos(rollback_list);
+
+      DBG("SAVE bestnode[%d]: %lf %lf %lf\n",
+          spr_entry.rollback_num, spr_entry.b1[0], spr_entry.b2[0], spr_entry.b3[0]);
+
       algo_bestnode_list_save(best_node_list, &spr_entry);
       loglh = spr_entry.lh;
     }
@@ -1095,6 +1119,12 @@ PLL_EXPORT double pllmod_algo_spr_round(pllmod_treeinfo_t * treeinfo,
                                  0.25);
   DBG("Best tree LH after BLO: %f\n", best_lh);
 
+  if (!best_lh)
+  {
+    /* return and spread error */
+    goto error_exit;
+  }
+
   best_topol = pllmod_treeinfo_get_topology(treeinfo, NULL);
   if (!best_topol)
     goto error_exit;
@@ -1117,6 +1147,10 @@ PLL_EXPORT double pllmod_algo_spr_round(pllmod_treeinfo_t * treeinfo,
     goto error_exit;
   }
   int undo_SPR = 0;
+
+#ifdef DEBUG
+  algo_bestnode_list_print(bestnode_list);
+#endif
 
   while (rollback_counter < rollback_list->size)
   {
@@ -1194,9 +1228,21 @@ PLL_EXPORT double pllmod_algo_spr_round(pllmod_treeinfo_t * treeinfo,
       algo_unode_fix_length(treeinfo, rollback2->SPR.regraft_edge, params.bl_min, params.bl_max);
 
       /* restore optimized branch lengths */
-      pllmod_treeinfo_set_branch_length_all(treeinfo, p_edge, spr_entry->b1);
-      pllmod_treeinfo_set_branch_length_all(treeinfo, p_edge->next, spr_entry->b2);
-      pllmod_treeinfo_set_branch_length_all(treeinfo, p_edge->next->next, spr_entry->b3);
+      if (thorough)
+      {
+        pllmod_treeinfo_set_branch_length_all(treeinfo, p_edge, spr_entry->b1);
+        pllmod_treeinfo_set_branch_length_all(treeinfo, p_edge->next, spr_entry->b2);
+        pllmod_treeinfo_set_branch_length_all(treeinfo, p_edge->next->next, spr_entry->b3);
+
+        DBG("RESTORE bl triplet[%d/%d]: %lf %lf %lf\n", toplist_index,
+            bestnode_list->brlen_set_count, spr_entry->b1[0], spr_entry->b2[0], spr_entry->b3[0]);
+      }
+      else
+      {
+        algo_unode_fix_length(treeinfo, p_edge, params.bl_min, params.bl_max);
+        algo_unode_fix_length(treeinfo, p_edge->next, params.bl_min, params.bl_max);
+        algo_unode_fix_length(treeinfo, p_edge->next->next, params.bl_min, params.bl_max);
+      }
 
       undo_SPR = 1;
     }
