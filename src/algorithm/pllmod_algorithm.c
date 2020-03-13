@@ -988,7 +988,7 @@ double pllmod_algo_opt_subst_rates_treeinfo (pllmod_treeinfo_t * treeinfo,
   lb = (double **) malloc(sizeof(double*) * (part_count));
   ub = (double **) malloc(sizeof(double*) * (part_count));
   bt = (int **)    malloc(sizeof(int*)    * (part_count));
-  subst_free_params = (unsigned int *) malloc(sizeof(unsigned int) * (part_count));
+  subst_free_params = (unsigned int *) calloc(sizeof(unsigned int), part_count);
 
   /* those values are the same for all partitions */
   lb[0] = (double *) malloc(sizeof(double) * (max_free_params));
@@ -1168,7 +1168,7 @@ double pllmod_algo_opt_frequencies_treeinfo (pllmod_treeinfo_t * treeinfo,
   lb = (double **) malloc(sizeof(double*) * part_count);
   ub = (double **) malloc(sizeof(double*) * part_count);
   bt = (int **)    malloc(sizeof(int*)    * part_count);
-  num_free_params = (unsigned int *) malloc(sizeof(unsigned int) * (part_count));
+  num_free_params = (unsigned int *) calloc(sizeof(unsigned int), part_count);
 
   /* those values are the same for all partitions */
   lb[0] = (double *) malloc(sizeof(double) * (max_free_params));
@@ -1332,7 +1332,7 @@ double pllmod_algo_opt_alpha_pinv_treeinfo(pllmod_treeinfo_t * treeinfo,
   lb = (double **) malloc(sizeof(double*) * part_count);
   ub = (double **) malloc(sizeof(double*) * part_count);
   bt = (int **)    malloc(sizeof(int*)    * part_count);
-  num_free_params = (unsigned int *) malloc(sizeof(unsigned int) * (part_count));
+  num_free_params = (unsigned int *) calloc(sizeof(unsigned int), part_count);
 
   /* those values are the same for all partitions */
   lb[0] = (double *) malloc(sizeof(double) * 2);
@@ -1540,7 +1540,7 @@ double pllmod_algo_opt_rates_weights_treeinfo (pllmod_treeinfo_t * treeinfo,
   lb = (double **) calloc(sizeof(double*),  part_count);
   ub = (double **) calloc(sizeof(double*),  part_count);
   bt = (int **)    calloc(sizeof(int*),     part_count);
-  num_free_params = (unsigned int *) malloc(sizeof(unsigned int) * (part_count));
+  num_free_params = (unsigned int *) calloc(sizeof(unsigned int), part_count);
 
   /* those values are the same for all partitions */
   lb[0] = (double *) malloc(sizeof(double) * (max_free_params));

@@ -735,7 +735,7 @@ PLL_EXPORT double pllmod_opt_minimize_lbfgsb_multi(unsigned int xnum,
       {
         for (p = 0; p < xnum; p++)
         {
-          if (i >= n[p])
+          if (!skip[p] && i >= n[p])
           {
             /* this partition has less parameters than max -> skip it */
             skip[p] = 1;
@@ -1126,6 +1126,10 @@ static int brent_opt_alt (unsigned int xnum,
   {
     double eps;
     int outbounds_ax, outbounds_cx;
+
+    /* skip params that do not need to be optimized */
+    if (opt_mask && !opt_mask[i])
+      continue;
 
     /* first attempt to bracketize minimum */
     if (xguess[i] < l_xmin[i])
