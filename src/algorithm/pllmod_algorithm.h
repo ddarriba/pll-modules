@@ -168,6 +168,8 @@ PLL_EXPORT
 double pllmod_algo_opt_rates_weights_treeinfo (pllmod_treeinfo_t * treeinfo,
                                                double min_rate,
                                                double max_rate,
+                                               double min_brlen,
+                                               double max_brlen,
                                                double bfgs_factor,
                                                double tolerance);
 

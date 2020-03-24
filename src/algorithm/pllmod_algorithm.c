@@ -47,6 +47,7 @@ static void fill_weights (double *weights,
                           unsigned int n_weights);
 
 
+
 PLL_EXPORT double pllmod_algo_opt_frequencies (pll_partition_t * partition,
                                                pll_unode_t * tree,
                                                unsigned int params_index,
@@ -704,6 +705,27 @@ static void fix_brlen_scalers(pllmod_treeinfo_t * treeinfo,
   }
 }
 
+static pll_bool_t fix_brlen_minmax(pllmod_treeinfo_t * treeinfo, double blmin, double blmax)
+{
+  pll_bool_t brlen_fixed = PLL_FALSE;
+  for (unsigned int i = 0; i < treeinfo->subnode_count; ++i)
+  {
+    pll_unode_t * snode = treeinfo->subnodes[i];
+    if (snode->length < blmin)
+    {
+      pllmod_treeinfo_set_branch_length(treeinfo, snode, blmin);
+      brlen_fixed = PLL_TRUE;
+    }
+    else if (snode->length > blmax)
+    {
+      pllmod_treeinfo_set_branch_length(treeinfo, snode, blmax);
+      brlen_fixed = PLL_TRUE;
+    }
+  }
+
+  return brlen_fixed;
+}
+
 PLL_EXPORT
 double pllmod_algo_opt_onedim_treeinfo_custom(pllmod_treeinfo_t * treeinfo,
                                               int param_to_optimize,
@@ -882,21 +904,7 @@ double pllmod_algo_opt_brlen_scalers_treeinfo(pllmod_treeinfo_t * treeinfo,
 
   /* check that all branch lengths are within bounds after normalization,
    * and correct them as needed */
-  int brlen_fixed = 0;
-  for (i = 0; i < treeinfo->subnode_count; ++i)
-  {
-    pll_unode_t * snode = treeinfo->subnodes[i];
-    if (snode->length < min_brlen)
-    {
-      pllmod_treeinfo_set_branch_length(treeinfo, snode, min_brlen);
-      brlen_fixed = 1;
-    }
-    else if (snode->length > max_brlen)
-    {
-      pllmod_treeinfo_set_branch_length(treeinfo, snode, max_brlen);
-      brlen_fixed = 1;
-    }
-  }
+  pll_bool_t brlen_fixed = fix_brlen_minmax(treeinfo, min_brlen, max_brlen);
 
   if (brlen_fixed)
   {
@@ -1487,22 +1495,56 @@ static void fix_free_rates(pllmod_treeinfo_t * treeinfo,
   }
 }
 
+static void renormalize_free_rates(pllmod_treeinfo_t * treeinfo)
+{
+  unsigned int i, j;
+
+  for (i = 0; i < treeinfo->partition_count; ++i)
+  {
+    /* skip remote partitions and those without rates/weight optimization */
+    if (!treeinfo->partitions[i] || !(treeinfo->params_to_optimize[i] &
+        (PLLMOD_OPT_PARAM_FREE_RATES | PLLMOD_OPT_PARAM_RATE_WEIGHTS)))
+      continue;
+
+    pll_partition_t * partition = treeinfo->partitions[i];
+    double * rates              = partition->rates;
+    double * weights            = partition->rate_weights;
+    unsigned int rate_cats      = partition->rate_cats;
+    double sum_weightrates, rate_scaler;
+
+    /* force constraint sum(weights x rates) = 1.0 */
+    sum_weightrates = 0.0;
+    for (j = 0; j < rate_cats; ++j)
+      sum_weightrates += rates[j] * weights[j];
+    rate_scaler = 1.0 / sum_weightrates;
+
+    scales_rates_and_branches(treeinfo, i, rate_scaler);
+  }
+}
+
 PLL_EXPORT
 double pllmod_algo_opt_rates_weights_treeinfo (pllmod_treeinfo_t * treeinfo,
                                                double min_rate,
                                                double max_rate,
+                                               double min_brlen,
+                                               double max_brlen,
                                                double bfgs_factor,
                                                double tolerance)
 {
   const double factor = bfgs_factor > 0. ? bfgs_factor : PLLMOD_ALGO_BFGS_FACTR;
 
-  unsigned int i, j;
-  double cur_logl, prev_logl;
+  unsigned int i;
+  double old_logl, cur_logl, prev_logl;
   double **x, **lb, **ub;
+  double *old_weights, *old_rates, *old_brlens, *old_scalers;
   int **bt;
   unsigned int * num_free_params;
+  size_t rw_span;
 
   unsigned int part_count = 0;
+  unsigned int local_part_count = 0;
+  unsigned int part = 0;
+  unsigned int local_part = 0;
   unsigned int max_free_params = 0;
 
   /* check how many frequencies have to be optimized */
@@ -1517,15 +1559,19 @@ double pllmod_algo_opt_rates_weights_treeinfo (pllmod_treeinfo_t * treeinfo,
       if (!treeinfo->partitions[i])
         continue;
 
+      local_part_count++;
+
       unsigned int nfree_params = treeinfo->partitions[i]->rate_cats;
       if (nfree_params > max_free_params)
         max_free_params = nfree_params;
     }
   }
 
+  old_logl = pllmod_treeinfo_compute_loglh(treeinfo, 0);
+
   /* nothing to optimize */
   if (!part_count)
-    return -1 * pllmod_treeinfo_compute_loglh(treeinfo, 0);
+    return -1 * old_logl;
 
   /* IMPORTANT: we need to know max_free_params among all threads! */
   if (treeinfo->parallel_reduce_cb)
@@ -1535,6 +1581,8 @@ double pllmod_algo_opt_rates_weights_treeinfo (pllmod_treeinfo_t * treeinfo,
                                  PLLMOD_COMMON_REDUCE_MAX);
     max_free_params = (unsigned int) tmp;
   }
+
+  rw_span = max_free_params * sizeof(double);
 
   x  = (double **) calloc(sizeof(double*),  part_count);
   lb = (double **) calloc(sizeof(double*),  part_count);
@@ -1547,7 +1595,23 @@ double pllmod_algo_opt_rates_weights_treeinfo (pllmod_treeinfo_t * treeinfo,
   ub[0] = (double *) malloc(sizeof(double) * (max_free_params));
   bt[0] = (int *)    malloc(sizeof(int)    * (max_free_params));
 
-  size_t part = 0;
+  /* save old state for rollback: rates+weights+brlens+BL scalers */
+  old_rates = old_weights = old_brlens = old_scalers = NULL;
+  if (treeinfo->brlen_linkage != PLLMOD_COMMON_BRLEN_UNLINKED)
+  {
+    old_rates  = (double *) calloc(sizeof(double),  local_part_count * max_free_params);
+    old_weights  = (double *) calloc(sizeof(double),  local_part_count * max_free_params);
+
+    old_brlens  = (double *) calloc(sizeof(double),  treeinfo->tree->edge_count);
+    memcpy(old_brlens, treeinfo->linked_branch_lengths, sizeof(double)*treeinfo->tree->edge_count);
+
+    if (treeinfo->brlen_scalers)
+    {
+      old_scalers  = (double *) calloc(sizeof(double), treeinfo->partition_count);
+      memcpy(old_scalers, treeinfo->brlen_scalers, sizeof(double)*treeinfo->partition_count);
+    }
+  }
+
   for (i = 0; i < treeinfo->partition_count; ++i)
   {
     if (!(treeinfo->params_to_optimize[i] &
@@ -1560,6 +1624,14 @@ double pllmod_algo_opt_rates_weights_treeinfo (pllmod_treeinfo_t * treeinfo,
       lb[part] = lb[0];
       ub[part] = ub[0];
       bt[part] = bt[0];
+
+      if (old_rates)
+      {
+        size_t rw_size = treeinfo->partitions[i]->rate_cats * sizeof(double);
+        memcpy(old_rates + local_part * rw_span, treeinfo->partitions[i]->rates, rw_size);
+        memcpy(old_weights + local_part * rw_span, treeinfo->partitions[i]->rate_weights, rw_size);
+      }
+      local_part++;
     }
     part++;
   }
@@ -1663,31 +1735,69 @@ double pllmod_algo_opt_rates_weights_treeinfo (pllmod_treeinfo_t * treeinfo,
   while (prev_logl - cur_logl > tolerance);
 
   /* now re-normalize rates and scale the branches accordingly */
-  for (i = 0; i < treeinfo->partition_count; ++i)
-  {
-    /* skip remote partitions and those without rates/weight optimization */
-    if (!treeinfo->partitions[i] || !(treeinfo->params_to_optimize[i] &
-        (PLLMOD_OPT_PARAM_FREE_RATES | PLLMOD_OPT_PARAM_RATE_WEIGHTS)))
-      continue;
-
-    pll_partition_t * partition = treeinfo->partitions[i];
-    double * rates              = partition->rates;
-    double * weights            = partition->rate_weights;
-    unsigned int rate_cats      = partition->rate_cats;
-    double sum_weightrates, rate_scaler;
-
-    /* force constraint sum(weights x rates) = 1.0 */
-    sum_weightrates = 0.0;
-    for (j = 0; j < rate_cats; ++j)
-      sum_weightrates += rates[j] * weights[j];
-    rate_scaler = 1.0 / sum_weightrates;
-
-
-    scales_rates_and_branches(treeinfo, i, rate_scaler);
-  }
+  renormalize_free_rates(treeinfo);
 
   /* update pmatrices and partials according to the new branches */
   cur_logl = pllmod_treeinfo_compute_loglh(treeinfo, 0);
+
+  /* normalize scalers and scale the branches accordingly */
+  if (treeinfo->brlen_linkage == PLLMOD_COMMON_BRLEN_SCALED && treeinfo->partition_count > 1)
+    pllmod_treeinfo_normalize_brlen_scalers(treeinfo);
+
+  if (treeinfo->brlen_linkage != PLLMOD_COMMON_BRLEN_UNLINKED)
+  {
+    /* check that all branch lengths are within bounds after normalization,
+     * and correct them as needed */
+    pll_bool_t brlen_fixed = fix_brlen_minmax(treeinfo, min_brlen, max_brlen);
+
+    if (brlen_fixed)
+    {
+      /* update pmatrices and partials according to the new branches */
+      double new_logl = pllmod_treeinfo_compute_loglh(treeinfo, 0);
+
+      DBG("pllmod_algo_opt_rates_weights_treeinfo: BRLEN_FIXED old/opt/fixed: %.12lf / %.12lf / %.12lf\n",
+          old_logl, cur_logl, new_logl);
+
+      if (new_logl < old_logl)
+      {
+        /* loglh worse than initial after enforcing min/max brlens -> rollback */
+        assert(old_rates && old_weights && old_brlens);
+
+        /* restore initial rates & weights */
+        local_part = 0;
+        for (i = 0; i < treeinfo->partition_count; ++i)
+        {
+          if (treeinfo->partitions[i] &&
+              (treeinfo->params_to_optimize[i] &
+              (PLLMOD_OPT_PARAM_FREE_RATES | PLLMOD_OPT_PARAM_RATE_WEIGHTS)))
+          {
+            size_t rw_size = treeinfo->partitions[i]->rate_cats * sizeof(double);
+            memcpy(treeinfo->partitions[i]->rates, old_rates + local_part * rw_span, rw_size);
+            memcpy(treeinfo->partitions[i]->rate_weights, old_weights + local_part * rw_span, rw_size);
+            local_part++;
+          }
+        }
+        /* restore initial branch lengths */
+        for (i = 0; i < treeinfo->subnode_count; ++i)
+          treeinfo->subnodes[i]->length = old_brlens[treeinfo->subnodes[i]->pmatrix_index];
+
+        /* restore initial branch length scalers */
+        if (treeinfo->brlen_scalers)
+        {
+          assert(old_scalers);
+          memcpy(treeinfo->brlen_scalers, old_scalers, sizeof(double)*treeinfo->partition_count);
+        }
+
+        renormalize_free_rates(treeinfo);
+
+        cur_logl = pllmod_treeinfo_compute_loglh(treeinfo, 0);
+
+        DBG("pllmod_algo_opt_rates_weights_treeinfo: ROLLBACK, loglh = %.12lf\n", cur_logl);
+      }
+      else
+        cur_logl = new_logl;
+    }
+  }
 
   /* cleanup */
   for (i = 0; i < part_count; ++i)
@@ -1695,6 +1805,11 @@ double pllmod_algo_opt_rates_weights_treeinfo (pllmod_treeinfo_t * treeinfo,
     if (x[i])
       free(x[i]);
   }
+
+  free(old_rates);
+  free(old_weights);
+  free(old_brlens);
+  free(old_scalers);
 
   free(lb[0]);
   free(ub[0]);
