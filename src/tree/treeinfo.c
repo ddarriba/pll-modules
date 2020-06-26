@@ -943,7 +943,8 @@ PLL_EXPORT void pllmod_treeinfo_invalidate_clv(pllmod_treeinfo_t * treeinfo,
 
 static double treeinfo_compute_loglh(pllmod_treeinfo_t * treeinfo,
                                      int incremental,
-                                     int update_pmatrices)
+                                     int update_pmatrices,
+                                     double ** persite_lnl)
 {
   /* tree root must be an inner node! */
   assert(!pllmod_utree_is_tip(treeinfo->root));
@@ -1051,7 +1052,7 @@ static double treeinfo_compute_loglh(pllmod_treeinfo_t * treeinfo,
                                             treeinfo->root->back->scaler_index,
                                             treeinfo->root->pmatrix_index,
                                             treeinfo->param_indices[p],
-                                            NULL);
+                                            persite_lnl ? persite_lnl[p] : NULL);
   }
 
   /* sum up likelihood from all threads */
@@ -1078,14 +1079,21 @@ static double treeinfo_compute_loglh(pllmod_treeinfo_t * treeinfo,
 PLL_EXPORT double pllmod_treeinfo_compute_loglh(pllmod_treeinfo_t * treeinfo,
                                                 int incremental)
 {
-  return treeinfo_compute_loglh(treeinfo, incremental, 1);
+  return treeinfo_compute_loglh(treeinfo, incremental, 1, NULL);
 }
 
 PLL_EXPORT double pllmod_treeinfo_compute_loglh_flex(pllmod_treeinfo_t * treeinfo,
                                                      int incremental,
                                                      int update_pmatrices)
 {
-  return treeinfo_compute_loglh(treeinfo, incremental, update_pmatrices);
+  return treeinfo_compute_loglh(treeinfo, incremental, update_pmatrices, NULL);
+}
+
+PLL_EXPORT double pllmod_treeinfo_compute_loglh_persite(pllmod_treeinfo_t * treeinfo,
+                                                        int incremental,
+                                                        double ** persite_lnl)
+{
+  return treeinfo_compute_loglh(treeinfo, incremental, 1, persite_lnl);
 }
 
 PLL_EXPORT

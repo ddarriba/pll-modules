@@ -667,6 +667,10 @@ PLL_EXPORT double pllmod_treeinfo_compute_loglh_flex(pllmod_treeinfo_t * treeinf
                                                      int incremental,
                                                      int update_pmatrices);
 
+PLL_EXPORT double pllmod_treeinfo_compute_loglh_persite(pllmod_treeinfo_t * treeinfo,
+                                                        int incremental,
+                                                        double ** persite_lnl);
+
 PLL_EXPORT
 int pllmod_treeinfo_scale_branches_all(pllmod_treeinfo_t * treeinfo, double scaler);
 
