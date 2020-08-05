@@ -559,6 +559,8 @@ PLL_EXPORT int pllmod_utree_outgroup_root(pll_utree_t * tree,
                                           unsigned int outgroup_size,
                                           int add_root_node);
 
+PLL_EXPORT int pllmod_utree_collapse_branches(pll_utree_t * tree,
+                                              double min_brlen);
 
 PLL_EXPORT double pllmod_utree_compute_lk(pll_partition_t * partition,
                                        pll_unode_t * tree,

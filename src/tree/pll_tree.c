@@ -387,6 +387,165 @@ PLL_EXPORT pll_utree_t * pllmod_utree_resolve_multi(const pll_utree_t * multi_tr
   return bin_tree;
 }
 
+static pll_unode_t * unode_prev(pll_unode_t * node)
+{
+  if (node->next)
+  {
+    pll_unode_t * prev = node;
+    while (prev->next != node) prev = prev->next;
+    return prev;
+  }
+  else
+    return NULL;
+}
+
+/* This function removes a branch between lnode and lnode->back by
+ * "dissolving" a roundabout ("inner node triplet") that contains lnode->back,
+ * and merging its remainders into the "left" roundabout as show below:
+ *
+ *     *-l2-*          *-r2-*                  *-l2-*
+      /      \        /      \                /      \
+ * --l1  x1  l3------r1  x2  r3--   ---->  --l1  x1  r2--
+ *    \      /        \      /                \      /
+ *     *----*          *----*                  *-r3-*
+ *
+ *  where l3 = lnode, r1 = lnode->back
+ */
+static int remove_branch(pll_unode_t * lnode)
+{
+  pll_unode_t * rnode = lnode->back;
+  
+  /* can only remove a branch between two inner nodes */
+  if (!lnode->next || !rnode->next)
+    return PLL_FAILURE;
+
+  pll_unode_t * lnode_prev = unode_prev(lnode);
+  pll_unode_t * lnode_next = lnode->next;
+  pll_unode_t * rnode_prev = unode_prev(rnode);
+  pll_unode_t * rnode_next = rnode->next;
+
+  /* merge remaining subnodes of left and right nodes */
+  lnode_prev->next = rnode_next;
+  rnode_prev->next = lnode_next;
+
+  /* update clv_index and scaler_index in right node remainder */
+  while (rnode_next != lnode_next)
+  {
+    rnode_next->clv_index = lnode_prev->clv_index;
+    rnode_next->scaler_index = lnode_prev->scaler_index;
+    rnode_next->label = lnode_prev->label;
+    rnode_next = rnode_next->next;
+  }
+
+  /* destroy both subnodes adjacent to the deleted branch */
+  free(lnode);
+  free(rnode->label);
+  free(rnode);
+
+  return PLL_SUCCESS;
+}
+
+PLL_EXPORT int pllmod_utree_collapse_branches(pll_utree_t * tree,
+                                              double min_brlen)
+{
+  if (!tree || !tree->vroot)
+  {
+    pllmod_set_error(PLL_ERROR_PARAM_INVALID, "Empty tree specified!");
+    return PLL_FAILURE;
+  }
+
+  double brlen_cutoff = min_brlen + PLL_ONE_EPSILON;
+  unsigned int tip_count = tree->tip_count;
+  unsigned int inner_count = tree->inner_count;
+  unsigned int node_count = inner_count + tip_count;
+  unsigned int removed_count = 0;
+  unsigned int * clv2pos_map = (unsigned int *) calloc(inner_count, sizeof(unsigned int));
+
+  if (!clv2pos_map)
+  {
+    pllmod_set_error(PLL_ERROR_MEM_ALLOC,
+                     "Cannot allocate memory for clv2pos map!");
+    return PLL_FAILURE;
+  }
+
+  /* to avoid making assumptions about node ordering in tree->nodes,
+   * we build this map indexed based on clv_index */
+  for (unsigned int i = tip_count; i < node_count; ++i)
+  {
+    unsigned int inner_clv_idx = tree->nodes[i]->clv_index - tip_count;
+    clv2pos_map[inner_clv_idx] = i;
+  }
+
+  for (unsigned int i = tip_count; i < node_count; ++i)
+  {
+    pll_unode_t * node  = tree->nodes[i];
+
+    /* this node has been removed in a previous iteration -> skip */
+    if (!node)
+      continue;
+
+    assert (!pllmod_utree_is_tip(node));
+
+    pll_unode_t * start_node = NULL;
+    do
+    {
+      pll_unode_t * anode = node->back;
+      if (pllmod_utree_is_tip(anode) || node->length > brlen_cutoff)
+      {
+        if (!start_node)
+          start_node = node;
+        node = node->next;
+      }
+      else
+      {
+        /* remove branch and merge adjacent inner nodes */
+        pll_unode_t * prev = unode_prev(node);
+        if (tree->vroot == node || tree->vroot == anode)
+          tree->vroot = prev;
+
+        /* find out position of to-be-removed node in the tree->nodes array,
+         * and earmark it for deletion by setting respective entry to NULL */
+        unsigned int anode_pos = clv2pos_map[anode->clv_index - tip_count];
+        assert(anode_pos >= tip_count && anode_pos < node_count);
+        tree->nodes[anode_pos] = NULL;
+        tree->nodes[i] = prev;
+
+        remove_branch(node);
+        removed_count++;
+
+        node = prev->next;
+      }
+    }
+    while(node && node != start_node);
+  }
+
+  if (removed_count > 0)
+  {
+    /* compress tree->nodes array by excluding removed inner nodes */
+    unsigned int idx = tip_count;
+    unsigned int new_node_count = node_count - removed_count;
+    for (unsigned int i = tip_count; i < node_count; ++i)
+    {
+      pll_unode_t * node  = tree->nodes[i];
+      if (node)
+        tree->nodes[idx++] = node;
+    }
+    assert(idx == new_node_count);
+
+    /* update pll_utree_t metadata */
+    tree->inner_count -= removed_count;
+    tree->edge_count -= removed_count;
+    tree->binary = 0;
+    tree->nodes = (pll_unode_t **) realloc(tree->nodes,
+                                           new_node_count*sizeof(pll_unode_t *));
+  }
+
+  free(clv2pos_map);
+
+  return PLL_SUCCESS;
+}
+
+
 PLL_EXPORT int pllmod_utree_root_inplace(pll_utree_t * tree)
 {
   if (!tree)
@@ -540,7 +699,6 @@ PLL_EXPORT int pllmod_utree_outgroup_root(pll_utree_t * tree,
     return PLL_FAILURE;
   }
 }
-
 
 int utree_insert_tips_random(pll_unode_t ** nodes, unsigned int taxa_count,
                              unsigned int start_tip, unsigned int random_seed)
