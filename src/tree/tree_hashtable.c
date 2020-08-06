@@ -153,11 +153,11 @@ hash_key_t hash_get_key(pll_split_t s, int len)
 
 /* this function only increments support for existing splits,
  * but never adds new splits to the hashtable */
-int hash_update(pll_split_t bit_vector,
-                bitv_hashtable_t *h,
-                hash_key_t key,
-                double support,
-                unsigned int position)
+bitv_hash_entry_t * hash_update(pll_split_t bit_vector,
+                                bitv_hashtable_t *h,
+                                hash_key_t key,
+                                double support,
+                                unsigned int position)
 {
   if (key == HASH_KEY_UNDEF)
   {
@@ -182,7 +182,7 @@ int hash_update(pll_split_t bit_vector,
       if(i == h->bitv_len)
       {
         e->support = e->support + support;
-        return PLL_SUCCESS;
+        return e;
       }
 
       /* otherwise keep searching */
@@ -194,50 +194,42 @@ int hash_update(pll_split_t bit_vector,
   return PLL_FAILURE;
 }
 
-void hash_insert(pll_split_t bit_vector,
-                 bitv_hashtable_t *h,
-                 unsigned int bip_number,
-                 hash_key_t key,
-                 double support,
-                 unsigned int position)
+bitv_hash_entry_t * hash_insert(pll_split_t bit_vector,
+                                bitv_hashtable_t *h,
+                                unsigned int bip_number,
+                                hash_key_t key,
+                                double support,
+                                unsigned int position)
 {
   bitv_hash_entry_t *e;
 
+  /* search for this split in hashtable, and increment its support if found */
+  e = hash_update(bit_vector, h, key, support, position);
+  if (e)
+    return e;
+
+  /* if not found -> add new split to the hashtable */
   if (key == HASH_KEY_UNDEF)
   {
       key = hash_get_key(bit_vector, (int)h->bitv_len);
       position = key % h->table_size;
   }
 
-  if(h->table[position] != NULL)
-    {
-      /* search for this split in hashtable, and increment its support if found */
-      if (hash_update(bit_vector, h, key, support, position))
-        return;
+  e = entry_init(support);
+  e->key = key;
+  e->bip_number = bip_number;
 
-      /* add new split to the hashtable */
-      e = entry_init(support);
-      e->key = key;
-      e->bip_number = bip_number;
+  e->bit_vector = (pll_split_t) calloc(h->bitv_len, sizeof(pll_split_base_t));
+  memcpy(e->bit_vector, bit_vector, sizeof(pll_split_base_t) * h->bitv_len);
 
-      e->bit_vector = (pll_split_t) calloc(h->bitv_len, sizeof(pll_split_base_t));
-      memcpy(e->bit_vector, bit_vector, sizeof(pll_split_base_t) * h->bitv_len);
-
-      e->next = h->table[position];
-      h->table[position] = e;
-    }
-  else
-  {
-    e = entry_init(support);
-    e->key = key;
-    e->bip_number = bip_number;
-    e->bit_vector = (pll_split_t) calloc(h->bitv_len, sizeof(pll_split_base_t));
-    memcpy(e->bit_vector, bit_vector, sizeof(pll_split_base_t) * h->bitv_len);
-
-    h->table[position] = e;
-  }
+  e->next = h->table[position];
+  h->table[position] = e;
 
   h->entry_count =  h->entry_count + 1;
+
+  assert(e);
+
+  return e;
 }
 
 void hash_remove(bitv_hashtable_t *h,
@@ -281,8 +273,11 @@ void bitv_normalize(pll_split_t bitv, unsigned int bit_count)
       bitv[i] = ~bitv[i];
     }
 
-    unsigned int mask = (1<<split_offset) - 1;
-    bitv[split_len - 1] &= mask;
+    if (split_offset)
+    {
+      unsigned int mask = (1<<split_offset) - 1;
+      bitv[split_len - 1] &= mask;
+    }
   }
 }
 
@@ -291,12 +286,46 @@ int bitv_is_normalized(const pll_split_t bitv)
   return bitv[0]&1;
 }
 
-unsigned int bitv_length(unsigned int bit_count)
+inline unsigned int bitv_length(unsigned int bit_count)
 {
   unsigned int split_size = sizeof(pll_split_base_t) * 8;
   unsigned int split_offset = bit_count % split_size;
 
   return bit_count / split_size + (split_offset>0);
+}
+
+int bitv_compare(pll_split_t v1, pll_split_t v2, unsigned int bitv_len)
+{
+  for (unsigned int i = 0; i < bitv_len; ++i)
+  {
+    if (v1[i] != v2[i])
+      return (int) (v1[i] > v2[i] ? 1 : -1);
+  }
+  return 0;
+}
+
+inline unsigned int bitv_popcount(const pll_split_t bitv, unsigned int bit_count,
+                                  unsigned int bitv_len)
+{
+  unsigned int setb = 0;
+  unsigned int i;
+
+  if (!bitv_len)
+    bitv_len = bitv_length(bit_count);
+
+  for (i = 0; i < bitv_len; ++i)
+  {
+    setb += (unsigned int) PLL_POPCNT32(bitv[i]);
+  }
+  return setb;
+}
+
+inline unsigned int bitv_lightside(const pll_split_t bitv, unsigned int bit_count,
+                                   unsigned int bitv_len)
+{
+  unsigned int setb = bitv_popcount(bitv, bit_count, bitv_len);
+
+  return PLL_MIN(setb, bit_count - setb);
 }
 
 /* string */

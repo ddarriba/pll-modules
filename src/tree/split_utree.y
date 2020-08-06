@@ -20,9 +20,8 @@
 */
 
 %{
+#include "../pllmod_common.h"
 #include "tree_hashtable.h"
-
-#define UNUSED(expr) do { (void)(expr); } while (0)
 
 extern int pllmod_utree_lex();
 extern FILE * pllmod_utree_in;
@@ -30,6 +29,9 @@ extern void pllmod_utree_lex_destroy();
 extern int pllmod_utree_lineno;
 extern int pllmod_utree_colstart;
 extern int pllmod_utree_colend;
+
+extern struct pllmod_utree_buffer_state * pllmod_utree__scan_string(const char * str);
+extern void pllmod_utree__delete_buffer(struct pllmod_utree_buffer_state * buffer);
 
 struct parse_params_t
 {
@@ -89,12 +91,13 @@ static void pllmod_utree_error(struct parse_params_t * paramas,
 
 inputstr: '(' subtree ',' subtree ',' subtree ')' optional_label optional_length ';'
 {
-  UNUSED($$);UNUSED($2);UNUSED($4);UNUSED($6); /* ignore result */
+  PLLMOD_UNUSED($$);PLLMOD_UNUSED($2);
+  PLLMOD_UNUSED($4);PLLMOD_UNUSED($6); /* ignore result */
 };
 
 subtree: '(' subtree ',' subtree ')' optional_label optional_length
 {
-  UNUSED($$);UNUSED($2);UNUSED($4);
+  PLLMOD_UNUSED($$);PLLMOD_UNUSED($2);PLLMOD_UNUSED($4);
   struct parse_params_t * params = (struct parse_params_t *) params_ptr;
 
   assert(params->split_stack->split_count >= 2);
@@ -113,7 +116,7 @@ subtree: '(' subtree ',' subtree ')' optional_label optional_length
 }
        | label optional_length
 {
-  UNUSED($$);
+  PLLMOD_UNUSED($$);
   struct parse_params_t * params = (struct parse_params_t *) params_ptr;
 
   // find tip index
@@ -143,7 +146,6 @@ number: NUMBER   { $$=$1;};
 
 %%
 
-#ifdef __linux__
 PLL_EXPORT pll_split_t * pll_utree_split_newick_string(char * s,
                                                unsigned int tip_count,
                                                string_hashtable_t * names_hash)
@@ -178,10 +180,10 @@ PLL_EXPORT pll_split_t * pll_utree_split_newick_string(char * s,
   }
   for (i=0; i<max_stack_size; ++i)
     split_stack->splits[i] = stackchunk + i*split_len;
+    
+  struct pllmod_utree_buffer_state * buffer = pllmod_utree__scan_string(s);
 
-  pllmod_utree_in = fmemopen(s, strlen(s), "r");
-
-  if (!pllmod_utree_in)
+  if (!buffer)
   {
     free(split_stack->splits);
     free(split_stack);
@@ -206,13 +208,13 @@ PLL_EXPORT pll_split_t * pll_utree_split_newick_string(char * s,
       free(split_stack);
       free(stackchunk);
       splits = NULL;
-      fclose(pllmod_utree_in);
+      pllmod_utree__delete_buffer(buffer);
       pllmod_utree_lex_destroy();
       return PLL_FAILURE;
     }
   }
 
-  if (pllmod_utree_in) fclose(pllmod_utree_in);
+  pllmod_utree__delete_buffer(buffer);
 
   free(split_stack->splits);
   free(split_stack);
@@ -223,4 +225,3 @@ PLL_EXPORT pll_split_t * pll_utree_split_newick_string(char * s,
 
   return splits;
 }
-#endif

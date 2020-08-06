@@ -25,7 +25,7 @@
 #include "pll_tree.h"
 #include "pllmod_util.h"
 
-#define PLLMOD_ALGO_MIN_WEIGHT_RATIO   0.1
+#define PLLMOD_ALGO_MIN_WEIGHT_RATIO 0.001
 #define PLLMOD_ALGO_MAX_WEIGHT_RATIO    10
 #define PLLMOD_ALGO_BFGS_FACTR         1e9
 
@@ -168,17 +168,47 @@ PLL_EXPORT
 double pllmod_algo_opt_rates_weights_treeinfo (pllmod_treeinfo_t * treeinfo,
                                                double min_rate,
                                                double max_rate,
+                                               double min_brlen,
+                                               double max_brlen,
                                                double bfgs_factor,
                                                double tolerance);
 
+PLL_EXPORT
+double pllmod_algo_opt_alpha_pinv_treeinfo(pllmod_treeinfo_t * treeinfo,
+                                           unsigned int params_index,
+                                           double min_alpha,
+                                           double max_alpha,
+                                           double min_pinv,
+                                           double max_pinv,
+                                           double bfgs_factor,
+                                           double tolerance);
+
+PLL_EXPORT
+double pllmod_algo_opt_brlen_scalers_treeinfo(pllmod_treeinfo_t * treeinfo,
+                                              double min_scaler,
+                                              double max_scaler,
+                                              double min_brlen,
+                                              double max_brlen,
+                                              double lh_epsilon);
+
+
+PLL_EXPORT
+double pllmod_algo_opt_brlen_treeinfo(pllmod_treeinfo_t * treeinfo,
+                                      double min_brlen,
+                                      double max_brlen,
+                                      double lh_epsilon,
+                                      int max_iters,
+                                      int opt_method,
+                                      int radius);
 
 /* search */
 
 PLL_EXPORT double pllmod_algo_spr_round(pllmod_treeinfo_t * treeinfo,
-                                        int radius_min,
-                                        int radius_max,
-                                        int n_topologies,
-                                        int thorough,
+                                        unsigned int radius_min,
+                                        unsigned int radius_max,
+                                        unsigned int ntopol_keep,
+                                        pll_bool_t thorough,
+                                        int brlen_opt_method,
                                         double bl_min,
                                         double bl_max,
                                         int smoothings,

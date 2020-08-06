@@ -76,6 +76,15 @@
 #define PLLMOD_OPT_MIN_RATE_WEIGHT      1.0e-3
 #define PLLMOD_OPT_MAX_RATE_WEIGHT        100.
 
+/* branch length optimization methods */
+#define PLLMOD_OPT_BLO_NEWTON_FAST        0 /* standard Newton-Raphson (NR) */
+#define PLLMOD_OPT_BLO_NEWTON_SAFE        1 /* NR with per-branch LH check */
+#define PLLMOD_OPT_BLO_NEWTON_FALLBACK    2 /* NR-FAST with fallback to NR-SAFE */
+#define PLLMOD_OPT_BLO_NEWTON_GLOBAL      3 /* NR variant which looks for local optima */
+
+#define PLLMOD_OPT_BLO_NEWTON_OLDFAST     10 /* old Newton-Raphson (a la IQTree) */
+#define PLLMOD_OPT_BLO_NEWTON_OLDSAFE     11 /* old NR with per-branch LH check */
+
 /* error codes (for this module, 2000-3000) */
 #define PLLMOD_OPT_ERROR_PARAMETER           2000
 #define PLLMOD_OPT_ERROR_TAXA_MISMATCH       2010
@@ -148,19 +157,28 @@ typedef struct
   double branch_length_min;
   double branch_length_max;
   double tolerance;
+  int max_newton_iters;
+  int opt_method;          /* see PLLMOD_OPT_BLO_* constants above */
 } pll_newton_tree_params_t;
 
 typedef struct
 {
   pll_unode_t * tree;
-  size_t partition_count;
+  unsigned int partition_count;
   pll_partition_t ** partitions;
   unsigned int ** params_indices;
   double ** precomp_buffers;
+  double ** brlen_buffers;
+  double * brlen_orig;
+  double * brlen_guess;
+  int * converged;
   double * brlen_scalers;
   double branch_length_min;
   double branch_length_max;
   double tolerance;
+  int max_newton_iters;
+  int opt_method;          /* see PLLMOD_OPT_BLO_* constants above */
+  int brlen_linkage;
   void * parallel_context;
   void (*parallel_reduce_cb)(void *,
                              double *,
@@ -171,16 +189,41 @@ typedef struct
 /******************************************************************************/
 
 /* functions in opt_algorithms.c */
+
+/* core Newton-Raphson optimization function (multiple variables) */
+PLL_EXPORT int pllmod_opt_minimize_newton_multi(unsigned int xnum,
+                                                double xmin,
+                                                double * xguess,
+                                                double xmax,
+                                                double tolerance,
+                                                unsigned int max_iters,
+                                                int * converged,
+                                                void * params,
+                                                void (deriv_func)(void *,
+                                                          double *,
+                                                          double *, double *));
+
 /* core Newton-Raphson optimization function */
-PLL_EXPORT double pllmod_opt_minimize_newton(double x1,
-                                      double xguess,
-                                      double x2,
-                                      double tolerance,
-                                      unsigned int max_iters,
-                                      void *params,
-                                      void (deriv_func)(void *,
-                                                        double,
-                                                        double *, double *));
+PLL_EXPORT double pllmod_opt_minimize_newton(double xmin,
+                                             double xguess,
+                                             double xmax,
+                                             double tolerance,
+                                             unsigned int max_iters,
+                                             void * params,
+                                             void (deriv_func)(void *,
+                                                               double,
+                                                               double *, double *));
+
+/* core Newton-Raphson optimization function */
+PLL_EXPORT double pllmod_opt_minimize_newton_old(double x1,
+                                                 double xguess,
+                                                 double x2,
+                                                 double tolerance,
+                                                 unsigned int max_iters,
+                                                 void *params,
+                                                 void (deriv_func)(void *,
+                                                                   double,
+                                                                   double *, double *));
 
 /* core L-BFGS-B optimization function */
 PLL_EXPORT double pllmod_opt_minimize_lbfgsb(double *x,
@@ -262,20 +305,24 @@ PLL_EXPORT double pllmod_opt_optimize_branch_lengths_local_multi (
                                               pll_unode_t * tree,
                                               unsigned int ** params_indices,
                                               double ** sumtable_buffers,
+                                              double ** brlen_buffers,
                                               double * brlen_scalers,
                                               double branch_length_min,
                                               double branch_length_max,
-                                              double tolerance,
-                                              int smoothings,
+                                              double lh_epsilon,
+                                              int max_iters,
                                               int radius,
                                               int keep_update,
+                                              int opt_method,
+                                              int brlen_linkage,
                                               void * parallel_context,
                                               void (*parallel_reduce_cb)(void *,
                                                                          double *,
                                                                          size_t,
                                                                          int));
 
-PLL_EXPORT int pllmod_opt_minimize_brent_multi(int xnum,
+PLL_EXPORT int pllmod_opt_minimize_brent_multi(unsigned int xnum,
+                                               int * opt_mask,
                                                double * xmin,
                                                double * xguess,
                                                double * xmax,

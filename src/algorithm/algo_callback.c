@@ -28,6 +28,7 @@
   * @author Alexey Kozlov
   */
 
+#include "../pllmod_common.h"
 #include "algo_callback.h"
 
 double target_freqs_func(void *p, double *x)
@@ -38,7 +39,7 @@ double target_freqs_func(void *p, double *x)
   pll_unode_t * root              = params->tree;
   unsigned int * params_indices   = params->params_indices;
   unsigned int params_index       = params->params_index;
-  unsigned int highest_freq_state = params->highest_freq_state;
+  unsigned int fixed_freq_state   = params->fixed_freq_state;
   unsigned int states             = partition->states;
   double *freqs                   = partition->frequencies[params_index];
   double sum_ratios = 1.0;
@@ -55,13 +56,13 @@ double target_freqs_func(void *p, double *x)
   cur_index = 0;
   for (i = 0; i < states; ++i)
   {
-    if (i != highest_freq_state)
+    if (i != fixed_freq_state)
     {
       freqs[i] = x[cur_index] / sum_ratios;
       cur_index++;
     }
   }
-  freqs[highest_freq_state] = 1.0 / sum_ratios;
+  freqs[fixed_freq_state] = 1.0 / sum_ratios;
 
   /* important!! invalidate eigen-decomposition */
   partition->eigen_decomp_valid[params_index] = 0;
@@ -236,7 +237,7 @@ double target_weights_func(void *p, double *x)
   pll_partition_t * partition       = params->partition;
   pll_unode_t * root                = params->tree;
   unsigned int * params_indices     = params->params_indices;
-  unsigned int highest_weight_state = params->highest_weight_state;
+  unsigned int fixed_weight_state   = params->fixed_weight_state;
   unsigned int n_weights            = partition->rate_cats;
   double sum_ratios = 1.0;
 
@@ -249,11 +250,11 @@ double target_weights_func(void *p, double *x)
 
   cur_weight = 0;
   for (i = 0; i < (n_weights); ++i)
-    if (i != highest_weight_state)
+    if (i != fixed_weight_state)
     {
       weights[i] = x[cur_weight++] / sum_ratios;
     }
-  weights[highest_weight_state] = 1.0 / sum_ratios;
+  weights[fixed_weight_state] = 1.0 / sum_ratios;
 
   /* update weights */
   // memcpy(partition->rate_weights, weights, partition->rate_cats*sizeof(double));
@@ -300,10 +301,12 @@ double target_func_onedim_treeinfo(void *p, double *x, double *fx, int * converg
   unsigned int num_parts              = params->num_opt_partitions;
   treeinfo_param_set_cb param_setter  = params->param_set_cb;
 
+  double score = -INFINITY;
+
   /* any partitions which have not converged yet? */
   double unconverged_flag = 0.;
 
-  size_t i, j=0;
+  unsigned int i, j=0;
   for (i = 0; i < treeinfo->partition_count; ++i)
   {
     pll_partition_t * partition = treeinfo->partitions[i];
@@ -319,7 +322,10 @@ double target_func_onedim_treeinfo(void *p, double *x, double *fx, int * converg
 
       unconverged_flag = 1.;
 
-      param_setter(treeinfo, i, &x[j], 1);
+      /* if x=NULL, function was called solely to check convergence
+       * -> no update of parameter values & LH computation */
+      if (x)
+        param_setter(treeinfo, i, &x[j], 1);
 
       j++;
     }
@@ -328,7 +334,8 @@ double target_func_onedim_treeinfo(void *p, double *x, double *fx, int * converg
   assert(j == num_parts);
 
   /* compute negative score */
-  double score = -1 * pllmod_treeinfo_compute_loglh(treeinfo, 0);
+  if (x)
+    score = -1 * pllmod_treeinfo_compute_loglh(treeinfo, 0);
 
 //  printf("score: %lf\n", score);
 
@@ -347,7 +354,7 @@ double target_func_onedim_treeinfo(void *p, double *x, double *fx, int * converg
     if (treeinfo->parallel_reduce_cb)
     {
       treeinfo->parallel_reduce_cb(treeinfo->parallel_context, &unconverged_flag, 1,
-                                   PLLMOD_TREE_REDUCE_SUM);
+                                   PLLMOD_COMMON_REDUCE_SUM);
     }
     converged[num_parts] = unconverged_flag > 0. ? 0 : 1;
   }
@@ -363,7 +370,7 @@ double target_func_multidim_treeinfo(void * p, double ** x, double * fx,
   pllmod_treeinfo_t * treeinfo      = params->treeinfo;
   unsigned int num_parts            = params->num_opt_partitions;
   unsigned int * fixed_var_index    = params->fixed_var_index;
-  int param_to_optimize             = params->param_to_optimize;
+  int params_to_optimize            = params->param_to_optimize;
 
   double score = -INFINITY;
 
@@ -376,7 +383,7 @@ double target_func_multidim_treeinfo(void * p, double ** x, double * fx,
   {
     pll_partition_t * partition = treeinfo->partitions[i];
 
-    if (treeinfo->params_to_optimize[i] & param_to_optimize)
+    if ((treeinfo->params_to_optimize[i] & params_to_optimize) == params_to_optimize)
     {
       if (!partition || (converged && converged[part]))
       {
@@ -394,15 +401,39 @@ double target_func_multidim_treeinfo(void * p, double ** x, double * fx,
         continue;
       }
 
-      switch (param_to_optimize)
+      switch (params_to_optimize)
       {
+        case PLLMOD_OPT_PARAM_ALPHA | PLLMOD_OPT_PARAM_PINV:
+          /* update GAMMA rate categories */
+          treeinfo->alphas[i] = x[part][0];
+          if (!pll_compute_gamma_cats (treeinfo->alphas[i],
+                                       partition->rate_cats,
+                                       partition->rates,
+                                       params->treeinfo->gamma_mode[i]))
+          {
+            assert(pll_errno);
+            return PLL_FAILURE;
+          }
+
+          /* update proportion of invariant sites */
+          for (j=0; j<partition->rate_cats; ++j)
+          {
+            if (!pll_update_invariant_sites_proportion(partition,
+                                                       treeinfo->param_indices[i][j],
+                                                       x[part][1]))
+            {
+              assert(pll_errno);
+              return PLL_FAILURE;
+            }
+          }
+          break;
         case PLLMOD_OPT_PARAM_FREE_RATES:
           /* update rate categories */
           memcpy(partition->rates, x[part], partition->rate_cats*sizeof(double));
           break;
         case PLLMOD_OPT_PARAM_RATE_WEIGHTS:
         {
-          unsigned int highest_weight_state = fixed_var_index[part];
+          unsigned int fixed_weight_state = fixed_var_index[part];
           unsigned int n_weights            = partition->rate_cats;
           double sum_ratios = 1.0;
 
@@ -414,11 +445,11 @@ double target_func_multidim_treeinfo(void * p, double ** x, double * fx,
 
           cur_weight = 0;
           for (i = 0; i < (n_weights); ++i)
-            if (i != highest_weight_state)
+            if (i != fixed_weight_state)
             {
               weights[i] = x[part][cur_weight++] / sum_ratios;
             }
-          weights[highest_weight_state] = 1.0 / sum_ratios;
+          weights[fixed_weight_state] = 1.0 / sum_ratios;
           break;
         }
         default:
@@ -439,7 +470,7 @@ double target_func_multidim_treeinfo(void * p, double ** x, double * fx,
     j = 0;
     for (i = 0; i < treeinfo->partition_count; ++i)
     {
-      if (treeinfo->params_to_optimize[i] & param_to_optimize)
+      if ((treeinfo->params_to_optimize[i] & params_to_optimize) == params_to_optimize)
         fx[j++] = -1 * treeinfo->partition_loglh[i];
     }
   }
@@ -450,7 +481,7 @@ double target_func_multidim_treeinfo(void * p, double ** x, double * fx,
     if (treeinfo->parallel_reduce_cb)
     {
       treeinfo->parallel_reduce_cb(treeinfo->parallel_context,
-                                   &unconverged_flag, 1, PLLMOD_TREE_REDUCE_SUM);
+                                   &unconverged_flag, 1, PLLMOD_COMMON_REDUCE_SUM);
     }
     converged[num_parts] = unconverged_flag > 0. ? 0 : 1;
   }
@@ -551,7 +582,7 @@ double target_subst_params_func_multi(void * p, double ** x, double * fx,
     if (treeinfo->parallel_reduce_cb)
     {
       treeinfo->parallel_reduce_cb(treeinfo->parallel_context,
-                                   &unconverged_flag, 1, PLLMOD_TREE_REDUCE_SUM);
+                                   &unconverged_flag, 1, PLLMOD_COMMON_REDUCE_SUM);
     }
     converged[num_parts] = unconverged_flag > 0. ? 0 : 1;
   }
@@ -568,7 +599,7 @@ double target_freqs_func_multi(void * p, double ** x, double * fx,
   pllmod_treeinfo_t * treeinfo      = params->treeinfo;
   unsigned int num_parts            = params->num_opt_partitions;
   unsigned int params_index         = params->params_index;
-  unsigned int * highest_freq_state = params->fixed_var_index;
+  unsigned int * fixed_freq_state   = params->fixed_var_index;
 
   double score = -INFINITY;
 
@@ -602,7 +633,8 @@ double target_freqs_func_multi(void * p, double ** x, double * fx,
       unsigned int states             = partition->states;
       double * freqs                  = partition->frequencies[params_index];
 
-      double sum_ratios = 1.0;
+      unsigned int fixed            = fixed_freq_state[part];
+      double sum_ratios               = 1.0;
       unsigned int cur_index;
 
       /* update frequencies */
@@ -614,15 +646,25 @@ double target_freqs_func_multi(void * p, double ** x, double * fx,
       cur_index = 0;
       for (j = 0; j < states; ++j)
       {
-        if (j != highest_freq_state[part])
+        if (j != fixed)
         {
           freqs[j] = x[part][cur_index] / sum_ratios;
           cur_index++;
         }
       }
-      freqs[highest_freq_state[part]] = 1.0 / sum_ratios;
+      freqs[fixed] = 1.0 / sum_ratios;
 
-//      printf("freqs: %f %f %f %f ", freqs[0], freqs[1], freqs[2], freqs[3]);
+#ifdef DEBUG
+      cur_index = 0;
+      printf("freqs denorm / norm: ");
+      for (size_t i = 0; i < states; ++i)
+        printf("%f ", i == fixed ? 1.0 : x[part][cur_index++]);
+      printf("  ||  ");
+
+      for (size_t i = 0; i < states; ++i)
+        printf("%f ", freqs[i]);
+      printf("\n");
+#endif
 
       /* important!! invalidate eigen-decomposition */
       partition->eigen_decomp_valid[params_index] = 0;
@@ -650,7 +692,7 @@ double target_freqs_func_multi(void * p, double ** x, double * fx,
     if (treeinfo->parallel_reduce_cb)
     {
       treeinfo->parallel_reduce_cb(treeinfo->parallel_context,
-                                   &unconverged_flag, 1, PLLMOD_TREE_REDUCE_SUM);
+                                   &unconverged_flag, 1, PLLMOD_COMMON_REDUCE_SUM);
     }
     converged[num_parts] = unconverged_flag > 0. ? 0 : 1;
   }

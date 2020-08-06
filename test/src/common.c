@@ -26,6 +26,10 @@ unsigned int get_attributes(int argc, char **argv)
       /* sse3 vectorization */
       attributes |= PLL_ATTRIB_ARCH_SSE;
     }
+    else if (!strcmp (argv[i], "sr"))
+    {
+      attributes |= PLL_ATTRIB_SITE_REPEATS;
+    }
     else
     {
       printf("Unrecognised attribute: %s\n", argv[i]);

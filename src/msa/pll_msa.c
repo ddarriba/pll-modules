@@ -48,7 +48,7 @@ PLL_EXPORT double * pllmod_msa_empirical_frequencies(pll_partition_t * partition
   unsigned int sites          = partition->sites;
   unsigned int rate_cats      = partition->rate_cats;
   unsigned int tips           = partition->tips;
-  const unsigned int * tipmap = partition->tipmap;
+  const pll_state_t * tipmap  = partition->tipmap;
   const unsigned int * w      = partition->pattern_weights;
   double * frequencies;
 
@@ -70,7 +70,7 @@ PLL_EXPORT double * pllmod_msa_empirical_frequencies(pll_partition_t * partition
               for (n = 0; n < sites; ++n)
               {
                 unsigned int state = (unsigned int) tipchars[n];
-                double sum_site = 1.0 * __builtin_popcount(state);
+                double sum_site = 1.0 * PLL_POPCNT32(state);
                 for (k = 0; k < states; ++k)
                 {
                   if (state & 1)
@@ -87,8 +87,8 @@ PLL_EXPORT double * pllmod_msa_empirical_frequencies(pll_partition_t * partition
         const unsigned char *tipchars = partition->tipchars[i];
         for (n = 0; n < sites; ++n)
         {
-          unsigned int state = tipmap[(int) tipchars[n]];
-          double sum_site = 1.0 * __builtin_popcount(state);
+          pll_state_t state = tipmap[(int) tipchars[n]];
+          double sum_site = 1.0 * PLL_STATE_POPCNT(state);
           for (k = 0; k < states; ++k)
           {
             if (state & 1)
@@ -103,9 +103,16 @@ PLL_EXPORT double * pllmod_msa_empirical_frequencies(pll_partition_t * partition
   {
     for (i = 0; i < tips; ++i)
     {
-      for (n = 0, j = 0; j < sites * states_padded * rate_cats;
-                                         j += (states_padded * rate_cats), ++n)
+      unsigned int *site_to_id = 0;
+      if ((partition->attributes & PLL_ATTRIB_SITE_REPEATS)
+        && partition->repeats->pernode_ids[i]) {
+        site_to_id = partition->repeats->pernode_site_id[i];
+      }
+
+      for (n = 0; n < sites; ++n)
       {
+        j = site_to_id ? site_to_id[n] : n;
+        j *= (states_padded * rate_cats);
         double sum_site = 0.0;
         for (k = 0; k < states; ++k)
           sum_site += partition->clv[i][j + k];
@@ -138,12 +145,13 @@ PLL_EXPORT double * pllmod_msa_empirical_frequencies(pll_partition_t * partition
 }
 
 void compute_pair_rates(unsigned int states, unsigned int tips,
-                        unsigned int sites, unsigned char ** tipchars,
-                        const unsigned int * w, const unsigned int * charmap,
-                        unsigned * state_freq, unsigned * pair_rates)
+                        unsigned long sites, unsigned char ** tipchars,
+                        const unsigned int * w, const pll_state_t * tipmap,
+                        size_t * state_freq, size_t * pair_rates)
 {
-  unsigned int i, j, k, n;
-  unsigned int undef_state = (unsigned int) (pow (2, states)) - 1;
+  unsigned int i, j, k;
+  unsigned long n;
+  pll_state_t undef_state = (pll_state_t) (pow (2, states)) - 1;
 
   for (n = 0; n < sites; ++n)
   {
@@ -151,7 +159,7 @@ void compute_pair_rates(unsigned int states, unsigned int tips,
     for (i = 0; i < tips; ++i)
     {
       const unsigned int c = (unsigned int) tipchars[i][n];
-      unsigned int state =  charmap ? charmap[c] : c;
+      pll_state_t state =  tipmap ? tipmap[c] : c;
       if (state == undef_state)
         continue;
       for (k = 0; k < states; ++k)
@@ -182,16 +190,15 @@ PLL_EXPORT double * pllmod_msa_empirical_subst_rates(pll_partition_t * partition
   unsigned int sites               = partition->sites;
   unsigned int tips                = partition->tips;
   unsigned int rate_cats           = partition->rate_cats;
-  const unsigned int * tipmap      = partition->tipmap;
+  const pll_state_t * tipmap       = partition->tipmap;
   const unsigned int * w           = partition->pattern_weights;
   unsigned char ** tipchars        = partition->tipchars;
 
   unsigned int n_subst_rates  = (states * (states - 1) / 2);
   double * subst_rates = (double *) calloc ((size_t) n_subst_rates, sizeof(double));
 
-  unsigned *pair_rates = (unsigned *) calloc(
-      states * states, sizeof(unsigned));
-  unsigned *state_freq = (unsigned *) malloc(states * sizeof(unsigned));
+  size_t * pair_rates = (size_t *) calloc(states * states, sizeof(size_t));
+  size_t * state_freq = (size_t *) malloc(states * sizeof(size_t));
 
   if (!(subst_rates && pair_rates && state_freq))
   {
@@ -468,6 +475,87 @@ static int find_duplicate_strings(char ** const strings,
   return PLL_SUCCESS;
 }
 
+PLL_EXPORT pllmod_msa_errors_t * pllmod_msa_check(const pll_msa_t * msa,
+                                                  const pll_state_t * tipmap)
+{
+  unsigned long i, j;
+
+  if (!msa)
+  {
+    pllmod_set_error(PLL_ERROR_PARAM_INVALID,
+              "MSA structure is NULL");
+    return PLL_FAILURE;
+  }
+
+  if (!tipmap)
+  {
+    pllmod_set_error(PLL_ERROR_PARAM_INVALID,
+              "Character-to-state mapping (charmap) is NULL");
+    return PLL_FAILURE;
+  }
+
+  pllmod_msa_errors_t * errs =
+      (pllmod_msa_errors_t *) calloc(1, sizeof(pllmod_msa_errors_t));
+
+  if (!errs)
+  {
+    pllmod_set_error(PLL_ERROR_MEM_ALLOC,
+                     "Cannot allocate memory for MSA error structure");
+    return NULL;
+  }
+
+  errs->status = PLL_SUCCESS;
+
+  const unsigned long msa_count = (unsigned long) msa->count;
+  const unsigned long msa_length = (unsigned long) msa->length;
+  for (i = 0; i < msa_count; ++i)
+  {
+    const unsigned char *seqchars = (unsigned char *) msa->sequence[i];
+    for (j = 0; j < msa_length; ++j)
+    {
+      const int c = (int) seqchars[j];
+      const pll_state_t state = tipmap[c];
+
+      if (!state)
+      {
+        if (!errs->invalid_chars)
+        {
+          errs->status = PLL_FAILURE;
+          errs->invalid_chars =
+              (char *) calloc(PLLMOD_MSA_MAX_ERRORS, sizeof(char));
+          errs->invalid_char_seq =
+              (unsigned long *) calloc(PLLMOD_MSA_MAX_ERRORS, sizeof(unsigned long));
+          errs->invalid_char_pos =
+              (unsigned long *) calloc(PLLMOD_MSA_MAX_ERRORS, sizeof(unsigned long));
+        }
+        errs->invalid_chars[errs->invalid_char_count] = (char) c;
+        errs->invalid_char_seq[errs->invalid_char_count] = i;
+        errs->invalid_char_pos[errs->invalid_char_count] = j;
+        errs->invalid_char_count++;
+        if (errs->invalid_char_count >= PLLMOD_MSA_MAX_ERRORS)
+          return errs;
+      }
+    }
+  }
+
+  return errs;
+}
+
+PLL_EXPORT void pllmod_msa_destroy_errors(pllmod_msa_errors_t * errs)
+{
+  if (!errs)
+    return;
+
+  if (errs->invalid_chars)
+    free(errs->invalid_chars);
+
+  if (errs->invalid_char_seq)
+    free(errs->invalid_char_seq);
+
+  if (errs->invalid_char_pos)
+    free(errs->invalid_char_pos);
+}
+
 /**
  *  Compute diverse alignment statistics (see @param stats_mask for details)
  *
@@ -488,7 +576,7 @@ static int find_duplicate_strings(char ** const strings,
  * */
 PLL_EXPORT pllmod_msa_stats_t * pllmod_msa_compute_stats(const pll_msa_t * msa,
                                                          unsigned int states,
-                                                         const unsigned int * charmap,
+                                                         const pll_state_t * tipmap,
                                                          const unsigned int * weights,
                                                          unsigned long stats_mask)
 {
@@ -499,7 +587,7 @@ PLL_EXPORT pllmod_msa_stats_t * pllmod_msa_compute_stats(const pll_msa_t * msa,
     return PLL_FAILURE;
   }
 
-  if (!charmap)
+  if (!tipmap)
   {
     pllmod_set_error(PLL_ERROR_PARAM_INVALID,
               "Character-to-state mapping (charmap) is NULL");
@@ -515,7 +603,7 @@ PLL_EXPORT pllmod_msa_stats_t * pllmod_msa_compute_stats(const pll_msa_t * msa,
     return NULL;
   }
 
-  const unsigned long msa_count = (unsigned long) msa->count;
+  const unsigned int msa_count = msa->count;
   const unsigned long msa_length = (unsigned long) msa->length;
 
   unsigned long i, j, k;
@@ -523,10 +611,10 @@ PLL_EXPORT pllmod_msa_stats_t * pllmod_msa_compute_stats(const pll_msa_t * msa,
   unsigned long total_gap_count = 0;
   unsigned long * col_gap_weight = NULL;
   unsigned long * seq_gap_weight = NULL;
-  unsigned * pair_rates = NULL;
-  unsigned * col_state_freq = NULL;
+  size_t * pair_rates = NULL;
+  size_t * col_state_freq = NULL;
 
-  unsigned int * inv_state = NULL;
+  pll_state_t * inv_state = NULL;
   unsigned long inv_weight = 0;
 
   stats->states = states;
@@ -567,8 +655,8 @@ PLL_EXPORT pllmod_msa_stats_t * pllmod_msa_compute_stats(const pll_msa_t * msa,
   {
     size_t n_subst_rates = pllmod_util_subst_rate_count(states);
     stats->subst_rates = (double *) calloc(n_subst_rates, sizeof(double));
-    pair_rates = (unsigned *) calloc(states * states, sizeof(unsigned));
-    col_state_freq = (unsigned *) malloc(states * sizeof(unsigned));
+    pair_rates = (size_t *) calloc(states * states, sizeof(size_t));
+    col_state_freq = (size_t *) calloc(states, sizeof(size_t));
 
     if (!pair_rates || !stats->subst_rates ||  !col_state_freq)
     {
@@ -579,7 +667,7 @@ PLL_EXPORT pllmod_msa_stats_t * pllmod_msa_compute_stats(const pll_msa_t * msa,
 
     compute_pair_rates(states, msa_count, msa_length,
                        (unsigned char **) msa->sequence, weights,
-                       charmap, col_state_freq, pair_rates);
+                       tipmap, col_state_freq, pair_rates);
 
     k = 0;
     double last_rate = pair_rates[(states - 2) * states + states - 1];
@@ -634,7 +722,7 @@ PLL_EXPORT pllmod_msa_stats_t * pllmod_msa_compute_stats(const pll_msa_t * msa,
 
   if (stats_mask & (PLLMOD_MSA_STATS_INV_COLS | PLLMOD_MSA_STATS_INV_PROP))
   {
-    inv_state = (unsigned int *) calloc(msa_length, sizeof(unsigned int));
+    inv_state = (pll_state_t *) calloc(msa_length, sizeof(pll_state_t));
     stats->inv_cols = (unsigned long *) calloc(msa_length, sizeof(unsigned long));
     if (!inv_state || !stats->inv_cols)
     {
@@ -660,8 +748,8 @@ PLL_EXPORT pllmod_msa_stats_t * pllmod_msa_compute_stats(const pll_msa_t * msa,
     const char *seqchars = msa->sequence[i];
     for (j = 0; j < msa_length; ++j)
     {
-      const unsigned int state = charmap[(int) seqchars[j]];
-      const unsigned int site_states = __builtin_popcount(state);
+      const pll_state_t state = tipmap[(int) seqchars[j]];
+      const unsigned int site_states = PLL_STATE_POPCNT(state);
       const int is_gap = site_states == states ? 1 : 0;
       const unsigned int w = weights ? weights[j] : 1;
 
@@ -715,7 +803,7 @@ PLL_EXPORT pllmod_msa_stats_t * pllmod_msa_compute_stats(const pll_msa_t * msa,
       {
         if (!is_gap)
           inv_state[j] |= state;
-        if (i == msa_count-1 && __builtin_popcount(inv_state[j]) == 1)
+        if (i == msa_count-1 && PLL_STATE_POPCNT(inv_state[j]) == 1)
         {
           inv_weight += w;
           stats->inv_cols[stats->inv_cols_count++] = j;
@@ -730,7 +818,7 @@ PLL_EXPORT pllmod_msa_stats_t * pllmod_msa_compute_stats(const pll_msa_t * msa,
           double state_prob = ((double) w) / site_states;
           for (k = 0; k < states; ++k)
           {
-            if (state & (1 << k))
+            if (state & (1ll << k))
               stats->freqs[k] += state_prob;
           }
         }
@@ -749,7 +837,7 @@ PLL_EXPORT pllmod_msa_stats_t * pllmod_msa_compute_stats(const pll_msa_t * msa,
     inv_state = NULL;
   }
 
-  const unsigned long total_chars = sum_weights * msa_count;
+  const size_t total_chars = sum_weights * msa_count;
 
   /* normalize frequencies */
   if (stats_mask & PLLMOD_MSA_STATS_FREQS)
@@ -947,8 +1035,8 @@ PLL_EXPORT pll_msa_t * pllmod_msa_filter(pll_msa_t * msa,
   else
   {
     new_msa = (pll_msa_t *) calloc(1, sizeof(pll_msa_t));
-    new_msa->count = new_count;
-    new_msa->length = new_length;
+    new_msa->count = (int) new_count;
+    new_msa->length = (int) new_length;
     new_msa->label = (char **) calloc(new_count, sizeof(char *));
     new_msa->sequence = (char **) calloc(new_count, sizeof(char *));
     if (!msa->label || !new_msa->sequence)
@@ -1009,8 +1097,8 @@ PLL_EXPORT pll_msa_t * pllmod_msa_filter(pll_msa_t * msa,
   if (inplace)
   {
     /* set new dimensions */
-    new_msa->count = new_count;
-    new_msa->length = new_length;
+    new_msa->count = (int)  new_count;
+    new_msa->length = (int)  new_length;
     /* trim arrays to the new size */
     new_msa->sequence = (char **) realloc(new_msa->sequence,
                                           new_count * sizeof(char *));
@@ -1113,7 +1201,7 @@ PLL_EXPORT pll_msa_t ** pllmod_msa_split(const pll_msa_t * msa,
     part_msa_list[p]->count = msa->count;
     part_msa_list[p]->length = 0;
     part_msa_list[p]->label = NULL;
-    part_msa_list[p]->sequence = (char **) calloc(msa->count, sizeof(char*));
+    part_msa_list[p]->sequence = (char **) calloc((size_t) msa->count, sizeof(char*));
     if (!part_msa_list[p]->sequence)
       goto malloc_error;
 

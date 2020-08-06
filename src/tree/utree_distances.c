@@ -43,6 +43,8 @@ static int compare_splits (pll_split_t s1,
                            unsigned int split_len);
 static unsigned int get_utree_splitmap_id(pll_unode_t * node,
                                           unsigned int tip_count);
+static int split_is_valid_and_normalized(const pll_split_t bitv,
+                                         unsigned int tip_count);
 
 struct split_node_pair {
   pll_split_t split;
@@ -75,20 +77,22 @@ PLL_EXPORT int pllmod_utree_consistency_check(pll_utree_t * t1,
   unsigned int i;
   unsigned int node_id;
   int retval = PLL_SUCCESS;
-  pll_unode_t ** tipnodes = t1->nodes;
+  pll_unode_t ** tipnodes;
   char ** tipnames;
-  unsigned int tip_count = t1->tip_count;
+  unsigned int tip_count;
 
-  if (tip_count != t2->tip_count)
+  if (!t1 || !t2 || t1->tip_count != t2->tip_count)
   {
     pllmod_set_error(PLLMOD_TREE_ERROR_INVALID_TREE,
                      "Trees do not have the same number of tips\n");
     return PLL_FAILURE;
   }
 
+  tipnodes = t1->nodes;
+  tip_count = t1->tip_count;
 
   tipnames = (char **) malloc (tip_count * sizeof(char *));
-  if (!(tipnodes && tipnames))
+  if (!tipnames)
   {
     pllmod_set_error(PLL_ERROR_MEM_ALLOC,
                      "Cannot allocate memory for tipnodes and tipnames\n");
@@ -134,23 +138,25 @@ PLL_EXPORT int pllmod_utree_consistency_set(pll_utree_t * t1,
   unsigned int i, j;
   unsigned int node_id;
   int retval = PLL_SUCCESS, checkval;
-  pll_unode_t ** tipnodes = t1->nodes;
+  pll_unode_t ** tipnodes;
   char ** tipnames;
-  unsigned int tip_count = t1->tip_count;
+  unsigned int tip_count;
 
-  if (tip_count != t2->tip_count)
+  if (!t1 || !t2 || t1->tip_count != t2->tip_count)
   {
     pllmod_set_error(PLLMOD_TREE_ERROR_INVALID_TREE,
                      "Trees do not have the same number of tips\n");
     return PLL_FAILURE;
   }
 
-  tipnames = (char **) malloc (tip_count * sizeof(char *));
+  tipnodes = t1->nodes;
+  tip_count = t1->tip_count;
 
-  if (!(tipnodes && tipnames))
+  tipnames = (char **) malloc (tip_count * sizeof(char *));
+  if (!tipnames)
   {
     pllmod_set_error(PLL_ERROR_MEM_ALLOC,
-                     "Cannot allocate memory for tipnodes and tipnames\n");
+                     "Cannot allocate memory for tipnames\n");
     return PLL_FAILURE;
   }
 
@@ -326,8 +332,10 @@ PLL_EXPORT void pllmod_utree_split_show(pll_split_t split, unsigned int tip_coun
 {
   unsigned int split_size   = sizeof(pll_split_base_t) * 8;
   unsigned int split_offset = tip_count % split_size;
-  unsigned int split_len    = bitv_length(tip_count);;
+  unsigned int split_len    = bitv_length(tip_count);
   unsigned int i, j;
+
+  if (!split_offset) split_offset = split_size;
 
   for (i=0; i<(split_len-1); ++i)
     for (j=0; j<split_size; ++j)
@@ -336,12 +344,56 @@ PLL_EXPORT void pllmod_utree_split_show(pll_split_t split, unsigned int tip_coun
     (split[i]&(1u<<j))?putchar('*'):putchar('-');
 }
 
+PLL_EXPORT pll_split_t pllmod_utree_split_from_tips(unsigned int * subtree_tip_ids,
+                                                    unsigned int subtree_size,
+                                                    unsigned int tip_count)
+{
+  size_t split_size = (sizeof(pll_split_base_t) * 8);
+  size_t split_len  = (tip_count / split_size) +
+      (tip_count % (sizeof(pll_split_base_t) * 8) > 0);
+  pll_split_t split = (pll_split_t) calloc(split_len, sizeof(pll_split_base_t));
+
+  for (unsigned int i = 0; i < subtree_size; ++i)
+  {
+    unsigned int tip_id = subtree_tip_ids[i];
+    unsigned int vec_id  = tip_id / split_size;
+    unsigned int bit_id  = tip_id % split_size;
+    split[vec_id] |= (1 << bit_id);
+  }
+  bitv_normalize(split, tip_count);
+  return split;
+}
+
+PLL_EXPORT unsigned int pllmod_utree_split_lightside(pll_split_t split,
+                                                     unsigned int tip_count)
+{
+  return bitv_lightside(split, tip_count, 0);
+}
+
+
+/* This function computes a classical Hamming distance between two tree splits */
+PLL_EXPORT unsigned int pllmod_utree_split_hamming_distance(pll_split_t s1,
+                                                            pll_split_t s2,
+                                                            unsigned int tip_count)
+{
+  unsigned int split_len = bitv_length(tip_count);
+  unsigned int hdist = 0;
+  unsigned int i;
+
+  for (i = 0; i < split_len; ++i)
+  {
+    hdist += PLL_POPCNT32(s1[i] ^ s2[i]);
+  }
+
+  return PLL_MIN(hdist, tip_count - hdist);
+}
+
 /*
  * Note: This function returns the splits according to the node indices at the tips!
  *
  * split_to_node_map can be NULL
  */
-PLL_EXPORT pll_split_t * pllmod_utree_split_create(pll_unode_t * tree,
+PLL_EXPORT pll_split_t * pllmod_utree_split_create(const pll_unode_t * tree,
                                                    unsigned int tip_count,
                                                    pll_unode_t ** split_to_node_map)
 {
@@ -404,6 +456,8 @@ PLL_EXPORT pll_split_t * pllmod_utree_split_create(pll_unode_t * tree,
   {
     pllmod_set_error(PLL_ERROR_MEM_ALLOC,
                      "Cannot allocate memory for splits\n");
+    free (split_list);
+    free (split_nodes);
     return NULL;
   }
 
@@ -414,18 +468,14 @@ PLL_EXPORT pll_split_t * pllmod_utree_split_create(pll_unode_t * tree,
     tree = tree->back;
 
   /* traverse for computing the scripts */
-  pllmod_utree_traverse_apply(tree,
+  pllmod_utree_traverse_apply((pll_unode_t *) tree,
                               NULL,
                               NULL,
                               &cb_get_splits,
                               &split_data);
 
-  assert(split_data.split_count == split_count);
-
-  for (i=0; i<split_count; ++i)
-  {
-
-  }
+  // TODO better handling for multifurcating trees
+  assert(split_data.split_count <= split_count);
 
   free(split_data.id_to_split);
 
@@ -449,6 +499,8 @@ PLL_EXPORT pll_split_t * pllmod_utree_split_create(pll_unode_t * tree,
     {
       pllmod_set_error(PLL_ERROR_MEM_ALLOC,
                        "Cannot allocate memory for auxiliary array\n");
+      free (split_list);
+      free (split_nodes);
       return NULL;
     }
 
@@ -461,7 +513,10 @@ PLL_EXPORT pll_split_t * pllmod_utree_split_create(pll_unode_t * tree,
   }
 
   for (i=0; i<split_count; ++i)
+  {
     split_list[i] = split_nodes[i].split;
+    assert(split_is_valid_and_normalized(split_list[i], tip_count));
+  }
 
   /* update output arrays */
   if (split_to_node_map)
@@ -481,6 +536,36 @@ PLL_EXPORT pll_split_t * pllmod_utree_split_create(pll_unode_t * tree,
   free(split_nodes);
 
   return split_list;
+}
+
+
+PLL_EXPORT
+bitv_hashtable_t * pllmod_utree_split_hashtable_create(unsigned int tip_count,
+                                                       unsigned int slot_count)
+{
+  if (!slot_count)
+    slot_count = tip_count * 10;
+
+  return hash_init(slot_count, tip_count);
+}
+
+PLL_EXPORT bitv_hash_entry_t *
+pllmod_utree_split_hashtable_insert_single(bitv_hashtable_t * splits_hash,
+                                           pll_split_t split,
+                                           double support)
+{
+  if (!splits_hash)
+  {
+    pllmod_set_error(PLL_ERROR_PARAM_INVALID, "splits_hash is NULL!\n");
+    return NULL;
+  }
+
+  return hash_insert(split,
+                     splits_hash,
+                     splits_hash->entry_count,
+                     HASH_KEY_UNDEF,
+                     support,
+                     0);
 }
 
 /**
@@ -533,7 +618,7 @@ pllmod_utree_split_hashtable_insert(bitv_hashtable_t * splits_hash,
     {
       hash_insert(splits[i],
                   splits_hash,
-                  i,
+                  splits_hash->entry_count,
                   HASH_KEY_UNDEF,
                   support ? support[i] : 1.0,
                   0);
@@ -723,4 +808,35 @@ static unsigned int get_utree_splitmap_id(pll_unode_t * node,
   unsigned int node_id = node->node_index;
   assert(node_id >= tip_count);
   return node_id - tip_count;
+}
+
+
+/*
+ * Returns 1 if the split is valid (not all 0s or all 1s) and normalized;
+ * returns 0 otherwise
+ * */
+static int split_is_valid_and_normalized(const pll_split_t bitv,
+                                         unsigned int tip_count)
+{
+  // this will also automatically check for all-0s case
+  if (!bitv_is_normalized(bitv))
+    return 0;
+
+  // now check that we don't have all 1s
+  unsigned int split_size  = sizeof(pll_split_base_t) * 8;
+  unsigned int split_offset = tip_count % split_size;
+  unsigned int split_len    = bitv_length(tip_count);
+  unsigned int i = 0;
+  unsigned int all1 = ~0u;
+  unsigned int mask = all1;
+  for (i=0; i<split_len-1; ++i)
+  {
+    mask &= bitv[i];
+  }
+  if (split_offset)
+    mask &= bitv[split_len-1] | ((1<<split_offset) - 1);
+  else
+    mask &= bitv[split_len-1];
+
+  return (mask == all1) ? 0 : 1;
 }

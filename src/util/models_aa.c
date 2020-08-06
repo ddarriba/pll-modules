@@ -14,17 +14,9 @@
  You should have received a copy of the GNU Affero General Public License
  along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
- Contact: Diego Darriba <Diego.Darriba@h-its.org>,
+ Contact: Alexey Kozlov <Alexey.Kozlov@h-its.org>,
  Exelixis Lab, Heidelberg Instutute for Theoretical Studies
  Schloss-Wolfsbrunnenweg 35, D-69118 Heidelberg, Germany
- */
-
-/**
- * @file models_aa.c
- *
- * @brief
- *
- * @author Alexey Kozlov
  */
 
 #include <string.h>
@@ -33,39 +25,40 @@
 #include "../pllmod_common.h"
 
 /* general single-matrix models */
-const pllmod_subst_model_t M_DAYHOFF  = {"DAYHOFF",  20, pll_aa_rates_dayhoff,  pll_aa_freqs_dayhoff,  NULL, NULL };
-const pllmod_subst_model_t M_LG       = {"LG",       20, pll_aa_rates_lg,       pll_aa_freqs_lg,       NULL, NULL };
-const pllmod_subst_model_t M_DCMUT    = {"DCMUT",    20, pll_aa_rates_dcmut,    pll_aa_freqs_dcmut,    NULL, NULL };
-const pllmod_subst_model_t M_JTT      = {"JTT",      20, pll_aa_rates_jtt,      pll_aa_freqs_jtt,      NULL, NULL };
-const pllmod_subst_model_t M_MTREV    = {"MTREV",    20, pll_aa_rates_mtrev,    pll_aa_freqs_mtrev,    NULL, NULL };
-const pllmod_subst_model_t M_WAG      = {"WAG",      20, pll_aa_rates_wag,      pll_aa_freqs_wag,      NULL, NULL };
-const pllmod_subst_model_t M_RTREV    = {"RTREV",    20, pll_aa_rates_rtrev,    pll_aa_freqs_rtrev,    NULL, NULL };
-const pllmod_subst_model_t M_CPREV    = {"CPREV",    20, pll_aa_rates_cprev,    pll_aa_freqs_cprev,    NULL, NULL };
-const pllmod_subst_model_t M_VT       = {"VT",       20, pll_aa_rates_vt,       pll_aa_freqs_vt,       NULL, NULL };
-const pllmod_subst_model_t M_BLOSUM62 = {"BLOSUM62", 20, pll_aa_rates_blosum62, pll_aa_freqs_blosum62, NULL, NULL };
-const pllmod_subst_model_t M_MTMAM    = {"MTMAM",    20, pll_aa_rates_mtmam,    pll_aa_freqs_mtmam,    NULL, NULL };
-const pllmod_subst_model_t M_MTART    = {"MTART",    20, pll_aa_rates_mtart,    pll_aa_freqs_mtart,    NULL, NULL };
-const pllmod_subst_model_t M_MTZOA    = {"MTZOA",    20, pll_aa_rates_mtzoa,    pll_aa_freqs_mtzoa,    NULL, NULL };
-const pllmod_subst_model_t M_PMB      = {"PMB",      20, pll_aa_rates_pmb,      pll_aa_freqs_pmb,      NULL, NULL };
-const pllmod_subst_model_t M_HIVB     = {"HIVB",     20, pll_aa_rates_hivb,     pll_aa_freqs_hivb,     NULL, NULL };
-const pllmod_subst_model_t M_HIVW     = {"HIVW",     20, pll_aa_rates_hivw,     pll_aa_freqs_hivw,     NULL, NULL };
-const pllmod_subst_model_t M_JTTDCMUT = {"JTTDCMUT", 20, pll_aa_rates_jttdcmut, pll_aa_freqs_jttdcmut, NULL, NULL };
-const pllmod_subst_model_t M_FLU      = {"FLU",      20, pll_aa_rates_flu,      pll_aa_freqs_flu,      NULL, NULL };
-const pllmod_subst_model_t M_STMTREV  = {"STMTREV",  20, pll_aa_rates_stmtrev,  pll_aa_freqs_stmtrev,  NULL, NULL };
+const pllmod_subst_model_t M_DAYHOFF  = {"DAYHOFF",   20, pll_aa_rates_dayhoff,  pll_aa_freqs_dayhoff,  NULL, NULL, 0 };
+const pllmod_subst_model_t M_LG       = {"LG",        20, pll_aa_rates_lg,       pll_aa_freqs_lg,       NULL, NULL, 0 };
+const pllmod_subst_model_t M_DCMUT    = {"DCMUT",     20, pll_aa_rates_dcmut,    pll_aa_freqs_dcmut,    NULL, NULL, 0 };
+const pllmod_subst_model_t M_JTT      = {"JTT",       20, pll_aa_rates_jtt,      pll_aa_freqs_jtt,      NULL, NULL, 0 };
+const pllmod_subst_model_t M_MTREV    = {"MTREV",     20, pll_aa_rates_mtrev,    pll_aa_freqs_mtrev,    NULL, NULL, 0 };
+const pllmod_subst_model_t M_WAG      = {"WAG",       20, pll_aa_rates_wag,      pll_aa_freqs_wag,      NULL, NULL, 0 };
+const pllmod_subst_model_t M_RTREV    = {"RTREV",     20, pll_aa_rates_rtrev,    pll_aa_freqs_rtrev,    NULL, NULL, 0 };
+const pllmod_subst_model_t M_CPREV    = {"CPREV",     20, pll_aa_rates_cprev,    pll_aa_freqs_cprev,    NULL, NULL, 0 };
+const pllmod_subst_model_t M_VT       = {"VT",        20, pll_aa_rates_vt,       pll_aa_freqs_vt,       NULL, NULL, 0 };
+const pllmod_subst_model_t M_BLOSUM62 = {"BLOSUM62",  20, pll_aa_rates_blosum62, pll_aa_freqs_blosum62, NULL, NULL, 0 };
+const pllmod_subst_model_t M_MTMAM    = {"MTMAM",     20, pll_aa_rates_mtmam,    pll_aa_freqs_mtmam,    NULL, NULL, 0 };
+const pllmod_subst_model_t M_MTART    = {"MTART",     20, pll_aa_rates_mtart,    pll_aa_freqs_mtart,    NULL, NULL, 0 };
+const pllmod_subst_model_t M_MTZOA    = {"MTZOA",     20, pll_aa_rates_mtzoa,    pll_aa_freqs_mtzoa,    NULL, NULL, 0 };
+const pllmod_subst_model_t M_PMB      = {"PMB",       20, pll_aa_rates_pmb,      pll_aa_freqs_pmb,      NULL, NULL, 0 };
+const pllmod_subst_model_t M_HIVB     = {"HIVB",      20, pll_aa_rates_hivb,     pll_aa_freqs_hivb,     NULL, NULL, 0 };
+const pllmod_subst_model_t M_HIVW     = {"HIVW",      20, pll_aa_rates_hivw,     pll_aa_freqs_hivw,     NULL, NULL, 0 };
+const pllmod_subst_model_t M_JTTDCMUT = {"JTT-DCMUT", 20, pll_aa_rates_jttdcmut, pll_aa_freqs_jttdcmut, NULL, NULL, 0 };
+const pllmod_subst_model_t M_FLU      = {"FLU",       20, pll_aa_rates_flu,      pll_aa_freqs_flu,      NULL, NULL, 0 };
+const pllmod_subst_model_t M_STMTREV  = {"STMTREV",   20, pll_aa_rates_stmtrev,  pll_aa_freqs_stmtrev,  NULL, NULL, 0 };
+const pllmod_subst_model_t M_DEN      = {"DEN",       20, pll_aa_rates_den,      pll_aa_freqs_den,      NULL, NULL, 0 };
 
 /* LG4M components */
-const pllmod_subst_model_t M_LG4M1    = {"LG4M1",    20, pll_aa_rates_lg4m[0],  pll_aa_freqs_lg4m[0],  NULL, NULL };
-const pllmod_subst_model_t M_LG4M2    = {"LG4M2",    20, pll_aa_rates_lg4m[1],  pll_aa_freqs_lg4m[1],  NULL, NULL };
-const pllmod_subst_model_t M_LG4M3    = {"LG4M3",    20, pll_aa_rates_lg4m[2],  pll_aa_freqs_lg4m[2],  NULL, NULL };
-const pllmod_subst_model_t M_LG4M4    = {"LG4M4",    20, pll_aa_rates_lg4m[3],  pll_aa_freqs_lg4m[3],  NULL, NULL };
+const pllmod_subst_model_t M_LG4M1    = {"LG4M1",     20, pll_aa_rates_lg4m[0],  pll_aa_freqs_lg4m[0],  NULL, NULL, 0 };
+const pllmod_subst_model_t M_LG4M2    = {"LG4M2",     20, pll_aa_rates_lg4m[1],  pll_aa_freqs_lg4m[1],  NULL, NULL, 0 };
+const pllmod_subst_model_t M_LG4M3    = {"LG4M3",     20, pll_aa_rates_lg4m[2],  pll_aa_freqs_lg4m[2],  NULL, NULL, 0 };
+const pllmod_subst_model_t M_LG4M4    = {"LG4M4",     20, pll_aa_rates_lg4m[3],  pll_aa_freqs_lg4m[3],  NULL, NULL, 0 };
 
 /* LG4X components */
-const pllmod_subst_model_t M_LG4X1    = {"LG4X1",    20, pll_aa_rates_lg4x[0],  pll_aa_freqs_lg4x[0],  NULL, NULL };
-const pllmod_subst_model_t M_LG4X2    = {"LG4X2",    20, pll_aa_rates_lg4x[1],  pll_aa_freqs_lg4x[1],  NULL, NULL };
-const pllmod_subst_model_t M_LG4X3    = {"LG4X3",    20, pll_aa_rates_lg4x[2],  pll_aa_freqs_lg4x[2],  NULL, NULL };
-const pllmod_subst_model_t M_LG4X4    = {"LG4X4",    20, pll_aa_rates_lg4x[3],  pll_aa_freqs_lg4x[3],  NULL, NULL };
+const pllmod_subst_model_t M_LG4X1    = {"LG4X1",     20, pll_aa_rates_lg4x[0],  pll_aa_freqs_lg4x[0],  NULL, NULL, 0 };
+const pllmod_subst_model_t M_LG4X2    = {"LG4X2",     20, pll_aa_rates_lg4x[1],  pll_aa_freqs_lg4x[1],  NULL, NULL, 0 };
+const pllmod_subst_model_t M_LG4X3    = {"LG4X3",     20, pll_aa_rates_lg4x[2],  pll_aa_freqs_lg4x[2],  NULL, NULL, 0 };
+const pllmod_subst_model_t M_LG4X4    = {"LG4X4",     20, pll_aa_rates_lg4x[3],  pll_aa_freqs_lg4x[3],  NULL, NULL, 0 };
 
-const pllmod_subst_model_t M_PROTGTR = {"PROTGTR",   20, NULL, NULL, NULL, NULL };
+const pllmod_subst_model_t M_PROTGTR = {"PROTGTR",    20, NULL, NULL, NULL, NULL, 0 };
 
 
 static const pllmod_subst_model_t * prot_model_list[] =
@@ -89,6 +82,7 @@ static const pllmod_subst_model_t * prot_model_list[] =
     &M_JTTDCMUT,
     &M_FLU,
     &M_STMTREV,
+    &M_DEN,
 
     &M_LG4M1,
     &M_LG4M2,
@@ -258,17 +252,19 @@ PLL_EXPORT pllmod_mixture_model_t * pllmod_util_model_info_protmix(const char * 
  *
  * @return PLL_SUCCESS on success, PLL_FAILURE on error (check pll_errmsg for details)
  */
-PLL_EXPORT int pllmod_util_model_set_protmix(pll_partition_t * partition, const char * model_name, int model_freqs)
+PLL_EXPORT int pllmod_util_model_set_protmix(pll_partition_t * partition,
+                                             const char * model_name, int model_freqs)
 {
   const int model_index = get_model_index(model_name);
   if (model_index >= 0)
     {
-      pllmod_mixture_model_t * mixture = NULL;
+      const pllmod_mixture_model_t * mixture = protmix_model_list[model_index];
 
       if (partition->rate_matrices != mixture->ncomp)
         {
           pllmod_set_error(PLLMOD_UTIL_ERROR_MIXTURE_INVALID_SIZE,
-                           "Number of partition matrices (%d) differs from the number of mixture components (%d)",
+                           "Number of partition matrices (%d) differs "
+                           "from the number of mixture components (%d)",
                            partition->rate_matrices, mixture->ncomp);
           return PLL_FAILURE;
         }
@@ -289,7 +285,8 @@ PLL_EXPORT int pllmod_util_model_set_protmix(pll_partition_t * partition, const 
     }
   else
     {
-      pllmod_set_error(PLLMOD_UTIL_ERROR_MODEL_UNKNOWN, "Protein model not found: %s", model_name);
+      pllmod_set_error(PLLMOD_UTIL_ERROR_MODEL_UNKNOWN,
+                       "Protein model not found: %s", model_name);
       return PLL_FAILURE;
     }
 }

@@ -1,4 +1,4 @@
-# Copyright (C) 2015 Diego Darriba
+# Copyright (C) 2019 Alexey Kozlov
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Affero General Public License as
@@ -13,7 +13,7 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
-# Contact: Tomas Flouri <Diego.Darriba@h-its.org>,
+# Contact: Alexey Kozlov <Alexey.Kozlov@h-its.org>,
 # Heidelberg Institute for Theoretical Studies,
 # Schloss-Wolfsbrunnenweg 35, D-69118 Heidelberg, Germany
 
@@ -31,19 +31,19 @@ ifeq ($(CC),clang)
 endif
 WARN=-Wall -Wsign-compare $(ADD_WARN)
 
-CFLAGS = -g -O3 -Wall -Wsign-compare -static $(PROFILING) $(WARN)
+CFLAGS = -g -O3 -static -Wall -Wsign-compare $(PROFILING) $(WARN)
 LDFLAGS = -lpll_algorithm -lpll_optimize -lpll_tree -lpll_util -lpll -lm
 
 # temp workaround
 CFLAGS += -I$(INSTALLPATH)/include -L$(INSTALLPATH)/lib
 
-OBJS = spr-round.o
-PROG = spr-round
+OBJS = genotype.o
+PROG = genotype
 
 default: all
 all : $(PROG)
 
-spr-round : $(OBJS)
+genotype : $(OBJS)
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(OBJS) $(LDFLAGS) -o $(PROG)
 
 %.o: %.c

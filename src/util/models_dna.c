@@ -36,81 +36,111 @@
 #define DNA_MODELS_COUNT 22
 
 /*                                 AC AG AT CG CT GT       */
-static double dna_rates_equal[] = {1, 1, 1, 1, 1, 1};
+static const double dna_rates_equal[] = {1, 1, 1, 1, 1, 1};
 
 /*                                  A     C     G     T    */
-static double dna_freqs_equal[] = {0.25, 0.25, 0.25, 0.25};
+static const double dna_freqs_equal[] = {0.25, 0.25, 0.25, 0.25};
 
 /*                                 A  C  G  T              */
-static int dna_sym_freq_equal[] = {0, 0, 0, 0};
-static int dna_sym_freq_free[]  = {0, 1, 2, 3};
+static const int dna_sym_freq_equal[] = {0, 0, 0, 0};
+static const int dna_sym_freq_free[]  = {0, 1, 2, 3};
 
 /*                                 AC AG AT CG CT GT       */
-static int dna_sym_rate_equal[] = {0, 0, 0, 0, 0, 0};
-static int dna_sym_rate_free[]  = {0, 1, 2, 3, 4, 5};
-static int dna_sym_rate_tvts[]  = {0, 1, 0, 0, 1, 0};
-static int dna_sym_rate_tn93[]  = {0, 1, 0, 0, 2, 0};
-static int dna_sym_rate_k81[]   = {0, 1, 2, 2, 1, 0};
-static int dna_sym_rate_tpm2[]  = {0, 1, 0, 2, 1, 2};
-static int dna_sym_rate_tpm3[]  = {0, 1, 2, 0, 1, 2};
-static int dna_sym_rate_tim1[]  = {0, 1, 2, 2, 3, 0};
-static int dna_sym_rate_tim2[]  = {0, 1, 0, 2, 3, 2};
-static int dna_sym_rate_tim3[]  = {0, 1, 2, 0, 3, 2};
-static int dna_sym_rate_tvm[]   = {0, 1, 2, 3, 1, 4};
+static const int dna_sym_rate_equal[] = {0, 0, 0, 0, 0, 0};
+static const int dna_sym_rate_free[]  = {0, 1, 2, 3, 4, 5};
+static const int dna_sym_rate_tvts[]  = {0, 1, 0, 0, 1, 0};
+static const int dna_sym_rate_tn93[]  = {0, 1, 0, 0, 2, 0};
+static const int dna_sym_rate_k81[]   = {0, 1, 2, 2, 1, 0};
+static const int dna_sym_rate_tpm2[]  = {0, 1, 0, 2, 1, 2};
+static const int dna_sym_rate_tpm3[]  = {0, 1, 2, 0, 1, 2};
+static const int dna_sym_rate_tim1[]  = {0, 1, 2, 2, 3, 0};
+static const int dna_sym_rate_tim2[]  = {0, 1, 0, 2, 3, 2};
+static const int dna_sym_rate_tim3[]  = {0, 1, 2, 0, 3, 2};
+static const int dna_sym_rate_tvm[]   = {0, 1, 2, 3, 1, 4};
 
 static const pllmod_subst_model_t dna_model_list[DNA_MODELS_COUNT] =
 {
     /*       states  model rates         model freqs      rate symmetries     frequencies sym.           */
-    {"JC",     4,    dna_rates_equal,   dna_freqs_equal, dna_sym_rate_equal, dna_sym_freq_equal },
+    {"JC",     4,    dna_rates_equal,   dna_freqs_equal, dna_sym_rate_equal, dna_sym_freq_equal, 0 },
 
-    {"K80",    4,    NULL,              dna_freqs_equal, dna_sym_rate_tvts,  dna_sym_freq_equal },
+    {"K80",    4,    NULL,              dna_freqs_equal, dna_sym_rate_tvts,  dna_sym_freq_equal, 0 },
 
-    {"F81",    4,    dna_rates_equal,   NULL,            dna_sym_rate_equal, dna_sym_freq_free  },
+    {"F81",    4,    dna_rates_equal,   NULL,            dna_sym_rate_equal, dna_sym_freq_free, 0 },
 
-    {"HKY",    4,    NULL,              NULL,            dna_sym_rate_tvts,  dna_sym_freq_free  },
+    {"HKY",    4,    NULL,              NULL,            dna_sym_rate_tvts,  dna_sym_freq_free, 0 },
 
-    {"TN93ef", 4,    NULL,              dna_freqs_equal, dna_sym_rate_tn93,  dna_sym_freq_equal },
+    {"TN93ef", 4,    NULL,              dna_freqs_equal, dna_sym_rate_tn93,  dna_sym_freq_equal, 0 },
 
-    {"TN93",   4,    NULL,              NULL,            dna_sym_rate_tn93,  dna_sym_freq_free  },
+    {"TN93",   4,    NULL,              NULL,            dna_sym_rate_tn93,  dna_sym_freq_free, 0 },
 
-    {"K81",    4,    NULL,              dna_freqs_equal, dna_sym_rate_k81,   dna_sym_freq_equal },
+    {"K81",    4,    NULL,              dna_freqs_equal, dna_sym_rate_k81,   dna_sym_freq_equal, 0 },
 
-    {"K81uf",  4,    NULL,              NULL,            dna_sym_rate_k81,   dna_sym_freq_free  },
+    {"K81uf",  4,    NULL,              NULL,            dna_sym_rate_k81,   dna_sym_freq_free, 0 },
 
-    {"TPM2",   4,    NULL,              dna_freqs_equal, dna_sym_rate_tpm2,  dna_sym_freq_equal },
+    {"TPM2",   4,    NULL,              dna_freqs_equal, dna_sym_rate_tpm2,  dna_sym_freq_equal, 0 },
 
-    {"TPM2uf", 4,    NULL,              NULL,            dna_sym_rate_tpm2,  dna_sym_freq_free  },
+    {"TPM2uf", 4,    NULL,              NULL,            dna_sym_rate_tpm2,  dna_sym_freq_free, 0 },
 
-    {"TPM3",   4,    NULL,              dna_freqs_equal, dna_sym_rate_tpm3,  dna_sym_freq_equal },
+    {"TPM3",   4,    NULL,              dna_freqs_equal, dna_sym_rate_tpm3,  dna_sym_freq_equal, 0 },
 
-    {"TPM3uf", 4,    NULL,              NULL,            dna_sym_rate_tpm3,  dna_sym_freq_free  },
+    {"TPM3uf", 4,    NULL,              NULL,            dna_sym_rate_tpm3,  dna_sym_freq_free, 0 },
 
-    {"TIM1",   4,    NULL,              dna_freqs_equal, dna_sym_rate_tim1,  dna_sym_freq_equal },
+    {"TIM1",   4,    NULL,              dna_freqs_equal, dna_sym_rate_tim1,  dna_sym_freq_equal, 0 },
 
-    {"TIM1uf", 4,    NULL,              NULL,            dna_sym_rate_tim1,  dna_sym_freq_free  },
+    {"TIM1uf", 4,    NULL,              NULL,            dna_sym_rate_tim1,  dna_sym_freq_free, 0 },
 
-    {"TIM2",   4,    NULL,              dna_freqs_equal, dna_sym_rate_tim2,  dna_sym_freq_equal },
+    {"TIM2",   4,    NULL,              dna_freqs_equal, dna_sym_rate_tim2,  dna_sym_freq_equal, 0 },
 
-    {"TIM2uf", 4,    NULL,              NULL,            dna_sym_rate_tim2,  dna_sym_freq_free  },
+    {"TIM2uf", 4,    NULL,              NULL,            dna_sym_rate_tim2,  dna_sym_freq_free, 0 },
 
-    {"TIM3",   4,    NULL,              dna_freqs_equal, dna_sym_rate_tim3,  dna_sym_freq_equal },
+    {"TIM3",   4,    NULL,              dna_freqs_equal, dna_sym_rate_tim3,  dna_sym_freq_equal, 0 },
 
-    {"TIM3uf", 4,    NULL,              NULL,            dna_sym_rate_tim3,  dna_sym_freq_free  },
+    {"TIM3uf", 4,    NULL,              NULL,            dna_sym_rate_tim3,  dna_sym_freq_free, 0 },
 
-    {"TVMef",  4,    NULL,              dna_freqs_equal, dna_sym_rate_tvm,   dna_sym_freq_equal },
+    {"TVMef",  4,    NULL,              dna_freqs_equal, dna_sym_rate_tvm,   dna_sym_freq_equal, 0 },
 
-    {"TVM",    4,    NULL,              NULL,            dna_sym_rate_tvm,   dna_sym_freq_free  },
+    {"TVM",    4,    NULL,              NULL,            dna_sym_rate_tvm,   dna_sym_freq_free, 0 },
 
-    {"SYM",    4,    NULL,              dna_freqs_equal, dna_sym_rate_free,  dna_sym_freq_equal },
+    {"SYM",    4,    NULL,              dna_freqs_equal, dna_sym_rate_free,  dna_sym_freq_equal, 0 },
 
-    {"GTR",    4,    NULL,              NULL,            dna_sym_rate_free,  dna_sym_freq_free  }
+    {"GTR",    4,    NULL,              NULL,            dna_sym_rate_free,  dna_sym_freq_free, 0 }
 };
+
+static const pllmod_subst_model_alias_t dna_model_aliases[] =
+{
+	{"TrNef", "TN93ef"},
+	{"TrN", "TN93"},
+	{"TPM1", "K81"},
+	{"TPM1uf", "K81uf"},
+        {"TPM2ef", "TPM2"},
+        {"TPM3ef", "TPM3"},
+        {"TIM1ef", "TIM1"},
+        {"TIM2ef", "TIM2"},
+        {"TIM3ef", "TIM3"},
+
+};
+
+const int ALIAS_COUNT =
+		sizeof(dna_model_aliases) / sizeof(pllmod_subst_model_alias_t);
 
 static int get_model_index(const char * model_name)
 {
   int i;
+  const char * resolved_name = model_name;
+
+  /* resolve model aliases first (e.g., TPM1 -> K81) */
+  for (i = 0; i < ALIAS_COUNT; ++i)
+  {
+	if (strcasecmp(model_name, dna_model_aliases[i].alias) == 0)
+	{
+		resolved_name = dna_model_aliases[i].primary_name;
+		break;
+	}
+  }
+
+  /* search for the model */
   for (i = 0; i < DNA_MODELS_COUNT; ++i)
-    if (strcasecmp(model_name, dna_model_list[i].name) == 0)
+    if (strcasecmp(resolved_name, dna_model_list[i].name) == 0)
       return i;
 
   /* model not found*/

@@ -33,6 +33,21 @@ make
 make install    # as root, otherwise run: sudo make install
 ```
 
+PLL-Modules can now also be built using cmake:
+```bash
+mkdir build
+cd build
+cmake ..
+make
+```
+
+On can also build specific modules only using (remove the modules you do not need):
+```bash
+cmake
+cmake -DPLLMODULES_COMPONENTS="optimize;algorithm;binary;msa;tree;util" ..
+```
+
+
 The library will be installed on the operating system's standard paths.  For
 some GNU/Linux distributions it might be necessary to add that standard path
 (typically `/usr/local/lib`) to `/etc/ld.so.conf` and run `ldconfig`.

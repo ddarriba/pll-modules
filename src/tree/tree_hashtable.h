@@ -33,22 +33,22 @@ void hash_destroy_entry(bitv_hash_entry_t *e);
 
 void hash_destroy(bitv_hashtable_t *h);
 
-bitv_hash_entry_t *entry_init(double support);
+bitv_hash_entry_t * entry_init(double support);
 
 hash_key_t hash_get_key(pll_split_t s, int len);
 
-int hash_update(pll_split_t bit_vector,
-                 bitv_hashtable_t *h,
-                 hash_key_t key,
-                 double support,
-                 unsigned int position);
+bitv_hash_entry_t * hash_update(pll_split_t bit_vector,
+                                bitv_hashtable_t *h,
+                                hash_key_t key,
+                                double support,
+                                unsigned int position);
 
-void hash_insert(pll_split_t bit_vector,
-                 bitv_hashtable_t *h,
-                 unsigned int bip_number,
-                 hash_key_t key,
-                 double support,
-                 unsigned int position);
+bitv_hash_entry_t * hash_insert(pll_split_t bit_vector,
+                                bitv_hashtable_t *h,
+                                unsigned int bip_number,
+                                hash_key_t key,
+                                double support,
+                                unsigned int position);
 
 void hash_remove(bitv_hashtable_t *h,
                  bitv_hash_entry_t ** prev_ptr,
@@ -63,6 +63,15 @@ void bitv_normalize(pll_split_t bitv, unsigned int bit_count);
 int bitv_is_normalized(const pll_split_t bitv);
 
 unsigned int bitv_length(unsigned int bit_count);
+
+int bitv_compare(pll_split_t v1, pll_split_t v2, unsigned int bitv_len);
+
+unsigned int bitv_popcount(const pll_split_t bitv, unsigned int bit_count,
+                           unsigned int bitv_len);
+
+unsigned int bitv_lightside(const pll_split_t bitv, unsigned int bit_count,
+                            unsigned int bitv_len);
+
 
 /* string */
 

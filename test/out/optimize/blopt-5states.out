@@ -80,8 +80,8 @@ Update ops
 Update partials
 Compute lnL
 Initial Log-L: -13.4600969315
-Tree (reference): (TIP 1:0.105361,TIP 2:0.166920,TIP 3:0.166920):0.0;
+Tree (reference): (TIP 1:0.105361,TIP 2:0.166920,TIP 3:0.166920);
 
 -Log-L returned by BL-opt:       12.4894375063
  Log-L recomputed after BL-opt: -12.4894375063
-Tree (optimized): (TIP 1:0.297042,TIP 2:0.000110,TIP 3:0.501148):0.0;
+Tree (optimized): (TIP 1:0.297042,TIP 2:0.000110,TIP 3:0.501148);

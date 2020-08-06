@@ -13,8 +13,8 @@
 #define FASTAFILE "testdata/medium.fas"
 #define TREEFILE  "testdata/medium.tree"
 
-const static float branch_opt_epsilon = 1e-2;
-const static int branch_opt_smoothings = 2;
+//const static float branch_opt_epsilon = 1e-2;
+//const static int branch_opt_smoothings = 2;
 
 typedef struct
 {

@@ -14,23 +14,34 @@
  You should have received a copy of the GNU Affero General Public License
  along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
- Contact: Diego Darriba <Diego.Darriba@h-its.org>,
+ Contact: Alexey Kozlov <Alexey.Kozlov@h-its.org>,
  Exelixis Lab, Heidelberg Instutute for Theoretical Studies
  Schloss-Wolfsbrunnenweg 35, D-69118 Heidelberg, Germany
- */
-
-/**
- * @file models.c
- *
- * @brief
- *
- * @author Alexey Kozlov
  */
 
 #include <string.h>
 
 #include "pllmod_util.h"
 #include "../pllmod_common.h"
+
+void const_free(const void* ptr)
+{
+  free((void*) ptr);
+}
+
+int * clone_int_array(const int * src, size_t len)
+{
+  int * dst = (int *) malloc(len * sizeof(int));
+  memcpy(dst, src, len * sizeof(int));
+  return dst;
+}
+
+double * clone_double_array(const double * src, size_t len)
+{
+  double * dst = (double *) malloc(len * sizeof(double));
+  memcpy(dst, src, len * sizeof(double));
+  return dst;
+}
 
 /* Returns the number of substitution rates for a given number of states */
 PLL_EXPORT unsigned int pllmod_util_subst_rate_count(unsigned int states)
@@ -119,34 +130,35 @@ PLL_EXPORT pllmod_subst_model_t * pllmod_util_model_create_custom(const char * n
                                                                   const char * rate_sym_str,
                                                                   const char * freq_sym_str)
 {
-  if (states <= 0)
-    {
-      pllmod_set_error(PLLMOD_UTIL_ERROR_MODEL_INVALID_DEF, "Invalid number of states: %d", states);
-      return NULL;
-    }
+  if (states <= 1)
+  {
+    pllmod_set_error(PLLMOD_UTIL_ERROR_MODEL_INVALID_DEF,
+                     "Invalid number of states: %d", states);
+    return NULL;
+  }
 
   const size_t rate_count = states * (states - 1) / 2;
   if (rate_sym_str && strlen(rate_sym_str) != rate_count)
-    {
-      pllmod_set_error(PLLMOD_UTIL_ERROR_MODEL_INVALID_DEF, "Invalid rates symmetry definition: %s", rate_sym_str);
-      return NULL;
-    }
+  {
+    pllmod_set_error(PLLMOD_UTIL_ERROR_MODEL_INVALID_DEF,
+                     "Invalid rates symmetry definition: %s", rate_sym_str);
+    return NULL;
+  }
 
   if (freq_sym_str && strlen(freq_sym_str) != states)
-    {
-      pllmod_set_error(PLLMOD_UTIL_ERROR_MODEL_INVALID_DEF, "Invalid freqs symmetry definition: %s", freq_sym_str);
-      return NULL;
-    }
+  {
+    pllmod_set_error(PLLMOD_UTIL_ERROR_MODEL_INVALID_DEF,
+                     "Invalid freqs symmetry definition: %s", freq_sym_str);
+    return NULL;
+  }
 
   pllmod_subst_model_t * model = calloc(1, sizeof(pllmod_subst_model_t));
 
   model->states = states;
+  model->dynamic_malloc = 1;
 
   if (name)
-    {
-      model->name = malloc(strlen(name)+1);
-      strcpy(model->name, name);
-    }
+    model->name = strdup(name);
 
   model->rates = rates;
   model->freqs = freqs;
@@ -166,36 +178,29 @@ PLL_EXPORT pllmod_subst_model_t * pllmod_util_model_create_custom(const char * n
 PLL_EXPORT pllmod_subst_model_t * pllmod_util_model_clone(const pllmod_subst_model_t * src)
 {
   if (!src)
-    {
-      return NULL;
-    }
+    return NULL;
 
   const size_t rate_count = src->states * (src->states - 1) / 2;
 
   pllmod_subst_model_t * dst = calloc(1, sizeof(pllmod_subst_model_t));
 
+  dst->dynamic_malloc = 1;
   dst->states = src->states;
 
   if (src->name)
-    {
-      dst->name = malloc(strlen(src->name)+1);
-      strcpy(dst->name, src->name);
-    }
+    dst->name = strdup(src->name);
 
-  dst->rates = src->rates;
-  dst->freqs = src->freqs;
+  if (src->rates)
+    dst->rates = clone_double_array(src->rates, rate_count);
+
+  if (src->freqs)
+    dst->freqs = clone_double_array(src->freqs, src->states);
 
   if (src->rate_sym)
-    {
-      dst->rate_sym = calloc(rate_count, sizeof(double));
-      memcpy(dst->rate_sym, src->rate_sym, rate_count * sizeof(double));
-    }
+    dst->rate_sym = clone_int_array(src->rate_sym, rate_count);
 
   if (src->freq_sym)
-    {
-      dst->freq_sym = calloc(dst->states, sizeof(double));
-      memcpy(dst->freq_sym, src->freq_sym, dst->states * sizeof(double));
-    }
+    dst->freq_sym = clone_int_array(src->freq_sym, src->states);
 
   return dst;
 }
@@ -205,16 +210,25 @@ PLL_EXPORT pllmod_subst_model_t * pllmod_util_model_clone(const pllmod_subst_mod
 */
 PLL_EXPORT void pllmod_util_model_destroy(pllmod_subst_model_t * model)
 {
-  if (model->name)
-    free(model->name);
+  if (model->dynamic_malloc)
+  {
+    if (model->name)
+      const_free(model->name);
 
-  if (model->rate_sym)
-    free(model->rate_sym);
+    if (model->rates)
+      const_free(model->rates);
 
-  if (model->freq_sym)
-    free(model->freq_sym);
+    if (model->freqs)
+      const_free(model->freqs);
 
-  free(model);
+    if (model->rate_sym)
+      const_free(model->rate_sym);
+
+    if (model->freq_sym)
+      const_free(model->freq_sym);
+
+    const_free(model);
+  }
 }
 
 /**
@@ -240,23 +254,23 @@ PLL_EXPORT pllmod_mixture_model_t * pllmod_util_model_mixture_create(const char 
                                                                      int mix_type)
 {
   if (ncomp <= 0)
-    {
-      pllmod_set_error(PLLMOD_UTIL_ERROR_MIXTURE_INVALID_SIZE, "Invalid number of components: %d", ncomp);
-      return NULL;
-    }
+  {
+    pllmod_set_error(PLLMOD_UTIL_ERROR_MIXTURE_INVALID_SIZE, "Invalid number of components: %d", ncomp);
+    return NULL;
+  }
 
   /* check that all components have the same number of states */
   size_t i;
   for (i = 0; i < ncomp; ++i)
-    {
-      if (models[i]->states != models[0]->states)
-        {
-          pllmod_set_error(PLLMOD_UTIL_ERROR_MIXTURE_INVALID_COMPONENT,
-                           "Distinct number of states in mixture components 0 and %d: %d != %d",
-                           i, models[0]->states, models[i]->states);
-          return NULL;
-        }
-    }
+  {
+    if (models[i]->states != models[0]->states)
+      {
+        pllmod_set_error(PLLMOD_UTIL_ERROR_MIXTURE_INVALID_COMPONENT,
+                         "Distinct number of states in mixture components 0 and %d: %d != %d",
+                         i, models[0]->states, models[i]->states);
+        return NULL;
+      }
+  }
 
   pllmod_mixture_model_t * mixture = calloc(1, sizeof(pllmod_mixture_model_t));
 
@@ -266,27 +280,16 @@ PLL_EXPORT pllmod_mixture_model_t * pllmod_util_model_mixture_create(const char 
   mixture->models = calloc(ncomp, sizeof(pllmod_subst_model_t *));
 
   for (i = 0; i < ncomp; ++i)
-    {
-      mixture->models[i] = pllmod_util_model_clone(models[i]);
-    }
+    mixture->models[i] = models[i]->dynamic_malloc ? pllmod_util_model_clone(models[i]) : models[i];
 
   if (name)
-    {
-      mixture->name = malloc(strlen(name)+1);
-      strcpy(mixture->name, name);
-    }
+    mixture->name = strdup(name);
 
   if (mix_rates)
-    {
-      mixture->mix_rates = calloc(ncomp, sizeof(double));
-      memcpy(mixture->mix_rates, mix_rates, ncomp * sizeof(double));
-    }
+    mixture->mix_rates = clone_double_array(mix_rates, ncomp);
 
   if (mix_weights)
-    {
-      mixture->mix_weights = calloc(ncomp, sizeof(double));
-      memcpy(mixture->mix_weights, mix_weights, ncomp * sizeof(double));
-    }
+    mixture->mix_weights = clone_double_array(mix_weights, ncomp);
 
   return mixture;
 }
@@ -318,14 +321,243 @@ PLL_EXPORT void pllmod_util_model_mixture_destroy(pllmod_mixture_model_t * mixtu
     free(mixture->mix_weights);
 
   if (mixture->models)
-    {
-      size_t i;
-      for (i = 0; i < mixture->ncomp; ++i)
-        {
-          pllmod_util_model_destroy(mixture->models[i]);
-        }
-      free(mixture->models);
-    }
+  {
+    size_t i;
+    for (i = 0; i < mixture->ncomp; ++i)
+      pllmod_util_model_destroy(mixture->models[i]);
+
+    free(mixture->models);
+  }
 
   free(mixture);
+}
+
+/**
+ * @brief Creates a custom libpll character map (ASCII code -> bit-encoded state)
+ *
+ * @param states number of states
+ * @param statechars characters that encode states, in respective order (e.g. "ACGT")
+ * @param gapchars characters that represent gap/missing data (e.g. "-.?N")
+ * @param case_sensitive if 0, then letter case in statechars is irrelevant,
+ *                       i.e. 'A' and 'a' encode the same state
+ *
+ * @return character map
+ */
+PLL_EXPORT pll_state_t * pllmod_util_charmap_create(unsigned int states,
+                                                    const char * statechars,
+                                                    const char * gapchars,
+                                                    int case_sensitive)
+{
+  size_t i;
+  static const unsigned int maxstates = sizeof(pll_state_t) * 8;
+
+  if (states > maxstates)
+  {
+    pllmod_set_error(PLLMOD_UTIL_ERROR_MODEL_INVALID_DEF,
+                     "The specified number of states (%u) exceeds the allowed maximum (%u)",
+                     states, maxstates);
+    return NULL;
+  }
+
+  if (states > strlen(statechars))
+  {
+    pllmod_set_error(PLLMOD_UTIL_ERROR_MODEL_INVALID_MAPSTRING,
+                     "Character map string is too short for a given number of states: %u",
+                     states);
+    return NULL;
+  }
+
+  pll_state_t * map = calloc(256, sizeof(pll_state_t));
+
+  /* fill map */
+  pll_state_t state = 1;
+  pll_state_t gapstate = 0;
+  for (i = 0; i < states;  ++i)
+  {
+    int c = statechars[i];
+
+    if (case_sensitive)
+    {
+      map[c] = state;
+    }
+    else
+    {
+      map[tolower(c)] = state;
+      map[toupper(c)] = state;
+    }
+
+    gapstate |= state;
+
+    state <<= 1;
+  }
+
+  assert(( (unsigned int) PLL_STATE_CTZ(state) == states) ||
+           (states == maxstates && state == 0));
+  assert(PLL_STATE_POPCNT(gapstate) == states);
+
+  /* fill gaps */
+  if (gapchars)
+  {
+    for (i = 0; i < strlen(gapchars);  ++i)
+    {
+      int c = gapchars[i];
+      assert(!map[c]);
+      map[c] = gapstate;
+    }
+  }
+
+  return map;
+}
+
+/**
+ * @brief Parses a custom libpll character map (ASCII code -> bit-encoded state)
+ *        from a file
+ *
+ * @param states number of states
+ * @param fname name of the file with charmap definition
+ * @param case_sensitive if 0, then letter case in statechars is irrelevant,
+ *                       i.e. 'A' and 'a' encode the same state
+ *
+ * @return character map
+ */
+PLL_EXPORT pll_state_t * pllmod_util_charmap_parse(unsigned int states,
+                                                    const char * fname,
+                                                    int case_sensitive,
+                                                    char ** state_names)
+{
+  size_t i, j;
+  static const unsigned int maxstates = sizeof(pll_state_t) * 8;
+  unsigned int obs_states, mod_states;
+
+  if (states > maxstates)
+  {
+    pllmod_set_error(PLLMOD_UTIL_ERROR_MODEL_INVALID_DEF,
+                     "The specified number of states (%u) "
+                     "exceeds the allowed maximum (%u)",
+                     states, maxstates);
+    return NULL;
+  }
+
+  FILE * f = fopen(fname, "r");
+
+  if (!f)
+  {
+    pllmod_set_error(PLL_ERROR_FILE_OPEN, "Cannot open file: %s", fname);
+    return PLL_FAILURE;
+  }
+
+
+  if (fscanf(f, "%u %u", &obs_states, &mod_states) != 2)
+  {
+    fclose(f);
+    pllmod_set_error(PLLMOD_UTIL_ERROR_MODEL_INVALID_MAPFILE,
+                     "Invalid character map file: %s", fname);
+    return PLL_FAILURE;
+  }
+
+  if (mod_states != states)
+  {
+    fclose(f);
+    pllmod_set_error(PLLMOD_UTIL_ERROR_MODEL_INVALID_MAPFILE,
+                     "Invalid number of states in the charmap file: %u",
+                     mod_states);
+    return PLL_FAILURE;
+  }
+
+  char statechars[1025];
+  if (fscanf(f, "%1024s", statechars) != 1)
+  {
+    fclose(f);
+    pllmod_set_error(PLLMOD_UTIL_ERROR_MODEL_INVALID_MAPFILE,
+                     "Error reading observed state list");
+    return PLL_FAILURE;
+  }
+
+  if (obs_states != strlen(statechars))
+  {
+    fclose(f);
+    pllmod_set_error(PLLMOD_UTIL_ERROR_MODEL_INVALID_MAPSTRING,
+                     "Length of the character map string (%u) does not "
+                     "correspond to the declared number of observed states (%u)",
+                     strlen(statechars), obs_states);
+    return PLL_FAILURE;
+  }
+
+  /* read state names */
+  for (i = 0; i < mod_states;  ++i)
+  {
+    char sname[1025];
+    if (fscanf(f, "%1024s", sname) != 1)
+    {
+      fclose(f);
+      pllmod_set_error(PLLMOD_UTIL_ERROR_MODEL_INVALID_MAPFILE,
+                       "Error reading name of state # %u", i);
+      return PLL_FAILURE;
+    }
+    if (state_names)
+      state_names[i] = strdup(sname);
+  }
+
+  pll_state_t * map = calloc(256, sizeof(pll_state_t));
+
+  /* fill map */
+  for (i = 0; i < obs_states;  ++i)
+  {
+    char ostate;
+    while (fscanf(f, "\n") || fscanf(f, "\r"));
+    if (fscanf(f, "%c", &ostate) != 1)
+    {
+      pllmod_set_error(PLLMOD_UTIL_ERROR_MODEL_INVALID_MAPFILE,
+                       "Error reading observed state %u", i);
+      free(map);
+      fclose(f);
+      return PLL_FAILURE;
+    }
+
+    if (!strchr(statechars, ostate))
+    {
+      pllmod_set_error(PLLMOD_UTIL_ERROR_MODEL_INVALID_MAPFILE,
+                       "Undeclared observed state: %c", ostate);
+      free(map);
+      fclose(f);
+      return PLL_FAILURE;
+    }
+
+    pll_state_t mstate = 1;
+    int c = (int) ostate;
+    for (j = 0; j < mod_states;  ++j)
+    {
+      int flag;
+      if (fscanf(f, "%d", &flag) != 1 && fscanf(f, ",%d", &flag) != 1)
+      {
+        pllmod_set_error(PLLMOD_UTIL_ERROR_MODEL_INVALID_MAPFILE,
+                         "Error reading state map value: %c -> %u", c, j);
+        free(map);
+        fclose(f);
+        return PLL_FAILURE;
+      }
+
+      if (flag)
+      {
+        if (case_sensitive)
+        {
+          map[c] |= mstate;
+        }
+        else
+        {
+          map[tolower(c)] |= mstate;
+          map[toupper(c)] |= mstate;
+        }
+      }
+
+      mstate <<= 1;
+    }
+
+    assert(( (unsigned int) PLL_STATE_CTZ(mstate) == states) ||
+             (states == maxstates && mstate == 0));
+  }
+
+  fclose(f);
+
+  return map;
 }

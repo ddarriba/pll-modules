@@ -35,6 +35,16 @@
 #define BLOCK_ID_PARTITION -1
 #define BLOCK_ID_TREE      -2
 
+unsigned int get_sites_number_scaler(const pll_partition_t * partition,
+                                                unsigned int scaler_index)
+{
+    unsigned int sites = partition->attributes & PLL_ATTRIB_SITE_REPEATS ?
+            partition->repeats->perscale_ids[scaler_index] : 0;
+      sites = sites ? sites : partition->sites;
+      return sites;
+}
+
+
 static int cb_traversal(pll_unode_t * node)
 {
   return 1;
@@ -377,7 +387,7 @@ int main (int argc, char * argv[])
     if(!pllmod_binary_custom_dump(bin_file,
                                   block_id++,
                                   old_partition->scale_buffer[scaler_index],
-                                  old_partition->sites * sizeof(unsigned int),
+                                  get_sites_number_scaler(old_partition, scaler_index)  * sizeof(unsigned int), 
                                   dump_attr))
     {
       printf("Couldn't dump scaler number: %lu\n", scaler_index);
@@ -522,10 +532,16 @@ int main (int argc, char * argv[])
   for (size_t clv_index = tip_index; clv_index < clvs_and_tips; clv_index++)
   {
     unsigned int attribs;
-    size_t clv_size = partition->sites * partition->states_padded *
-                      partition->rate_cats;
-    partition->clv[clv_index] = (double*) pll_aligned_alloc(clv_size*sizeof(double), partition->alignment);
-
+    size_t clv_size = pll_get_clv_size(partition, clv_index);
+    if (partition->attributes & PLL_ATTRIB_SITE_REPEATS)
+    {
+      partition->repeats->reallocate_repeats(partition, clv_index, PLL_SCALE_BUFFER_NONE, 
+          pll_get_sites_number(partition, clv_index));
+    }
+    else
+    {
+      partition->clv[clv_index] = (double*) pll_aligned_alloc(clv_size*sizeof(double), partition->alignment);
+    }
     if (!partition->clv[clv_index])
     {
       printf("Error allocating clv number: %lu\n", clv_index);
@@ -577,8 +593,8 @@ int main (int argc, char * argv[])
     partition->scale_buffer[scaler_index] = ptr;
 
     if (memcmp( old_partition->scale_buffer[scaler_index],
-                partition->scale_buffer[scaler_index],
-                partition->sites * sizeof(unsigned int)))
+                partition->scale_buffer[scaler_index], 
+                get_sites_number_scaler(partition, scaler_index) * sizeof(unsigned int)))
     {
       printf("Error! scaler #%lu does not agree\n", scaler_index);
       exit(1);

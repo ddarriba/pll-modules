@@ -12,7 +12,7 @@ else
 SSEFLAGS=
 endif
 
-AM_CFLAGS=-Wall -Wsign-compare -D_GNU_SOURCE -std=c99 -O3
+AM_CFLAGS=-Wall -Wsign-compare -D_GNU_SOURCE -std=c99 -O3 #-DDEBUG
 AM_CPPFLAGS=-I../optimize -I../algorithm -I../tree -I../msa -I../util
 
 LIBPLLHEADERS=\

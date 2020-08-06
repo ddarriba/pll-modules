@@ -25,6 +25,7 @@ libpll_tree_la_SOURCES=\
 		 rtree_operations.c \
 		 utree_operations.c \
 		 utree_distances.c \
+		 tbe_functions.c \
 		 treeinfo.c \
 		 consensus.c \
 		 tree_hashtable.c \
@@ -41,5 +42,5 @@ else
 endif
 
 pkgincludedir=$(includedir)/libpll
-pkginclude_HEADERS = pll_tree.h
+pkginclude_HEADERS = pll_tree.h ../pllmod_common.h
 EXTRA_DIST = ../pllmod_common.h tree_hashtable.h

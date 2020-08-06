@@ -47,9 +47,24 @@ static inline int d_equals(double a, double b)
   return (fabs(a-b) < 1e-10);
 }
 
+struct newton_wrapper_params
+{
+  void (*derive_func)(void *, double, double *, double *);
+  void * params;
+};
+
 /******************************************************************************/
 /* NEWTON-RAPHSON OPTIMIZATION */
 /******************************************************************************/
+
+static void newton_wrapper_func(void * params, double * proposal,
+                                double * df, double * ddf)
+{
+  struct newton_wrapper_params * wrapper_params =
+      (struct newton_wrapper_params *) params;
+
+  wrapper_params->derive_func(wrapper_params->params, proposal[0], df, ddf);
+}
 
 /**
  * Minimize a function using Newton-Raphson.
@@ -68,15 +83,210 @@ static inline int d_equals(double a, double b)
  *
  * @return            the parameter value that minimizes the function in [x1,x2]
  */
-PLL_EXPORT double pllmod_opt_minimize_newton(double x1,
-                                            double xguess,
-                                            double x2,
-                                            double tolerance,
-                                            unsigned int max_iters,
-                                            void * params,
-                                            void (deriv_func)(void *,
-                                                              double,
-                                                              double *, double *))
+PLL_EXPORT double pllmod_opt_minimize_newton(double xmin,
+                                             double xguess,
+                                             double xmax,
+                                             double tolerance,
+                                             unsigned int max_iters,
+                                             void * params,
+                                             void (*deriv_func)(void *,
+                                                          double,
+                                                          double *, double *))
+{
+  struct newton_wrapper_params wrapper_params;
+  wrapper_params.params = params;
+  wrapper_params.derive_func = deriv_func;
+  
+  double xres = xguess;
+
+  int retval = pllmod_opt_minimize_newton_multi(1, xmin, &xres, xmax,
+                                             tolerance, max_iters, NULL,
+                                             (void *) &wrapper_params,
+                                             newton_wrapper_func);
+  
+  if (retval)
+    return xres;
+  else
+    return PLL_FAILURE;
+}
+
+/**
+ * Minimize multiple functions in parallel using Newton-Raphson.
+ * (e.g. unlinked branch lengths for a partitioned alignment)
+ *
+ * The target function must compute the derivatives at a certain point,
+ * and it requires 4 parameters: (1) custom data (if needed), (2) the value at
+ * which derivatives are computed, and (3,4) lower and upper bounds.
+ *
+ * @param  xnum       number of functions/variables to optimize
+ * @param  xmin       lower bound
+ * @param  xguess     in=first guess for the free variables, out=optimized values
+ * @param  xmax       upper bound
+ * @param  tolerance  tolerance of the minimization method
+ * @param  max_iters  maximum number of iterations (bounds the effect of slow convergence)
+ * @param  converged  (optional) in: 1/0=skip/optimize, out: 1/0=converged yes/no
+ * @param  params     custom parameters required by the derivative function
+ * @param  deriv_func derivative function
+ *
+ * @return            PLL_FAILURE on error, PLL_SUCCESS otherwise
+ */
+PLL_EXPORT int pllmod_opt_minimize_newton_multi(unsigned int xnum,
+                                                double xmin,
+                                                double * xguess,
+                                                double xmax,
+                                                double tolerance,
+                                                unsigned int max_iters,
+                                                int * converged,
+                                                void * params,
+                                                void (deriv_func)(void *,
+                                                          double *,
+                                                          double *, double *))
+{
+  unsigned int i;
+  unsigned int iter = 0;
+  int all_converged = 0;
+  int error_flag = 0;
+
+  double dxmax = xmax / max_iters;
+
+  double * xl = (double *) calloc(xnum, sizeof(double));
+  double * xh = (double *) calloc(xnum, sizeof(double));
+  double * f = (double *) calloc(xnum, sizeof(double));
+  double * df = (double *) calloc(xnum, sizeof(double));
+  int * int_converged = NULL;
+  double * x = xguess;
+
+  /* reset errno */
+  pll_errno = 0;
+
+  if (!converged)
+  {
+    int_converged = (int *) calloc(xnum, sizeof(int));
+    converged = int_converged;
+  }
+
+  for (i = 0; i < xnum; i++)
+  {
+    x[i] = PLL_MAX(PLL_MIN(x[i], xmax), xmin);
+
+    xl[i] = xmin;
+    xh[i] = xmax;
+  }
+
+  while (!all_converged && !error_flag)
+  {
+    if (iter++ > max_iters)
+    {
+      pllmod_set_error(PLLMOD_OPT_ERROR_NEWTON_LIMIT,
+                       "Exceeded maximum number of iterations");
+      error_flag = 1;
+      break;
+    }
+
+    /* compute derivative for *all* functions in parallel */
+    deriv_func((void *)params, x, f, df);
+
+    /* for every function: check convergence and make the next guess */
+    all_converged = 1;
+    for (i = 0; i < xnum; i++)
+    {
+      double dx;
+
+      if (converged[i])
+        continue;
+
+      if (!isfinite(f[i]) || !isfinite(df[i]))
+      {
+        DBG("[it=%u][NR deriv][p=%u] BL=%.9f   f=%.12f  df=%.12f\n",
+            iter, i, x[i], f[i], df[i]);
+        pllmod_set_error(PLLMOD_OPT_ERROR_NEWTON_DERIV,
+                         "Wrong likelihood derivatives");
+        error_flag = 1;
+        break;
+      }
+
+      if (df[i] > 0.0)
+      {
+        if (fabs (f[i]) < tolerance)
+        {
+          converged[i] = 1;
+          continue;
+        }
+
+        if (f[i] < 0.0)
+          xl[i] = x[i];
+        else
+          xh[i] = x[i];
+
+        dx = -1 * f[i] / df[i];
+      }
+      else
+      {
+        dx = -1 * f[i] / fabs(df[i]);
+      }
+
+      dx = PLL_MAX(PLL_MIN(dx, dxmax), -dxmax);
+
+      if (x[i]+dx < xl[i]) dx = xl[i]-x[i];
+      if (x[i]+dx > xh[i]) dx = xh[i]-x[i];
+
+      if (fabs (dx) < tolerance)
+      {
+        converged[i] = 1;
+        continue;
+      }
+
+      DBG("[it=%u][NR deriv][p=%u] BL=%.9f   f=%.12f  df=%.12f  nextBL=%.9f\n",
+          iter, i, x[i], f[i], df[i], x[i]+dx);
+
+      x[i] += dx;
+
+      x[i] = PLL_MAX(PLL_MIN(x[i], xmax), xmin);
+
+      all_converged &= converged[i];
+    }
+  }
+
+  free(xl);
+  free(xh);
+  free(f);
+  free(df);
+  if (int_converged)
+    free(int_converged);
+
+  if (all_converged && !error_flag)
+    return PLL_SUCCESS;
+  else
+    return PLL_FAILURE;
+}
+
+
+/**
+ * Minimize a function using Newton-Raphson - LEGACY version from IQTree
+ *
+ * The target function must compute the derivatives at a certain point,
+ * and it requires 4 parameters: (1) custom data (if needed), (2) the value at
+ * which derivatives are computed, and (3,4) lower and upper bounds.
+ *
+ * @param  x1         lower bound
+ * @param  xguess     first guess for the free variable
+ * @param  x2         upper bound
+ * @param  tolerance  tolerance of the minimization method
+ * @param  max_iters  maximum number of iterations (bounds the effect of slow convergence)
+ * @param  params     custom parameters required by the target function
+ * @param  deriv_func target function
+ *
+ * @return            the parameter value that minimizes the function in [x1,x2]
+ */
+PLL_EXPORT double pllmod_opt_minimize_newton_old(double x1,
+                                                  double xguess,
+                                                  double x2,
+                                                  double tolerance,
+                                                  unsigned int max_iters,
+                                                  void * params,
+                                                  void (deriv_func)(void *,
+                                                                    double,
+                                                                    double *, double *))
 {
   unsigned int i;
   double df, dx, dxold, f;
@@ -93,7 +303,7 @@ PLL_EXPORT double pllmod_opt_minimize_newton(double x1,
 
   deriv_func((void *)params, rts, &f, &df);
 
-  DBG("[NR deriv] BL=%.9f   f=%f  df=%f  nextBL=%.9f\n", rts, f, df, rts-f/df);
+  DBG("[NR deriv] BL=%.9f   f=%.12f  df=%.12f  nextBL=%.9f\n", rts, f, df, rts-f/fabs(df));
   if (!isfinite(f) || !isfinite(df))
   {
     pllmod_set_error(PLLMOD_OPT_ERROR_NEWTON_DERIV,
@@ -117,6 +327,7 @@ PLL_EXPORT double pllmod_opt_minimize_newton(double x1,
   for (i = 1; i <= max_iters; i++)
   {
     rts_old = rts;
+
     if ((df <= 0.0) // function is concave
     || (((rts - xh) * df - f) * ((rts - xl) * df - f) >= 0.0) // out of bound
         )
@@ -136,6 +347,7 @@ PLL_EXPORT double pllmod_opt_minimize_newton(double x1,
       if (temp == rts)
         return rts;
     }
+
     if (fabs (dx) < tolerance)
       return rts_old;
 
@@ -146,7 +358,7 @@ PLL_EXPORT double pllmod_opt_minimize_newton(double x1,
 
     deriv_func((void *)params, rts, &f, &df);
 
-    DBG("[%d][NR deriv] BL=%.9f   f=%f  df=%f  nextBL=%.9f\n", i, rts, f, df, rts-f/df);
+    DBG("[%u][NR deriv] BL=%.9f   f=%.12f  df=%.12f  nextBL=%.9f\n", i, rts, f, df, rts-f/df);
 
     if (!isfinite(f) || !isfinite(df))
     {
@@ -170,6 +382,7 @@ PLL_EXPORT double pllmod_opt_minimize_newton(double x1,
                    "Exceeded maximum number of iterations");
   return rts_old;
 }
+
 
 /******************************************************************************/
 /* L-BFGS-B OPTIMIZATION */
@@ -522,7 +735,7 @@ PLL_EXPORT double pllmod_opt_minimize_lbfgsb_multi(unsigned int xnum,
       {
         for (p = 0; p < xnum; p++)
         {
-          if (i >= n[p])
+          if (!skip[p] && i >= n[p])
           {
             /* this partition has less parameters than max -> skip it */
             skip[p] = 1;
@@ -555,7 +768,7 @@ PLL_EXPORT double pllmod_opt_minimize_lbfgsb_multi(unsigned int xnum,
           /* reset variable */
           x[p][i] = opts[p]->temp;
 
-          DBG("P%d  lh_old: %f, lh_new: %f\n", p, lh_old[p], lh_new[p]);
+          DBG("P%u  lh_old: %f, lh_new: %f\n", p, lh_old[p], lh_new[p]);
         }
       }
     }
@@ -827,7 +1040,8 @@ double target_funk_wrapper(void * params,
   return *fxopt;
 }
 
-static int brent_opt_alt (int xnum,
+static int brent_opt_alt (unsigned int xnum,
+                          int * opt_mask,
                           double * xmin,
                           double * xguess,
                           double * xmax,
@@ -853,11 +1067,12 @@ static int brent_opt_alt (int xnum,
   double * fc = (double *) calloc(xnum, sizeof(double));
   double * fxmin = (double *) calloc(xnum, sizeof(double));
   double * fxmax = (double *) calloc(xnum, sizeof(double));
+  int * converged = (int *) calloc(xnum+1, sizeof(int));
 
   double * l_xmin = NULL;
   double * l_xmax = NULL;
 
-  int i;
+  unsigned int i;
   int iterate = 1;
 
   if (global_range)
@@ -874,17 +1089,6 @@ static int brent_opt_alt (int xnum,
   {
     l_xmin = xmin;
     l_xmax = xmax;
-  }
-
-  /* check that lower bound is > 0., seems to be a requirement for Brent */
-  for (i = 0; i < xnum; ++i)
-  {
-    if (!(l_xmin[i] > 0.))
-    {
-      pllmod_set_error(PLLMOD_ERROR_INVALID_RANGE,
-                       "BRENT: lower bound has to be greater than 0!");
-      return PLL_FAILURE;
-    }
   }
 
   /* this function is a refactored version of brent_opt */
@@ -923,12 +1127,20 @@ static int brent_opt_alt (int xnum,
     double eps;
     int outbounds_ax, outbounds_cx;
 
+    /* skip params that do not need to be optimized */
+    if (opt_mask && !opt_mask[i])
+      continue;
+
     /* first attempt to bracketize minimum */
     if (xguess[i] < l_xmin[i])
       xguess[i] = l_xmin[i];
     if (xguess[i] > l_xmax[i])
       xguess[i] = l_xmax[i];
-    eps = xguess[i] * xtol * 50.0;
+
+    // TODO: this is a quick workaround to make it work for xguess==0
+    // But we should double-check this bracketing heuristic! (alexey)
+    eps = xguess[i] > 0 ? xguess[i] * xtol * 50.0 : 2. * xtol;
+
     ax[i] = xguess[i] - eps;
     outbounds_ax = ax[i] < l_xmin[i];
     if (outbounds_ax)
@@ -946,9 +1158,12 @@ static int brent_opt_alt (int xnum,
   target_funk (params, l_xmax, fxmax, NULL);
 
   /* check if this works */
-  int init_failed = 0;
   for (i = 0; i < xnum; ++i)
   {
+    /* skip params that do not need to be optimized */
+    if (opt_mask && !opt_mask[i])
+      continue;
+
     /* if it works use these borders else be conservative */
     if ((fa[i] < fb[i]) || (fc[i] < fb[i]))
     {
@@ -958,11 +1173,14 @@ static int brent_opt_alt (int xnum,
       cx[i] = l_xmax[i];
     }
 
+    DBG("param[%d] a x c / fa fx fc: %lf, %lf, %lf / %lf, %lf, %lf / %lf\n",
+        i, ax[i], xguess[i], cx[i], fa[i], fb[i], fc[i], l_xmax[i]);
+
     if (!brent_opt_init(ax[i], xguess[i], cx[i], xtol, fx, f2x,
                         fa[i], fb[i], fc[i], &brent_params[i]))
     {
-      init_failed = 1;
-      break;
+      DBG("BRENT: converged for partition: %d \n", i);
+      converged[i] = 1;
     }
   }
 
@@ -980,18 +1198,8 @@ static int brent_opt_alt (int xnum,
     free(l_xmax);
   }
 
-  if (init_failed)
-  {
-    /* restore the original parameter value */
-    target_funk (params, xguess, fx, NULL);
-    free(brent_params);
-    pllmod_set_error(PLLMOD_OPT_ERROR_BRENT_INIT, "BRENT: initialization failed!");
-    return PLL_FAILURE;
-  }
-
   double * u = (double *) calloc(xnum, sizeof(double));
   double * fu = (double *) calloc(xnum, sizeof(double));
-  int * converged = (int *) calloc(xnum+1, sizeof(int));
 
   int iter_num = 0;
   while (iterate)
@@ -1001,12 +1209,16 @@ static int brent_opt_alt (int xnum,
 
     target_funk (params, u, fu, converged);
 
-//    DBG("iter: %d, u: %lf, fu: %lf\n", iter_num, u[2], fu[2]);
+    DBG("iter: %d, u: %lf, fu: %lf\n", iter_num, u[2], fu[2]);
 
     /* last element in converged[] array is "all converged" flag */
     iterate = !converged[xnum];
     for (i = 0; i < xnum; ++i)
     {
+      /* skip params that do not need to be optimized */
+      if (opt_mask && !opt_mask[i])
+        continue;
+
       if (!converged[i])
       {
         brent_params[i].fu = fu[i];
@@ -1023,11 +1235,14 @@ static int brent_opt_alt (int xnum,
   {
     xopt[i] = (brent_params[i].fx > brent_params[i].fstartx) ?
         brent_params[i].startx : brent_params[i].x;
+
+    DBG("xopt_PRE: %lf, LH_PRE: %lf\n", xopt[i], brent_params[i].fx);
   }
 
   target_funk (params, xopt, fx, NULL);
 
-  DBG("xopt: %lf, LH: %lf\n", xopt[2], fx ? fx[2] : NAN);
+//  for (i = 0; i < xnum; ++i)
+//    DBG("xopt: %lf, LH: %lf\n", xopt[i], fx ? fx[i] : NAN);
 
   free(u);
   free(fu);
@@ -1203,7 +1418,7 @@ PLL_EXPORT double pllmod_opt_minimize_brent(double xmin,
   wrap_params.target_funk = target_funk;
   wrap_params.params = params;
 
-  brent_opt_alt (1, &xmin, &xguess, &xmax, xtol, &optx, fx, f2x, &wrap_params,
+  brent_opt_alt (1, NULL, &xmin, &xguess, &xmax, xtol, &optx, fx, f2x, &wrap_params,
                     target_funk_wrapper, 1);
 
 //  optx = brent_opt(xmin, xguess, xmax, xtol, fx, f2x, params, target_funk);
@@ -1216,6 +1431,7 @@ PLL_EXPORT double pllmod_opt_minimize_brent(double xmin,
  * (e.g., unlinked alphas for multiple partitions)
  *
  * @param xnum number of variables/partitions
+ * @param opt_mask opt_mask[i]=1/0: optimize/skip parameter i
  * @param xmin minimum value(s) (see @param global_range)
  * @param xguess array of staring values
  * @param xmax maximum value(s) (see @param global_range)
@@ -1229,7 +1445,8 @@ PLL_EXPORT double pllmod_opt_minimize_brent(double xmin,
  * @param global_range 0=xmin/xmax point to arrays of size xnum with individual
  * per-variable ranges; 1=xmin/xmax is a global range for all variables
  */
-PLL_EXPORT int pllmod_opt_minimize_brent_multi(int xnum,
+PLL_EXPORT int pllmod_opt_minimize_brent_multi(unsigned int xnum,
+                                               int * opt_mask,
                                                double * xmin,
                                                double * xguess,
                                                double * xmax,
@@ -1245,7 +1462,7 @@ PLL_EXPORT int pllmod_opt_minimize_brent_multi(int xnum,
                                                       int *),
                                                int global_range)
 {
-  return brent_opt_alt (xnum, xmin, xguess, xmax, xtol, xopt, fx, f2x, params,
+  return brent_opt_alt (xnum, opt_mask, xmin, xguess, xmax, xtol, xopt, fx, f2x, params,
                           target_funk, global_range);
 }
 

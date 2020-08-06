@@ -163,7 +163,7 @@ int binary_partition_desc_apply (FILE * bin_file,
                              unsigned int attributes,
                              int (*bin_func)(void *, size_t, size_t, FILE *))
 {
-  UNUSED(attributes);
+  PLLMOD_UNUSED(attributes);
 
   /* partition descriptor */
   bin_func (&partition->tips, sizeof(unsigned int), 1, bin_file);
@@ -228,6 +228,13 @@ int binary_partition_body_apply (FILE * bin_file,
   bin_func (partition->rates, sizeof(double), rate_cats, bin_file);
   bin_func (partition->rate_weights, sizeof(double), rate_cats, bin_file);
   bin_func (partition->prop_invar, sizeof(double), rate_matrices, bin_file);
+    if (partition->attributes & PLL_ATTRIB_SITE_REPEATS)
+    {
+      bin_func (partition->repeats->pernode_ids, sizeof(unsigned int),
+          partition->clv_buffers + tips, bin_file);
+      bin_func (partition->repeats->perscale_ids, sizeof(unsigned int),
+          partition->scale_buffers, bin_file);
+    }
 
   if (attributes & PLLMOD_BIN_ATTRIB_PARTITION_DUMP_CLV)
   {
@@ -255,16 +262,36 @@ int binary_partition_body_apply (FILE * bin_file,
       bin_func (partition->ttlookup, sizeof(double), alloc_size, bin_file);
       bin_func (partition->tipmap, sizeof(char), PLL_ASCII_SIZE, bin_file);
     }
+    if (partition->attributes & PLL_ATTRIB_SITE_REPEATS) 
+    {
+      /* dump repeats */
+      for (i = first_clv_index; i < (partition->clv_buffers + tips); ++i) 
+      {
+        unsigned int clvs_to_alloc = pll_get_sites_number(partition, i);
+        if (clvs_to_alloc != partition->repeats->pernode_allocated_clvs[i])
+        {
+          partition->repeats->reallocate_repeats(partition, i,
+              (i < tips) ? (unsigned int)PLL_SCALE_BUFFER_NONE : i - tips, clvs_to_alloc); 
+        }
+        if (partition->repeats->pernode_ids[i]) // repeats
+        {
+          bin_func(partition->repeats->pernode_site_id[i], sizeof(unsigned int),
+            sites_alloc, bin_file);
+          bin_func(partition->repeats->pernode_id_site[i], sizeof(unsigned int),
+            pll_get_sites_number(partition, i), bin_file);
+        } 
+      }
+    }
 
     /* dump CLVs and scalers*/
     for (i = first_clv_index; i < (partition->clv_buffers + tips); ++i)
     {
       bin_func (partition->clv[i], sizeof(double),
-                states_padded * rate_cats * sites_alloc, bin_file);
+                pll_get_clv_size(partition, i), bin_file);
     }
     for (i = 0; i < partition->scale_buffers; ++i)
-      bin_func (partition->scale_buffer[i], sizeof(unsigned int), sites_alloc,
-                bin_file);
+      bin_func (partition->scale_buffer[i], sizeof(unsigned int),
+                pll_get_sites_number(partition, partition->tips + i), bin_file);
   }
 
   if (attributes & PLLMOD_BIN_ATTRIB_PARTITION_DUMP_WGT)
@@ -299,6 +326,29 @@ int binary_partition_apply(FILE * bin_file,
   return PLL_SUCCESS;
 }
 
+int binary_repeats_apply (FILE * bin_file,
+                  pll_partition_t * partition,
+                  unsigned int attributes,
+                  size_t nodes,
+                  int (*bin_func)(void *, size_t, size_t, FILE *))
+{
+  PLLMOD_UNUSED(attributes);
+  if (!bin_func(partition->repeats->pernode_ids, sizeof(unsigned int), nodes, bin_file))
+  {
+    pllmod_set_error(PLLMOD_BIN_ERROR_LOADSTORE,
+                     "Error loading/storing repeats");
+    return PLL_FAILURE;
+  }
+  if (!bin_func(partition->repeats->pernode_allocated_clvs, sizeof(unsigned int), nodes, bin_file))
+  {
+    pllmod_set_error(PLLMOD_BIN_ERROR_LOADSTORE,
+                     "Error loading/storing repeats");
+    return PLL_FAILURE;
+  }
+  return PLL_SUCCESS;
+}
+
+
 int binary_clv_apply (FILE * bin_file,
                       pll_partition_t * partition,
                       unsigned int clv_index,
@@ -306,22 +356,40 @@ int binary_clv_apply (FILE * bin_file,
                       size_t clv_size,
                       int (*bin_func)(void *, size_t, size_t, FILE *))
 {
-  UNUSED(attributes);
-
+  PLLMOD_UNUSED(attributes);
   if (clv_index > (partition->tips + partition->clv_buffers))
   {
     pllmod_set_error(PLLMOD_BIN_ERROR_INVALID_INDEX,
                      "Invalid CLV index");
     return PLL_FAILURE;
   }
-
   if (!bin_func(partition->clv[clv_index], sizeof(double), clv_size, bin_file))
   {
     pllmod_set_error(PLLMOD_BIN_ERROR_LOADSTORE,
                      "Error loading/storing CLV");
     return PLL_FAILURE;
   }
-
+  if ((partition->attributes & PLL_ATTRIB_SITE_REPEATS) 
+      && partition->repeats->pernode_ids[clv_index]) 
+  {
+    unsigned int uncompressed_sites = partition->sites + 
+      (partition->asc_bias_alloc ? partition->states : 0);
+    unsigned int compressed_sites = pll_get_sites_number(partition, clv_index);
+    if (!bin_func(partition->repeats->pernode_site_id[clv_index], 
+          sizeof(unsigned int), uncompressed_sites, bin_file))
+    {
+      pllmod_set_error(PLLMOD_BIN_ERROR_LOADSTORE,
+                       "Error loading/storing CLV (site_id)");
+      return PLL_FAILURE;
+    }
+    if (!bin_func(partition->repeats->pernode_id_site[clv_index], 
+          sizeof(unsigned int), compressed_sites, bin_file))
+    {
+      pllmod_set_error(PLLMOD_BIN_ERROR_LOADSTORE,
+                       "Error loading/storing CLV (id_site)");
+      return PLL_FAILURE;
+    }
+  }
   return PLL_SUCCESS;
 }
 

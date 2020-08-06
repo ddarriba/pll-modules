@@ -12,12 +12,7 @@ else
 SSEFLAGS=
 endif
 
-OPTFLAGS=
-if FAST_BLO
-  OPTFLAGS+=-DNOCHECK_PERBRANCH_IMPR
-endif
-
-AM_CFLAGS=-Wall -Wsign-compare -D_GNU_SOURCE -std=c99 -O3
+AM_CFLAGS=-Wall -Wsign-compare -D_GNU_SOURCE -std=c99 -O3 #-DDEBUG
 
 LIBPLLHEADERS=\
 pll.h
@@ -32,7 +27,7 @@ libpll_optimize_la_SOURCES=\
      lbfgsb/subalgorithms.c \
 		 ../pllmod_common.c
 
-libpll_optimize_la_CFLAGS = $(AM_CFLAGS) $(AVXFLAGS) $(SSEFLAGS) $(OPTFLAGS)
+libpll_optimize_la_CFLAGS = $(AM_CFLAGS) $(AVXFLAGS) $(SSEFLAGS)
 libpll_optimize_la_LDFLAGS = -version-info 0:0:0
 if HAVE_PLL_DPKG
   libpll_optimize_la_CPPFLAGS = $(PLL_CFLAGS)
@@ -42,5 +37,5 @@ endif
 
 
 pkgincludedir=$(includedir)/libpll
-pkginclude_HEADERS = pll_optimize.h 
+pkginclude_HEADERS = pll_optimize.h ../pllmod_common.h
 EXTRA_DIST = ../pllmod_common.h lbfgsb/lbfgsb.h

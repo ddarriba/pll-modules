@@ -69,10 +69,6 @@ have_avx=no
 have_sse=no
 have_ps2pdf=no
 
-#TODO: make it switchable
-use_fast_blo=yes
-#use_fast_blo=no
-
 AX_EXT
 
 AS_IF([test "x${ax_cv_have_avx_ext}" = "xyes"], [
