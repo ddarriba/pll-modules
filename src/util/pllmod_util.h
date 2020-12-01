@@ -134,4 +134,8 @@ PLL_EXPORT char ** pllmod_util_model_names_genotype();
 PLL_EXPORT int pllmod_util_model_exists_genotype(const char * model_name);
 PLL_EXPORT pllmod_subst_model_t * pllmod_util_model_info_genotype(const char * model_name);
 
+PLL_EXPORT int pllmod_util_model_exists_genotype10(const char * model_name);
+PLL_EXPORT int pllmod_util_model_exists_genotype16(const char * model_name);
+
+
 #endif

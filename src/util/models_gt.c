@@ -97,6 +97,26 @@ static int gt_sym_rate_hky4[] =  {   0, 0, 0, 1, 2, 1, 0, 0, 0,    /* AA */
                                                              1 };  /* CT */
 
 
+/* A-C: 1, A-G: 2, A-T: 3, C-G: 4, C-T: 5, G-T: 6, others: 0 */
+/*                                    AA CC GG TT AC AG AT CG CT GT CA GA TA GC TC TG          */
+static int gt16_sym_rate_dna4[] =  {      0, 0, 0, 1, 2, 3, 0, 0, 0, 1, 2, 3, 0, 0, 0,   /* AA */
+                                             0, 0, 1, 0, 0, 4, 5, 0, 1, 0, 0, 4, 5, 0,   /* CC */
+                                                0, 0, 2, 0, 4, 0, 6, 0, 2, 0, 4, 0, 6,   /* GG */
+                                                   0, 0, 3, 0, 5, 6, 0, 0, 3, 0, 5, 6,   /* TT */
+                                                      4, 5, 2, 3, 0, 0, 0, 0, 2, 3, 0,   /* AC */
+                                                         6, 1, 0, 3, 0, 0, 0, 0, 0, 3,   /* AG */
+                                                            0, 1, 2, 0, 0, 0, 0, 0, 0,   /* AT */
+                                                               6, 5, 2, 0, 0, 0, 0, 5,   /* CG */
+                                                                  4, 3, 0, 0, 0, 0, 0,   /* CT */
+                                                                     0, 3, 0, 5, 0, 0,   /* GT */
+                                                                        4, 5, 0, 0, 0,   /* CA */
+                                                                           6, 1, 0, 0,   /* GA */
+                                                                              0, 1, 2,   /* TA */
+                                                                                 6, 0,   /* GC */
+                                                                                    4    /* TC */
+};
+
+
 static const pllmod_subst_model_t gt_model_list[] =
 {
 /*  name    states  model rates         model freqs   rate symmetries   freq. sym.           */
@@ -105,7 +125,8 @@ static const pllmod_subst_model_t gt_model_list[] =
   {"GTGTR-SM",  10, NULL,               NULL,            gt_sym_rate_free_sm, NULL, 0 },
   {"GTGTR4",    10, NULL,               NULL,            gt_sym_rate_dna4,    NULL, 0 },
   {"GTHKY4",    10, NULL,               NULL,            gt_sym_rate_hky4,    NULL, 0 },
-  {"GTGTR",     10, NULL,               NULL,            NULL,                NULL, 0 }
+  {"GTGTR",     10, NULL,               NULL,            NULL,                NULL, 0 },
+  {"GPGTR4",    16, NULL,               NULL,            gt16_sym_rate_dna4,  NULL, 0 }
 };
 
 const int GT_MODELS_COUNT = sizeof(gt_model_list) / sizeof(pllmod_subst_model_t);
@@ -154,6 +175,24 @@ PLL_EXPORT char ** pllmod_util_model_names_genotype()
 PLL_EXPORT int pllmod_util_model_exists_genotype(const char * model_name)
 {
   return get_model_index(model_name) >= 0 ? 1 : 0;
+}
+
+PLL_EXPORT int pllmod_util_model_exists_genotype10(const char * model_name)
+{
+  int idx = get_model_index(model_name);
+  if (idx >= 0)
+    return gt_model_list[idx].states == 10 ? 1 : 0;
+  else
+    return 0;
+}
+
+PLL_EXPORT int pllmod_util_model_exists_genotype16(const char * model_name)
+{
+  int idx = get_model_index(model_name);
+  if (idx >= 0)
+    return gt_model_list[idx].states == 16 ? 1 : 0;
+  else
+    return 0;
 }
 
 /**
