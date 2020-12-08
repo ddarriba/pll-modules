@@ -531,6 +531,8 @@ PLL_EXPORT int pllmod_utree_traverse_apply(pll_unode_t * root,
 
 PLL_EXPORT int pllmod_utree_is_tip(const pll_unode_t * node);
 
+PLL_EXPORT int pllmod_rtree_is_tip(const pll_rnode_t * node); 
+
 PLL_EXPORT void pllmod_utree_set_length(pll_unode_t * edge,
                                      double length);
 
