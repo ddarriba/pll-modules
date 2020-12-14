@@ -1207,6 +1207,11 @@ PLL_EXPORT int pllmod_utree_is_tip(const pll_unode_t * node)
   return (node->next == NULL);
 }
 
+PLL_EXPORT int pllmod_rtree_is_tip(const pll_rnode_t * node)
+{
+  return (node->left == NULL && node->right == NULL);
+}
+
 PLL_EXPORT void pllmod_utree_set_length(pll_unode_t * edge,
                                             double length)
 {
