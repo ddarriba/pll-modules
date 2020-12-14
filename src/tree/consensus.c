@@ -476,7 +476,7 @@ PLL_EXPORT pll_consensus_utree_t * pllmod_utree_weight_consensus(
                                                                    tip_count,
                                                                    threshold);
 
-  /* buld tree from splits */
+  /* build tree from splits */
   consensus_tree = pllmod_utree_from_splits(split_system,
                                       tip_count,
                                       string_hashtable->labels);
@@ -619,7 +619,7 @@ PLL_EXPORT pll_consensus_utree_t * pllmod_utree_consensus(
                                                                    tip_count,
                                                                    threshold);
 
-  /* buld tree from splits */
+  /* build tree from splits */
   consensus_tree = pllmod_utree_from_splits(split_system,
                                       tip_count,
                                       string_hashtable->labels);
