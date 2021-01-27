@@ -49,7 +49,7 @@ PLL_EXPORT double * pllmod_msa_empirical_frequencies(pll_partition_t * partition
   unsigned int rate_cats      = partition->rate_cats;
   unsigned int tips           = partition->tips;
   const pll_state_t * tipmap  = partition->tipmap;
-  const unsigned int * w      = partition->pattern_weights;
+  const double * w            = partition->pattern_weights;
   double * frequencies;
 
   if ((frequencies = (double *) calloc ((size_t) states, sizeof(double)))
@@ -146,7 +146,7 @@ PLL_EXPORT double * pllmod_msa_empirical_frequencies(pll_partition_t * partition
 
 void compute_pair_rates(unsigned int states, unsigned int tips,
                         unsigned long sites, unsigned char ** tipchars,
-                        const unsigned int * w, const pll_state_t * tipmap,
+                        const double * w, const pll_state_t * tipmap,
                         size_t * state_freq, size_t * pair_rates)
 {
   unsigned int i, j, k;
@@ -191,7 +191,7 @@ PLL_EXPORT double * pllmod_msa_empirical_subst_rates(pll_partition_t * partition
   unsigned int tips                = partition->tips;
   unsigned int rate_cats           = partition->rate_cats;
   const pll_state_t * tipmap       = partition->tipmap;
-  const unsigned int * w           = partition->pattern_weights;
+  const double * w                 = partition->pattern_weights;
   unsigned char ** tipchars        = partition->tipchars;
 
   unsigned int n_subst_rates  = (states * (states - 1) / 2);
@@ -287,7 +287,7 @@ PLL_EXPORT double pllmod_msa_empirical_invariant_sites(pll_partition_t *partitio
   unsigned int n;
   unsigned int n_inv      = 0;
   unsigned int sites      = partition->sites;
-  const unsigned int * w  = partition->pattern_weights;
+  const double * w        = partition->pattern_weights;
 
   /* reset errno */
   pll_errno = 0;
@@ -577,7 +577,7 @@ PLL_EXPORT void pllmod_msa_destroy_errors(pllmod_msa_errors_t * errs)
 PLL_EXPORT pllmod_msa_stats_t * pllmod_msa_compute_stats(const pll_msa_t * msa,
                                                          unsigned int states,
                                                          const pll_state_t * tipmap,
-                                                         const unsigned int * weights,
+                                                         const double * weights,
                                                          unsigned long stats_mask)
 {
   if (!msa)

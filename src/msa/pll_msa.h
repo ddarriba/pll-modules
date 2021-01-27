@@ -86,7 +86,7 @@ PLL_EXPORT void pllmod_msa_destroy_errors(pllmod_msa_errors_t * errs);
 PLL_EXPORT pllmod_msa_stats_t * pllmod_msa_compute_stats(const pll_msa_t * msa,
                                                          unsigned int states,
                                                          const pll_state_t * tipmap,
-                                                         const unsigned int * weights,
+                                                         const double * weights,
                                                          unsigned long stats_mask);
 
 PLL_EXPORT void pllmod_msa_destroy_stats(pllmod_msa_stats_t * stats);
