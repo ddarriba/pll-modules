@@ -962,30 +962,11 @@ double pllmod_algo_opt_subst_rates_treeinfo (pllmod_treeinfo_t * treeinfo,
   unsigned int part_count = 0;
   unsigned int max_free_params = 0;
 
-  /* check how many alphas have to be optimized */
+  /* check how many partitions have subst. rates to optimize */
   for (i = 0; i < treeinfo->partition_count; ++i)
   {
     if (treeinfo->params_to_optimize[i] & PLLMOD_OPT_PARAM_SUBST_RATES)
-    {
       part_count++;
-
-      /* remote partition -> skip */
-      if (!treeinfo->partitions[i])
-        continue;
-
-      unsigned int nrates = pllmod_util_subst_rate_count(treeinfo->partitions[i]->states);
-      if (nrates > max_free_params)
-        max_free_params = nrates;
-    }
-  }
-
-  /* IMPORTANT: we need to know max_free_params among all threads! */
-  if (treeinfo->parallel_reduce_cb)
-  {
-    double tmp = (double) max_free_params;
-    treeinfo->parallel_reduce_cb(treeinfo->parallel_context, &tmp, 1,
-                                 PLLMOD_COMMON_REDUCE_MAX);
-    max_free_params = (unsigned int) tmp;
   }
 
   /* nothing to optimize */
@@ -997,6 +978,54 @@ double pllmod_algo_opt_subst_rates_treeinfo (pllmod_treeinfo_t * treeinfo,
   ub = (double **) malloc(sizeof(double*) * (part_count));
   bt = (int **)    malloc(sizeof(int*)    * (part_count));
   subst_free_params = (unsigned int *) calloc(sizeof(unsigned int), part_count);
+
+  /* compute REAL max_free_params accounting for rate symmetries */
+  unsigned int part = 0;
+  for (i = 0; i < treeinfo->partition_count; ++i)
+  {
+    /* skip partition where no rate optimization is needed */
+    if (!(treeinfo->params_to_optimize[i] & PLLMOD_OPT_PARAM_SUBST_RATES))
+      continue;
+
+    /* process thread-local partitions only */
+    if (treeinfo->partitions[i])
+    {
+      unsigned int subst_params = pllmod_util_subst_rate_count(treeinfo->partitions[i]->states);
+      int * symmetries = treeinfo->subst_matrix_symmetries[i];
+      unsigned int part_free_params = 0;
+
+      if (!symmetries)
+      {
+        part_free_params = subst_params - 1;
+      }
+      else
+      {
+        for (k=0; k<subst_params; ++k)
+        {
+          if ((unsigned int)symmetries[k] > part_free_params)
+          {
+            /* check that symmetries vector is correctly formatted */
+            assert((unsigned int)symmetries[k] == (part_free_params+1));
+            ++part_free_params;
+          }
+        }
+      }
+      if (part_free_params > max_free_params)
+        max_free_params = part_free_params;
+
+      subst_free_params[part] = part_free_params;
+      part++;
+    }
+  }
+
+  /* IMPORTANT: we need to know max_free_params among all threads! */
+  if (treeinfo->parallel_reduce_cb)
+  {
+    double tmp = (double) max_free_params;
+    treeinfo->parallel_reduce_cb(treeinfo->parallel_context, &tmp, 1,
+                                 PLLMOD_COMMON_REDUCE_MAX);
+    max_free_params = (unsigned int) tmp;
+  }
 
   /* those values are the same for all partitions */
   lb[0] = (double *) malloc(sizeof(double) * (max_free_params));
@@ -1010,7 +1039,7 @@ double pllmod_algo_opt_subst_rates_treeinfo (pllmod_treeinfo_t * treeinfo,
     ub[0][k] = max_rate;
   }
 
-  unsigned int part = 0;
+  part = 0;
   for (i = 0; i < treeinfo->partition_count; ++i)
   {
     /* skip partition where no rate optimization is needed */
@@ -1030,24 +1059,6 @@ double pllmod_algo_opt_subst_rates_treeinfo (pllmod_treeinfo_t * treeinfo,
     unsigned int states    = partition->states;
     unsigned int subst_params = pllmod_util_subst_rate_count(states);
     int * symmetries = treeinfo->subst_matrix_symmetries[i];
-
-    if (!symmetries)
-    {
-      subst_free_params[part] = subst_params - 1;
-    }
-    else
-    {
-      subst_free_params[part] = 0;
-      for (k=0; k<subst_params; ++k)
-      {
-        if ((unsigned int)symmetries[k] > subst_free_params[part])
-        {
-          /* check that symmetries vector is correctly formatted */
-          assert((unsigned int)symmetries[k] == (subst_free_params[part]+1));
-          ++subst_free_params[part];
-        }
-      }
-    }
 
     x[part]  = (double *) malloc(sizeof(double) * (subst_free_params[part]));
     bt[part] = bt[0];
