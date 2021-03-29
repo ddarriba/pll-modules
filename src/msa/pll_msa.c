@@ -28,7 +28,9 @@
   * @author Alexey Kozlov
   */
 
+#ifndef __MINGW32__
 #include <search.h>
+#endif
 
 #include "pll_msa.h"
 #include "../util/pllmod_util.h"
@@ -305,6 +307,97 @@ PLL_EXPORT double pllmod_msa_empirical_invariant_sites(pll_partition_t *partitio
   return empirical_pinv;
 }
 
+#if defined __MINGW32__
+static int find_duplicate_strings_htable(char ** const strings,
+                                  unsigned long string_count,
+                                  unsigned long ** duplicates,
+                                  unsigned long * duplicate_count)
+{
+  if (!strings)
+    return PLL_FAILURE;
+
+  unsigned long * tmpdup = (unsigned long *)malloc(string_count * 2 *
+                                                sizeof(unsigned long));
+
+  unsigned long * hash = (unsigned long *)calloc(string_count,
+                                                 sizeof(unsigned long));
+
+  unsigned char * dupflag = (unsigned char *)calloc(string_count,
+                                                 sizeof(unsigned char));
+
+  if (!hash || !tmpdup || !dupflag)
+  {
+    if (hash)
+      free(hash);
+    if (tmpdup)
+      free(tmpdup);
+    if (dupflag)
+      free(dupflag);
+    pllmod_set_error(PLL_ERROR_MEM_ALLOC,
+                     "Cannot allocate memory for duplicates array");
+    return PLL_FAILURE;
+  }
+
+  *duplicate_count = 0;
+
+  unsigned long i;
+  unsigned long j;
+
+  for (i = 0; i < string_count; ++i)
+  {
+    for (j = 0; j < strlen(strings[i]); ++j)
+      hash[i] = hash[i] + (j+1) * (unsigned long) strings[i][j];
+  }
+
+  int coll = 0;
+
+  for (i = 0; i < string_count; ++i)
+  {
+    if (dupflag[i])
+      continue;
+    for (j = i+1; j < string_count; ++j)
+    {
+      if (hash[i] == hash[j])
+      {
+        coll++;
+        if (strcmp(strings[i], strings[j]) == 0)
+        {
+          /* duplicate found, save it */
+          tmpdup[(*duplicate_count)*2] = i;
+          tmpdup[(*duplicate_count)*2+1] = j;
+          (*duplicate_count)++;
+          dupflag[j] = 1;
+        }
+      }
+    }
+  }
+
+//  printf("Collisions: %d, duplicates: %lu\n", coll, *duplicate_count);
+
+  free(hash);
+  free(dupflag);
+
+  if (*duplicate_count > 0)
+  {
+    *duplicates = (unsigned long *) realloc(tmpdup, (*duplicate_count) * 2 *
+                                                  sizeof(unsigned long));
+
+    if (!(*duplicates))
+    {
+      pllmod_set_error(PLL_ERROR_MEM_ALLOC,
+                       "Cannot allocate memory for duplicates array");
+      return PLL_FAILURE;
+    }
+  }
+  else
+  {
+    free(tmpdup);
+    *duplicates = NULL;
+  }
+
+  return PLL_SUCCESS;
+}
+#else
 /* Find duplicates using hash table from search.h. This works best for short
  * strings, so we use this method for checking taxa names */
 static int find_duplicate_strings_htable(char ** const strings,
@@ -376,6 +469,7 @@ static int find_duplicate_strings_htable(char ** const strings,
 
   return PLL_SUCCESS;
 }
+#endif
 
 /* Find duplicates using custom hash function optimized for long low-variance
  * strings - this method is used for detecting identical sequences */
