@@ -617,6 +617,15 @@ PLL_EXPORT pllmod_msa_stats_t * pllmod_msa_compute_stats(const pll_msa_t * msa,
   pll_state_t * inv_state = NULL;
   unsigned long inv_weight = 0;
 
+  pll_state_t gap_state = 0;
+
+  /* gap state has always all bits set to one */
+  for (i = 0; i < states; ++i)
+  {
+    gap_state <<= 1;
+    gap_state |= 1;
+  }
+
   stats->states = states;
   stats->gap_cols_count = 0;
   stats->gap_seqs_count = 0;
@@ -730,6 +739,10 @@ PLL_EXPORT pllmod_msa_stats_t * pllmod_msa_compute_stats(const pll_msa_t * msa,
                        "Cannot allocate memory for computing invariant sites");
       goto error_exit;
     }
+
+    /* initialize all elements to the gap state */
+    for (i = 0; i < msa_length; ++i)
+      inv_state[i] = gap_state;
   }
 
   /* check memory allocation */
@@ -750,7 +763,7 @@ PLL_EXPORT pllmod_msa_stats_t * pllmod_msa_compute_stats(const pll_msa_t * msa,
     {
       const pll_state_t state = tipmap[(int) seqchars[j]];
       const unsigned int site_states = PLL_STATE_POPCNT(state);
-      const int is_gap = site_states == states ? 1 : 0;
+      const int is_gap = state == gap_state ? 1 : 0;
       const unsigned int w = weights ? weights[j] : 1;
 
       if (!state)
@@ -801,8 +814,7 @@ PLL_EXPORT pllmod_msa_stats_t * pllmod_msa_compute_stats(const pll_msa_t * msa,
 
       if (stats_mask & (PLLMOD_MSA_STATS_INV_COLS | PLLMOD_MSA_STATS_INV_PROP))
       {
-        if (!is_gap)
-          inv_state[j] |= state;
+        inv_state[j] &= state;
         if (i == msa_count-1 && PLL_STATE_POPCNT(inv_state[j]) == 1)
         {
           inv_weight += w;
