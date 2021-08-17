@@ -28,7 +28,9 @@
   * @author Alexey Kozlov
   */
 
+#if(USE_POSIX)
 #include <search.h>
+#endif
 
 #include "pll_msa.h"
 #include "../util/pllmod_util.h"
@@ -310,6 +312,7 @@ PLL_EXPORT double pllmod_msa_empirical_invariant_sites(pll_partition_t *partitio
   return empirical_pinv;
 }
 
+#if(USE_POSIX)
 /* Find duplicates using hash table from search.h. This works best for short
  * strings, so we use this method for checking taxa names */
 static int find_duplicate_strings_htable(char ** const strings,
@@ -381,6 +384,7 @@ static int find_duplicate_strings_htable(char ** const strings,
 
   return PLL_SUCCESS;
 }
+#endif
 
 /* Find duplicates using custom hash function optimized for long low-variance
  * strings - this method is used for detecting identical sequences */
@@ -634,9 +638,15 @@ PLL_EXPORT pllmod_msa_stats_t * pllmod_msa_compute_stats(const pll_msa_t * msa,
   /* search for duplicate taxa names (=sequence labels) */
   if (stats_mask & PLLMOD_MSA_STATS_DUP_TAXA)
   {
+    #if(USE_POSIX)
     int retval = find_duplicate_strings_htable(msa->label, msa_count,
                                         &stats->dup_taxa_pairs,
                                         &stats->dup_taxa_pairs_count);
+    #else
+    int retval = find_duplicate_strings(msa->label, msa_count, 0,
+                                        &stats->dup_taxa_pairs,
+                                        &stats->dup_taxa_pairs_count);
+    #endif
     if (!retval)
     {
       pllmod_set_error(PLL_ERROR_MEM_ALLOC,
