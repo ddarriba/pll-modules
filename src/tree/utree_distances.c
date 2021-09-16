@@ -716,40 +716,34 @@ static int cb_get_splits(pll_unode_t * node, void *data)
     /* increase number of splits */
     split_data->split_count++;
 
-    /* add the split from left branch */
-    if (!pllmod_utree_is_tip(node->next->back))
-    {
-      child_split_id = (unsigned int)
-        split_data->id_to_split[get_utree_splitmap_id(node->next, tip_count)];
+    memset(current_split, 0, sizeof(pll_split_base_t) * split_len);
 
-      memcpy(current_split, split_data->split_nodes[child_split_id].split,
-             sizeof(pll_split_base_t) * split_len);
-    }
-    else
+    /* add the split from branches */
+    pll_unode_t * snode = node->next;
+    while(snode != node)
     {
-      tip_id     = node->next->back->node_index;
-      assert(tip_id < tip_count);
-      split_id   = tip_id / split_size;
-      tip_id    %= split_size;
-      current_split[split_id] = (1 << tip_id);
+      if (!pllmod_utree_is_tip(snode->back))
+      {
+        child_split_id = (unsigned int)
+          split_data->id_to_split[get_utree_splitmap_id(snode, tip_count)];
+
+        merge_split(current_split, split_data->split_nodes[child_split_id].split, split_len);
+      }
+      else
+      {
+        tip_id     = snode->back->node_index;
+        assert(tip_id < tip_count);
+        split_id   = tip_id / split_size;
+        tip_id    %= split_size;
+        current_split[split_id] |= (1 << tip_id);
+      }
+
+      snode = snode->next;
     }
 
-    /* add the split from right branch */
-    if (!pllmod_utree_is_tip(node->next->next->back))
-    {
-      child_split_id = (unsigned int)
-        split_data->id_to_split[get_utree_splitmap_id(
-            node->next->next, tip_count)];
-      merge_split(current_split, split_data->split_nodes[child_split_id].split, split_len);
-    }
-    else
-    {
-      tip_id     = node->next->next->back->node_index;
-      assert(tip_id < tip_count);
-      split_id   = tip_id / split_size;
-      tip_id    %= split_size;
-      current_split[split_id] |= (1 << tip_id);
-    }
+//    printf("split %u: \n", my_split_id);
+//    pllmod_utree_split_show(current_split, tip_count);
+//    printf("\n");
   }
 
   /* continue */
