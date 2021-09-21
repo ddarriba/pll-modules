@@ -657,8 +657,11 @@ void pllmod_utree_split_hashtable_destroy(bitv_hashtable_t * hash)
 
 PLL_EXPORT void pllmod_utree_split_destroy(pll_split_t * split_list)
 {
-  free(split_list[0]);
-  free(split_list);
+  if (split_list)
+  {
+    free(split_list[0]);
+    free(split_list);
+  }
 }
 
 /******************************************************************************/

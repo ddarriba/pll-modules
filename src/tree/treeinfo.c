@@ -793,6 +793,8 @@ PLL_EXPORT void pllmod_treeinfo_destroy(pllmod_treeinfo_t * treeinfo)
 
   if(treeinfo->constraint)
     free(treeinfo->constraint);
+  pllmod_utree_splitset_destroy(treeinfo->cons_splits);
+  pllmod_utree_splitset_destroy(treeinfo->tree_splits);
 
   /* free invalidation arrays */
   free(treeinfo->clv_valid);
@@ -1324,8 +1326,8 @@ PLL_EXPORT int pllmod_treeinfo_set_constraint_clvmap(pllmod_treeinfo_t * treeinf
   return PLL_SUCCESS;
 }
 
-PLL_EXPORT int pllmod_treeinfo_set_constraint_tree(pllmod_treeinfo_t * treeinfo,
-                                                   const pll_utree_t * cons_tree)
+static int treeinfo_set_constraint_vector(pllmod_treeinfo_t * treeinfo,
+                                          const pll_utree_t * cons_tree)
 {
   unsigned int node_count = cons_tree->tip_count * 2 - 2;
   int * clv_index_map = NULL;
@@ -1413,6 +1415,27 @@ PLL_EXPORT int pllmod_treeinfo_set_constraint_tree(pllmod_treeinfo_t * treeinfo,
   return retval;
 }
 
+PLL_EXPORT int pllmod_treeinfo_set_constraint_tree(pllmod_treeinfo_t * treeinfo,
+                                                   const pll_utree_t * cons_tree,
+                                                   int fast_and_dirty)
+{
+  int retval;
+
+  if (fast_and_dirty)
+  {
+    retval = treeinfo_set_constraint_vector(treeinfo, cons_tree);
+  }
+  else
+  {
+    // NEW constraint
+    treeinfo->cons_splits = pllmod_utree_splitset_create(cons_tree);
+    treeinfo->tree_splits = pllmod_utree_splitset_create_all(treeinfo->tree);
+    retval = treeinfo->cons_splits ? PLL_SUCCESS : PLL_FAILURE;
+  }
+
+  return retval;
+}
+
 static unsigned int find_cons_id(pll_unode_t * node,
                                  const unsigned int * constraint,
                                  unsigned int s)
@@ -1433,15 +1456,35 @@ static unsigned int find_cons_id(pll_unode_t * node,
   }
 }
 
-PLL_EXPORT int pllmod_treeinfo_check_constraint(pllmod_treeinfo_t * treeinfo,
-                                                pll_unode_t * subtree,
-                                                pll_unode_t * regraft_edge)
+static unsigned int is_cons_free(pll_unode_t * node,
+                                 const unsigned int * constraint)
+{
+  unsigned int cons_group_id = constraint[node->clv_index];
+  if (!node->next)
+    return cons_group_id == 0;
+  else
+  {
+    if (!is_cons_free(node->next->back, constraint))
+      return 0;
+    if (!is_cons_free(node->next->next->back, constraint))
+      return 0;
+    else
+      return 1;
+  }
+}
+
+static int treeinfo_check_constraint_vector(pllmod_treeinfo_t * treeinfo,
+                                            pll_unode_t * subtree,
+                                            pll_unode_t * regraft_edge)
 {
   if (treeinfo->constraint)
   {
     int res;
     unsigned int s = treeinfo->constraint[subtree->clv_index];
     s  = s ? s : find_cons_id(subtree->back, treeinfo->constraint, 0);
+
+    if (is_cons_free(subtree->back, treeinfo->constraint))
+      return PLL_SUCCESS;
 
     if (s)
     {
@@ -1454,6 +1497,58 @@ PLL_EXPORT int pllmod_treeinfo_check_constraint(pllmod_treeinfo_t * treeinfo,
       res = PLL_SUCCESS;
 
     return res;
+  }
+  else
+    return PLL_SUCCESS;
+}
+
+PLL_EXPORT int pllmod_treeinfo_constraint_check_spr(pllmod_treeinfo_t * treeinfo,
+                                                    pll_unode_t * subtree,
+                                                    pll_unode_t * regraft_edge)
+{
+  if (treeinfo->constraint)
+    return treeinfo_check_constraint_vector(treeinfo, subtree, regraft_edge);
+  else if (treeinfo->cons_splits)
+  {
+    return pllmod_utree_constraint_check_spr(treeinfo->cons_splits,
+                                             treeinfo->tree_splits,
+                                             subtree,
+                                             regraft_edge);
+  }
+  else
+    return PLL_SUCCESS;
+}
+
+PLL_EXPORT int pllmod_treeinfo_constraint_check_current(pllmod_treeinfo_t * treeinfo)
+{
+  if (treeinfo->cons_splits)
+  {
+    return pllmod_utree_constraint_check_splits_tree(treeinfo->cons_splits,
+                                                       treeinfo->tree);
+  }
+  else
+    return PLL_SUCCESS;
+}
+
+PLL_EXPORT int pllmod_treeinfo_constraint_subtree_affected(pllmod_treeinfo_t * treeinfo,
+                                                           pll_unode_t * subtree)
+{
+  if (treeinfo->cons_splits)
+  {
+    return pllmod_utree_constraint_subtree_affected(treeinfo->cons_splits,
+                                                    treeinfo->tree_splits,
+                                                    subtree);
+  }
+  else
+    return PLL_SUCCESS;
+}
+
+PLL_EXPORT int pllmod_treeinfo_constraint_update_splits(pllmod_treeinfo_t * treeinfo)
+{
+  if (treeinfo->cons_splits)
+  {
+    return pllmod_utree_splitset_update_all(treeinfo->tree_splits,
+                                            treeinfo->tree);
   }
   else
     return PLL_SUCCESS;

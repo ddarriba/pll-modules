@@ -188,6 +188,17 @@ typedef struct
   };
 } pll_tree_rollback_t;
 
+/* set of splits with equal dimensions, e.g. extracted from a tree */
+typedef struct
+{
+  unsigned int tip_count;    /* number of taxa */
+  unsigned int split_size;   /* size of a split storage element in bits */
+  unsigned int split_len;    /* number of storage elements per split */
+  unsigned int split_count;  /* number of splits currently set */
+  pll_split_t * splits;      /* array of pointers to splits */
+  int *id_to_split;          /* map between node/subnode ids and splits */
+} pll_split_set_t;
+
 typedef struct treeinfo_edge
 {
   unsigned int left_index;
@@ -238,7 +249,9 @@ typedef struct treeinfo
   pll_partition_t ** init_partitions;
 
   /* tree topology constraint */
-  unsigned int * constraint;
+  unsigned int * constraint;       /* legacy: constraint check vector */
+  pll_split_set_t * cons_splits;   /* constraint tree splits */
+  pll_split_set_t * tree_splits;   /* current tree splits for constraint check */
 
   /* precomputation buffers for derivatives (aka "sumtable") */
   double ** deriv_precomp;
@@ -689,19 +702,181 @@ int pllmod_treeinfo_normalize_brlen_scalers(pllmod_treeinfo_t * treeinfo);
 PLL_EXPORT int pllmod_treeinfo_set_tree(pllmod_treeinfo_t * treeinfo,
                                         pll_utree_t * tree);
 
+/* treeinfo: topological constraint management */
+
 PLL_EXPORT int pllmod_treeinfo_set_constraint_clvmap(pllmod_treeinfo_t * treeinfo,
                                                      const int * clv_index_map);
 
+/**
+ * Set a new constraint tree and initialize internal data structs
+ *
+ * @param  cons_tree       tree to be used as topological constraint (multifurcated/incomplete)
+ * @param  fast_and_dirty  1 = use legacy RAxML algorithm (buggy with incomplete trees!)
+ *                         0 = use new split-based check algorithm (default)
+ *
+ * @return PLL_SUCCESS if constraint was set successfully
+ *         PLL_FAILURE on error
+ */
 PLL_EXPORT int pllmod_treeinfo_set_constraint_tree(pllmod_treeinfo_t * treeinfo,
-                                                   const pll_utree_t * cons_tree);
+                                                   const pll_utree_t * cons_tree,
+                                                   int fast_and_dirty);
 
-PLL_EXPORT int pllmod_treeinfo_check_constraint(pllmod_treeinfo_t * treeinfo,
-                                                pll_unode_t * subtree,
-                                                pll_unode_t * regraft_edge);
+/**
+ * Check if an SPR is compatible with the current topological constraint
+ *
+ * @param  subtree       pruned subtree
+ * @param  regraft_edge  re-instertion edge
+ *
+ * @return PLL_SUCCESS if SPR is compatible with constraint (or no constraint set)
+ *         PLL_FAILURE otherwise
+ */
+PLL_EXPORT int pllmod_treeinfo_constraint_check_spr(pllmod_treeinfo_t * treeinfo,
+                                                    pll_unode_t * subtree,
+                                                    pll_unode_t * regraft_edge);
+
+/**
+ * Check if current constraint is relevant for a given subtree. For instance, a subtree comprising
+ * only "free" taxa (e.g. those absent from the constraint tree) is not affected,
+ * and hence constraint check is not required before regrafting this subtree.
+ *
+ * @param  subtree       pruned subtree
+ *
+ * @return PLL_SUCCESS subtree is affected by the constraint
+ *         PLL_FAILURE otherwise
+ */
+PLL_EXPORT int pllmod_treeinfo_constraint_subtree_affected(pllmod_treeinfo_t * treeinfo,
+                                                           pll_unode_t * subtree);
+
+/**
+ * Extract all directed splits from current topology in treeinfo->tree
+ * and store them in treeinfo->tree_splits.
+ *
+ * @return PLL_SUCCESS if extraction was successful
+ *         PLL_FAILURE on error
+ */
+PLL_EXPORT int pllmod_treeinfo_constraint_update_splits(pllmod_treeinfo_t * treeinfo);
+
+
+/**
+ * Check if current topology in treeinfo->tree is compatible with topological constraint.
+ *
+ * @return PLL_SUCCESS if topology is compatible
+ *         PLL_FAILURE otherwise
+ */
+PLL_EXPORT int pllmod_treeinfo_constraint_check_current(pllmod_treeinfo_t * treeinfo);
+
 
 PLL_EXPORT pllmod_ancestral_t * pllmod_treeinfo_compute_ancestral(pllmod_treeinfo_t * treeinfo);
 
 PLL_EXPORT void pllmod_treeinfo_destroy_ancestral(pllmod_ancestral_t * ancestral);
+
+
+/* utree_constraint.c: New split-based checks for topological constraint */
+
+/**
+ * Extract all non-directed non-trivial splits, i.e. one split per inner tree edge.
+ *
+ * @return pointer to a newly created pll_split_set_t struct on success
+ *         NULL on error
+ */
+PLL_EXPORT pll_split_set_t * pllmod_utree_splitset_create(const pll_utree_t * tree);
+
+/**
+ * Extract all directed splits, i.e. two splits per every tree edge (inner+outer).
+ *
+ * @return pointer to a newly created pll_split_set_t struct on success
+ *         NULL on error
+ */
+PLL_EXPORT pll_split_set_t * pllmod_utree_splitset_create_all(const pll_utree_t * tree);
+
+/**
+ * Extract all directed splits from tree and store them in a pre-allocated split set.
+ *
+ * @param  split_set  existing split set with comapatible dimensions
+ *                    (use pllmod_utree_splitset_create_all() to initialize)
+ * @param  tree       topology to extract splits from
+ *
+ * @return PLL_SUCCESS if extraction and update was successful
+ *         PLL_FAILURE on error
+ */
+PLL_EXPORT int pllmod_utree_splitset_update_all(pll_split_set_t * split_set,
+                                                const pll_utree_t * tree);
+
+/**
+ * Deallocate split set memory
+ */
+PLL_EXPORT void pllmod_utree_splitset_destroy(pll_split_set_t * split_set);
+
+
+/**
+ * Check if a given topology (query tree) is compatible with a topological constraint,
+ * while both are specified as a set of splits. Essentially, it checks whether
+ * every split in the constraint tree is present in the query tree.
+ *
+ * @param  cons_splits  splits from a constraint tree
+ * @param  tree_splits  splits from a tree to be checked
+ *
+ * @return PLL_SUCCESS if topology is compatible
+ *         PLL_FAILURE otherwise
+ */
+PLL_EXPORT int pllmod_utree_constraint_check_splits(pll_split_set_t * cons_splits,
+                                                    pll_split_set_t * tree_splits);
+
+/**
+ * Check if an SPR is compatible with a given topological constraint
+ *
+ * @param  cons_splits  splits from a constraint tree
+ * @param  tree_splits  splits from the ORIGINAL tree BEFORE PRUNING
+ * @param  p_edge  pruned subtree
+ * @param  r_edge  re-instertion edge
+ *
+ * @return PLL_SUCCESS if SPR is compatible with constraint
+ *         PLL_FAILURE otherwise
+ */
+PLL_EXPORT int pllmod_utree_constraint_check_spr(pll_split_set_t * cons_splits,
+                                                 pll_split_set_t * tree_splits,
+                                                 pll_unode_t * p_edge,
+                                                 pll_unode_t * r_edge);
+
+/**
+ * Check if a given topology is compatible with a topological constraint.
+ *
+ * @param  cons_tree  a constraint tree
+ * @param  tree       tree to be checked
+ *
+ * @return PLL_SUCCESS if topology is compatible
+ *         PLL_FAILURE otherwise
+ */
+PLL_EXPORT int pllmod_utree_constraint_check_tree(const pll_utree_t * cons_tree,
+                                                  const pll_utree_t * tree);
+
+/**
+ * Check if a given topology is compatible with a set of constraint splits.
+ *
+ * @param  cons_splits  splits from a constraint tree
+ * @param  tree         tree to be checked
+ *
+ * @return PLL_SUCCESS if topology is compatible
+ *         PLL_FAILURE otherwise
+ */
+PLL_EXPORT int pllmod_utree_constraint_check_splits_tree(pll_split_set_t * cons_splits,
+                                                         const pll_utree_t * tree);
+
+/**
+ * Check if constraint is relevant for a given subtree. For instance, a subtree comprising
+ * only "free" taxa (e.g. those absent from the constraint tree) is not affected,
+ * and hence constraint check is not required before regrafting this subtree.
+ *
+ * @param  cons_splits  splits from a constraint tree
+ * @param  tree_splits  splits from the ORIGINAL tree BEFORE PRUNING
+ * @param  p_edge       pruned subtree
+ *
+ * @return PLL_SUCCESS subtree is affected by the constraint
+ *         PLL_FAILURE otherwise
+ */
+PLL_EXPORT int pllmod_utree_constraint_subtree_affected(const pll_split_set_t * cons_splits,
+                                                        const pll_split_set_t * tree_splits,
+                                                        pll_unode_t * p_edge);
 
 /* tbe_functions.c */
 
