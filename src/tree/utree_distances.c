@@ -476,6 +476,7 @@ PLL_EXPORT pll_split_t * pllmod_utree_split_create(const pll_unode_t * tree,
 
   // TODO better handling for multifurcating trees
   assert(split_data.split_count <= split_count);
+  split_count = split_data.split_count;
 
   free(split_data.id_to_split);
 
