@@ -410,12 +410,31 @@ pll_utree_t * pllmod_utree_create_parsimony(unsigned int taxon_count,
                                             unsigned int random_seed,
                                             unsigned int * score);
 
+PLL_EXPORT
 pll_utree_t * pllmod_utree_create_parsimony_multipart(unsigned int taxon_count,
                                                       char * const * taxon_names,
                                                       unsigned int partition_count,
                                                       pll_partition_t * const * partitions,
                                                       unsigned int random_seed,
                                                       unsigned int * score);
+
+PLL_EXPORT int pllmod_utree_extend_parsimony_multipart(pll_utree_t * tree,
+                                                      unsigned int taxon_count,
+                                                      char * const * taxon_names,
+                                                      const unsigned int * tip_msa_idmap,
+                                                      unsigned int partition_count,
+                                                      pll_partition_t * const * partitions,
+                                                      unsigned int random_seed,
+                                                      unsigned int * score);
+
+PLL_EXPORT pll_utree_t * pllmod_utree_resolve_parsimony_multipart(const pll_utree_t * multi_tree,
+                                                                  unsigned int partition_count,
+                                                                  pll_partition_t * const * partitions,
+                                                                  const unsigned int * tip_msa_idmap,
+                                                                  unsigned int max_spr_rounds,
+                                                                  unsigned int random_seed,
+                                                                  int * clv_index_map,
+                                                                  unsigned int * score);
 
 
 /* Discrete operations */
