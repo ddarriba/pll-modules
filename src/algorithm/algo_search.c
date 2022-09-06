@@ -343,7 +343,7 @@ static int algo_bestnode_list_next_index(pllmod_bestnode_list_t * best_node_list
 #ifdef DEBUG
 static void algo_bestnode_list_print(pllmod_bestnode_list_t * best_node_list)
 {
-  printf("\nBESTNODE_LIST (%lu / %lu): \n", best_node_list->current, best_node_list->size);
+  printf("\nBESTNODE_LIST (%zu / %zu): \n", best_node_list->current, best_node_list->size);
   for (size_t i = 0; i < best_node_list->size; ++i)
   {
     node_entry_t * entry = &best_node_list->list[i];
@@ -1186,7 +1186,7 @@ PLL_EXPORT double pllmod_algo_spr_round(pllmod_treeinfo_t * treeinfo,
 
       if (!rollback || !rollback->SPR.prune_edge)
       {
-        DBG("  Rollback slot %d is empty, exiting the loop...\n",
+        DBG("  Rollback slot %zu is empty, exiting the loop...\n",
             rollback_list->current);
         break;
       }
@@ -1194,7 +1194,7 @@ PLL_EXPORT double pllmod_algo_spr_round(pllmod_treeinfo_t * treeinfo,
       DBG("  Rollback BL: %.12lf %.12lf %.12lf %.12lf\n\n", rollback->SPR.prune_bl,
           rollback->SPR.prune_left_bl, rollback->SPR.prune_right_bl, rollback->SPR.regraft_bl);
 
-      DBG("  Undoing SPR %lu (slot %d)... ", rollback_counter,
+      DBG("  Undoing SPR %zu (slot %zu)... ", rollback_counter,
           rollback_list->current);
 
       pllmod_treeinfo_constraint_update_splits(treeinfo);
