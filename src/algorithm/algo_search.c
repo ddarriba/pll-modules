@@ -842,8 +842,11 @@ static int best_reinsert_edge(pllmod_treeinfo_t * treeinfo,
     assert(j < total_edge_count);
   }
 
-  /* done with regrafting; restore old root */
-//  pllmod_treeinfo_set_root(treeinfo, orig_prune_edge);
+  if(!params->fast_clv_updates)
+  {
+    /* done with regrafting; restore old root */
+    pllmod_treeinfo_set_root(treeinfo, orig_prune_edge);
+  }
 
   /* re-insert into the original pruning branch */
   retval = pllmod_utree_regraft(p_edge, orig_prune_edge);
@@ -1162,7 +1165,10 @@ PLL_EXPORT double pllmod_algo_spr_round(pllmod_treeinfo_t * treeinfo,
 
     DBG("\nThorough re-insertion of %u best-scoring nodes...\n", i);
 
-    pllmod_treeinfo_set_root(treeinfo, initial_root);
+    if (params.fast_clv_updates)
+    {
+      pllmod_treeinfo_set_root(treeinfo, initial_root);
+    }
 
     loglh = reinsert_nodes(treeinfo,
                            allnodes,
@@ -1181,7 +1187,10 @@ PLL_EXPORT double pllmod_algo_spr_round(pllmod_treeinfo_t * treeinfo,
   free(allnodes);
   allnodes = NULL;
 
-  pllmod_treeinfo_set_root(treeinfo, initial_root);
+  if (params.fast_clv_updates)
+  {
+    pllmod_treeinfo_set_root(treeinfo, initial_root);
+  }
 
   best_lh = algo_optimize_bl_all(treeinfo,
                                  &params,
