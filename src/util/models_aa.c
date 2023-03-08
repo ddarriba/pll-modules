@@ -25,26 +25,34 @@
 #include "../pllmod_common.h"
 
 /* general single-matrix models */
-const pllmod_subst_model_t M_DAYHOFF  = {"DAYHOFF",   20, pll_aa_rates_dayhoff,  pll_aa_freqs_dayhoff,  NULL, NULL, 0 };
-const pllmod_subst_model_t M_LG       = {"LG",        20, pll_aa_rates_lg,       pll_aa_freqs_lg,       NULL, NULL, 0 };
-const pllmod_subst_model_t M_DCMUT    = {"DCMUT",     20, pll_aa_rates_dcmut,    pll_aa_freqs_dcmut,    NULL, NULL, 0 };
-const pllmod_subst_model_t M_JTT      = {"JTT",       20, pll_aa_rates_jtt,      pll_aa_freqs_jtt,      NULL, NULL, 0 };
-const pllmod_subst_model_t M_MTREV    = {"MTREV",     20, pll_aa_rates_mtrev,    pll_aa_freqs_mtrev,    NULL, NULL, 0 };
-const pllmod_subst_model_t M_WAG      = {"WAG",       20, pll_aa_rates_wag,      pll_aa_freqs_wag,      NULL, NULL, 0 };
-const pllmod_subst_model_t M_RTREV    = {"RTREV",     20, pll_aa_rates_rtrev,    pll_aa_freqs_rtrev,    NULL, NULL, 0 };
-const pllmod_subst_model_t M_CPREV    = {"CPREV",     20, pll_aa_rates_cprev,    pll_aa_freqs_cprev,    NULL, NULL, 0 };
-const pllmod_subst_model_t M_VT       = {"VT",        20, pll_aa_rates_vt,       pll_aa_freqs_vt,       NULL, NULL, 0 };
-const pllmod_subst_model_t M_BLOSUM62 = {"BLOSUM62",  20, pll_aa_rates_blosum62, pll_aa_freqs_blosum62, NULL, NULL, 0 };
-const pllmod_subst_model_t M_MTMAM    = {"MTMAM",     20, pll_aa_rates_mtmam,    pll_aa_freqs_mtmam,    NULL, NULL, 0 };
-const pllmod_subst_model_t M_MTART    = {"MTART",     20, pll_aa_rates_mtart,    pll_aa_freqs_mtart,    NULL, NULL, 0 };
-const pllmod_subst_model_t M_MTZOA    = {"MTZOA",     20, pll_aa_rates_mtzoa,    pll_aa_freqs_mtzoa,    NULL, NULL, 0 };
-const pllmod_subst_model_t M_PMB      = {"PMB",       20, pll_aa_rates_pmb,      pll_aa_freqs_pmb,      NULL, NULL, 0 };
-const pllmod_subst_model_t M_HIVB     = {"HIVB",      20, pll_aa_rates_hivb,     pll_aa_freqs_hivb,     NULL, NULL, 0 };
-const pllmod_subst_model_t M_HIVW     = {"HIVW",      20, pll_aa_rates_hivw,     pll_aa_freqs_hivw,     NULL, NULL, 0 };
-const pllmod_subst_model_t M_JTTDCMUT = {"JTT-DCMUT", 20, pll_aa_rates_jttdcmut, pll_aa_freqs_jttdcmut, NULL, NULL, 0 };
-const pllmod_subst_model_t M_FLU      = {"FLU",       20, pll_aa_rates_flu,      pll_aa_freqs_flu,      NULL, NULL, 0 };
-const pllmod_subst_model_t M_STMTREV  = {"STMTREV",   20, pll_aa_rates_stmtrev,  pll_aa_freqs_stmtrev,  NULL, NULL, 0 };
-const pllmod_subst_model_t M_DEN      = {"DEN",       20, pll_aa_rates_den,      pll_aa_freqs_den,      NULL, NULL, 0 };
+const pllmod_subst_model_t M_DAYHOFF   = {"DAYHOFF",   20, pll_aa_rates_dayhoff,  pll_aa_freqs_dayhoff,  NULL, NULL, 0 };
+const pllmod_subst_model_t M_LG        = {"LG",        20, pll_aa_rates_lg,       pll_aa_freqs_lg,       NULL, NULL, 0 };
+const pllmod_subst_model_t M_DCMUT     = {"DCMUT",     20, pll_aa_rates_dcmut,    pll_aa_freqs_dcmut,    NULL, NULL, 0 };
+const pllmod_subst_model_t M_JTT       = {"JTT",       20, pll_aa_rates_jtt,      pll_aa_freqs_jtt,      NULL, NULL, 0 };
+const pllmod_subst_model_t M_MTREV     = {"MTREV",     20, pll_aa_rates_mtrev,    pll_aa_freqs_mtrev,    NULL, NULL, 0 };
+const pllmod_subst_model_t M_WAG       = {"WAG",       20, pll_aa_rates_wag,      pll_aa_freqs_wag,      NULL, NULL, 0 };
+const pllmod_subst_model_t M_RTREV     = {"RTREV",     20, pll_aa_rates_rtrev,    pll_aa_freqs_rtrev,    NULL, NULL, 0 };
+const pllmod_subst_model_t M_CPREV     = {"CPREV",     20, pll_aa_rates_cprev,    pll_aa_freqs_cprev,    NULL, NULL, 0 };
+const pllmod_subst_model_t M_VT        = {"VT",        20, pll_aa_rates_vt,       pll_aa_freqs_vt,       NULL, NULL, 0 };
+const pllmod_subst_model_t M_BLOSUM62  = {"BLOSUM62",  20, pll_aa_rates_blosum62, pll_aa_freqs_blosum62, NULL, NULL, 0 };
+const pllmod_subst_model_t M_MTMAM     = {"MTMAM",     20, pll_aa_rates_mtmam,    pll_aa_freqs_mtmam,    NULL, NULL, 0 };
+const pllmod_subst_model_t M_MTART     = {"MTART",     20, pll_aa_rates_mtart,    pll_aa_freqs_mtart,    NULL, NULL, 0 };
+const pllmod_subst_model_t M_MTZOA     = {"MTZOA",     20, pll_aa_rates_mtzoa,    pll_aa_freqs_mtzoa,    NULL, NULL, 0 };
+const pllmod_subst_model_t M_PMB       = {"PMB",       20, pll_aa_rates_pmb,      pll_aa_freqs_pmb,      NULL, NULL, 0 };
+const pllmod_subst_model_t M_HIVB      = {"HIVB",      20, pll_aa_rates_hivb,     pll_aa_freqs_hivb,     NULL, NULL, 0 };
+const pllmod_subst_model_t M_HIVW      = {"HIVW",      20, pll_aa_rates_hivw,     pll_aa_freqs_hivw,     NULL, NULL, 0 };
+const pllmod_subst_model_t M_JTTDCMUT  = {"JTT-DCMUT", 20, pll_aa_rates_jttdcmut, pll_aa_freqs_jttdcmut, NULL, NULL, 0 };
+const pllmod_subst_model_t M_FLU       = {"FLU",       20, pll_aa_rates_flu,      pll_aa_freqs_flu,      NULL, NULL, 0 };
+const pllmod_subst_model_t M_STMTREV   = {"STMTREV",   20, pll_aa_rates_stmtrev,  pll_aa_freqs_stmtrev,  NULL, NULL, 0 };
+const pllmod_subst_model_t M_DEN       = {"DEN",       20, pll_aa_rates_den,      pll_aa_freqs_den,      NULL, NULL, 0 };
+const pllmod_subst_model_t M_Q_PFAM    = {"Q.PFAM",    20, pll_aa_rates_q_pfam,    pll_aa_freqs_q_pfam,    NULL, NULL, 0};
+const pllmod_subst_model_t M_Q_PFAM_GB = {"Q.PFAM_GB", 20, pll_aa_rates_q_pfam_gb, pll_aa_freqs_q_pfam_gb, NULL, NULL, 0};
+const pllmod_subst_model_t M_Q_LG      = {"Q.LG",      20, pll_aa_rates_q_lg,      pll_aa_freqs_q_lg,      NULL, NULL, 0};
+const pllmod_subst_model_t M_Q_BIRD    = {"Q.BIRD",    20, pll_aa_rates_q_bird,    pll_aa_freqs_q_bird,    NULL, NULL, 0};
+const pllmod_subst_model_t M_Q_INSECT  = {"Q.INSECT",  20, pll_aa_rates_q_insect,  pll_aa_freqs_q_insect,  NULL, NULL, 0};
+const pllmod_subst_model_t M_Q_MAMMAL  = {"Q.MAMMAL",  20, pll_aa_rates_q_mammal,  pll_aa_freqs_q_mammal,  NULL, NULL, 0};
+const pllmod_subst_model_t M_Q_PLANT   = {"Q.PLANT",   20, pll_aa_rates_q_plant,   pll_aa_freqs_q_plant,   NULL, NULL, 0};
+const pllmod_subst_model_t M_Q_YEAST   = {"Q.YEAST",   20, pll_aa_rates_q_yeast,   pll_aa_freqs_q_yeast,   NULL, NULL, 0};
 
 /* LG4M components */
 const pllmod_subst_model_t M_LG4M1    = {"LG4M1",     20, pll_aa_rates_lg4m[0],  pll_aa_freqs_lg4m[0],  NULL, NULL, 0 };
@@ -83,6 +91,15 @@ static const pllmod_subst_model_t * prot_model_list[] =
     &M_FLU,
     &M_STMTREV,
     &M_DEN,
+
+    &M_Q_PFAM,
+    &M_Q_PFAM_GB,
+    &M_Q_LG,
+    &M_Q_BIRD,
+    &M_Q_INSECT,
+    &M_Q_MAMMAL,
+    &M_Q_PLANT,
+    &M_Q_YEAST,
 
     &M_LG4M1,
     &M_LG4M2,

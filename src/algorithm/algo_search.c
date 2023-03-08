@@ -343,7 +343,7 @@ static int algo_bestnode_list_next_index(pllmod_bestnode_list_t * best_node_list
 #ifdef DEBUG
 static void algo_bestnode_list_print(pllmod_bestnode_list_t * best_node_list)
 {
-  printf("\nBESTNODE_LIST (%lu / %lu): \n", best_node_list->current, best_node_list->size);
+  printf("\nBESTNODE_LIST (%zu / %zu): \n", best_node_list->current, best_node_list->size);
   for (size_t i = 0; i < best_node_list->size; ++i)
   {
     node_entry_t * entry = &best_node_list->list[i];
@@ -644,6 +644,9 @@ static int best_reinsert_edge(pllmod_treeinfo_t * treeinfo,
   /* recompute all CLVs and p-matrices before pruning */
   loglh = pllmod_treeinfo_compute_loglh(treeinfo, 0);
 
+  pllmod_treeinfo_constraint_update_splits(treeinfo);
+  int check_cons = pllmod_treeinfo_constraint_subtree_affected(treeinfo, p_edge);
+
   /* PRUNE */
   orig_prune_edge = algo_utree_prune(treeinfo, params, p_edge);
   if (!orig_prune_edge)
@@ -710,8 +713,14 @@ static int best_reinsert_edge(pllmod_treeinfo_t * treeinfo,
   while ((r_edge = regraft_nodes[j]) != NULL)
   {
     /* do not re-insert back into the pruning branch */
-    if (r_edge == orig_prune_edge || r_edge == orig_prune_edge->back ||
-        !pllmod_treeinfo_check_constraint(treeinfo, p_edge, r_edge))
+    if (r_edge == orig_prune_edge || r_edge == orig_prune_edge->back)
+    {
+      ++j;
+      continue;
+    }
+
+    /* do not re-insert if resulting tree would contradict the constraint */
+    if (check_cons && !pllmod_treeinfo_constraint_check_spr(treeinfo, p_edge, r_edge))
     {
       ++j;
       continue;
@@ -910,6 +919,16 @@ static double reinsert_nodes(pllmod_treeinfo_t * treeinfo, pll_unode_t ** nodes,
       assert(retval == PLL_SUCCESS);
       if (!retval)
         return PLL_FAILURE;
+
+#ifdef DEBUG
+      if (!pllmod_treeinfo_constraint_check_current(treeinfo))
+      {
+//        pll_utree_show_ascii(treeinfo->root, PLL_UTREE_SHOW_LABEL | PLL_UTREE_SHOW_BRANCH_LENGTH |
+//                                             PLL_UTREE_SHOW_CLV_INDEX );
+        printf("Constraint check failed after applying SPR: %u %u\n", p_edge->clv_index, best_r_edge->clv_index);
+        return PLL_FAILURE;
+      }
+#endif
 
       algo_unode_fix_length(treeinfo, orig_prune_edge, params->bl_min, params->bl_max);
 
@@ -1159,6 +1178,7 @@ PLL_EXPORT double pllmod_algo_spr_round(pllmod_treeinfo_t * treeinfo,
                                                   rollback_num,
                                                   toplist_index);
 
+    int skip_topol = 0;
     if (toplist_index == -1)
     {
       /* no more topologies for this rollback, so we go one slot back */
@@ -1166,7 +1186,7 @@ PLL_EXPORT double pllmod_algo_spr_round(pllmod_treeinfo_t * treeinfo,
 
       if (!rollback || !rollback->SPR.prune_edge)
       {
-        DBG("  Rollback slot %d is empty, exiting the loop...\n",
+        DBG("  Rollback slot %zu is empty, exiting the loop...\n",
             rollback_list->current);
         break;
       }
@@ -1174,13 +1194,23 @@ PLL_EXPORT double pllmod_algo_spr_round(pllmod_treeinfo_t * treeinfo,
       DBG("  Rollback BL: %.12lf %.12lf %.12lf %.12lf\n\n", rollback->SPR.prune_bl,
           rollback->SPR.prune_left_bl, rollback->SPR.prune_right_bl, rollback->SPR.regraft_bl);
 
-      DBG("  Undoing SPR %lu (slot %d)... ", rollback_counter,
+      DBG("  Undoing SPR %zu (slot %zu)... ", rollback_counter,
           rollback_list->current);
+
+      pllmod_treeinfo_constraint_update_splits(treeinfo);
+      if (!pllmod_treeinfo_constraint_check_spr(treeinfo, rollback->SPR.prune_edge, rollback->SPR.regraft_edge))
+      {
+        DBG("Topological constraint check failed, skip the topology.\n");
+        skip_topol = 1;
+      }
 
       retval = pllmod_tree_rollback(rollback);
       assert(retval == PLL_SUCCESS);
 
       rollback_counter++;
+
+      if (skip_topol)
+        continue;
 
       undo_SPR = 0;
     }
@@ -1209,7 +1239,8 @@ PLL_EXPORT double pllmod_algo_spr_round(pllmod_treeinfo_t * treeinfo,
             spr_entry->lh);
       }
 
-      if (!pllmod_treeinfo_check_constraint(treeinfo, p_edge, r_edge))
+      pllmod_treeinfo_constraint_update_splits(treeinfo);
+      if (!pllmod_treeinfo_constraint_check_spr(treeinfo, p_edge, r_edge))
       {
         DBG("Topological constraint check failed, skip the topology.\n");
         continue;
@@ -1326,6 +1357,17 @@ PLL_EXPORT double pllmod_algo_spr_round(pllmod_treeinfo_t * treeinfo,
   {
     printf("LH mismatch: %.12f  != %.12f\n", best_lh, loglh);
     assert(fabs(loglh - best_lh) < 1e-6);
+  }
+
+  if (!pllmod_treeinfo_constraint_check_current(treeinfo))
+  {
+#ifdef DEBUG
+    pll_utree_show_ascii(treeinfo->root, PLL_UTREE_SHOW_LABEL | PLL_UTREE_SHOW_BRANCH_LENGTH |
+                                         PLL_UTREE_SHOW_CLV_INDEX );
+#endif
+    pllmod_set_error(PLLMOD_TREE_ERROR_INVALID_TREE,
+                     "Constraint check failed after SPR round!");
+    return PLL_FAILURE;
   }
 
   return loglh;

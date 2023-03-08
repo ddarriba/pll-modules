@@ -25,6 +25,7 @@ libpll_tree_la_SOURCES=\
 		 rtree_operations.c \
 		 utree_operations.c \
 		 utree_distances.c \
+		 utree_constraint.c \
 		 tbe_functions.c \
 		 treeinfo.c \
 		 consensus.c \

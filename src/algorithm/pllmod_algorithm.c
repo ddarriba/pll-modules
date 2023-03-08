@@ -1593,13 +1593,14 @@ double pllmod_algo_opt_rates_weights_treeinfo (pllmod_treeinfo_t * treeinfo,
     max_free_params = (unsigned int) tmp;
   }
 
-  rw_span = max_free_params * sizeof(double);
+  /* in doubles! */
+  rw_span = max_free_params;
 
-  x  = (double **) calloc(sizeof(double*),  part_count);
-  lb = (double **) calloc(sizeof(double*),  part_count);
-  ub = (double **) calloc(sizeof(double*),  part_count);
-  bt = (int **)    calloc(sizeof(int*),     part_count);
-  num_free_params = (unsigned int *) calloc(sizeof(unsigned int), part_count);
+  x  = (double **) calloc(part_count, sizeof(double*));
+  lb = (double **) calloc(part_count, sizeof(double*));
+  ub = (double **) calloc(part_count, sizeof(double*));
+  bt = (int **)    calloc(part_count, sizeof(int*));
+  num_free_params = (unsigned int *) calloc(part_count, sizeof(unsigned int));
 
   /* those values are the same for all partitions */
   lb[0] = (double *) malloc(sizeof(double) * (max_free_params));
@@ -1610,15 +1611,15 @@ double pllmod_algo_opt_rates_weights_treeinfo (pllmod_treeinfo_t * treeinfo,
   old_rates = old_weights = old_brlens = old_scalers = NULL;
   if (treeinfo->brlen_linkage != PLLMOD_COMMON_BRLEN_UNLINKED)
   {
-    old_rates  = (double *) calloc(sizeof(double),  local_part_count * max_free_params);
-    old_weights  = (double *) calloc(sizeof(double),  local_part_count * max_free_params);
+    old_rates  = (double *) calloc(local_part_count * max_free_params, sizeof(double));
+    old_weights  = (double *) calloc(local_part_count * max_free_params, sizeof(double));
 
-    old_brlens  = (double *) calloc(sizeof(double),  treeinfo->tree->edge_count);
+    old_brlens  = (double *) calloc(treeinfo->tree->edge_count, sizeof(double));
     memcpy(old_brlens, treeinfo->linked_branch_lengths, sizeof(double)*treeinfo->tree->edge_count);
 
     if (treeinfo->brlen_scalers)
     {
-      old_scalers  = (double *) calloc(sizeof(double), treeinfo->partition_count);
+      old_scalers  = (double *) calloc(treeinfo->partition_count, sizeof(double));
       memcpy(old_scalers, treeinfo->brlen_scalers, sizeof(double)*treeinfo->partition_count);
     }
   }

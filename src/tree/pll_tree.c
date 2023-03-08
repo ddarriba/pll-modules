@@ -1107,6 +1107,173 @@ cleanup:
   return tree;
 }
 
+PLL_EXPORT pll_utree_t * pllmod_utree_resolve_parsimony_multipart(const pll_utree_t * multi_tree,
+                                                                  unsigned int partition_count,
+                                                                  pll_partition_t * const * partitions,
+                                                                  const unsigned int * tip_msa_idmap,
+                                                                  unsigned int max_spr_rounds,
+                                                                  unsigned int random_seed,
+                                                                  int * clv_index_map,
+                                                                  unsigned int * score)
+{
+  int retval = PLL_FAILURE;
+  unsigned int i;
+
+  pll_utree_t * tree = NULL;
+
+  pll_parsimony_t ** parsimony =
+      (pll_parsimony_t **) calloc(partition_count, sizeof(pll_parsimony_t *));
+
+  if (!parsimony)
+  {
+    pll_errno = PLL_ERROR_MEM_ALLOC;
+    snprintf(pll_errmsg, 200, "Unable to allocate enough memory.");
+    return NULL;
+  }
+
+  for (i = 0; i < partition_count; ++i)
+  {
+    parsimony[i] = pll_fastparsimony_init(partitions[i]);
+    if (!parsimony[i])
+    {
+      assert(pll_errno);
+      goto cleanup;
+    }
+  }
+
+  /* first, resolve multifurcations randomly */
+  tree = pllmod_utree_resolve_multi(multi_tree, random_seed, clv_index_map);
+
+  if (!tree)
+    goto cleanup;
+
+  /* if constraint tree was not fully resolved, apply SPR moves to improve parsimony score */
+  if (!multi_tree->binary && max_spr_rounds)
+  {
+    unsigned int spr_round = 0;
+    unsigned int best_score;
+
+    *score = ~0;
+    do
+    {
+      best_score = *score;
+      retval = pll_fastparsimony_stepwise_spr_round(tree, parsimony, partition_count,
+                                                 tip_msa_idmap, random_seed,
+                                                 clv_index_map, score);
+      ++spr_round;
+//      printf("spr_round: %u, cost: %u\n", spr_round, *score);
+    }
+    while (retval && spr_round < max_spr_rounds && *score < best_score);
+  }
+  else
+    retval = PLL_SUCCESS;
+
+  if (retval)
+  {
+//    /* update pmatrix/scaler/node indices */
+//    pll_utree_reset_template_indices(tree->nodes[tree->tip_count +
+//                                                 tree->inner_count - 1],
+//                                     tree->tip_count);
+
+     /* set default branch lengths */
+    pllmod_utree_set_length_recursive(tree,
+                                      PLLMOD_TREE_DEFAULT_BRANCH_LENGTH,
+                                      0);
+  }
+  else
+    assert(pll_errno);
+
+  cleanup:
+    /* destroy parsimony */
+    for (i = 0; i < partition_count; ++i)
+    {
+      if (parsimony[i])
+        pll_parsimony_destroy(parsimony[i]);
+    }
+
+    free(parsimony);
+
+    if (!retval && tree)
+      pll_utree_destroy(tree, NULL);
+
+  return tree;
+}
+
+/**
+ * Creates a maximum parsimony topology using randomized stepwise-addition
+ * algorithm. All branch lengths will be set to default.
+ * This function can be used with partitioned alignments (e.g., combined DNA+AA data)
+ */
+PLL_EXPORT int pllmod_utree_extend_parsimony_multipart(pll_utree_t * tree,
+                                                      unsigned int taxon_count,
+                                                      char * const * taxon_names,
+                                                      const unsigned int * tip_msa_idmap,
+                                                      unsigned int partition_count,
+                                                      pll_partition_t * const * partitions,
+                                                      unsigned int random_seed,
+                                                      unsigned int * score)
+{
+  int retval = PLL_FAILURE;
+  unsigned int i;
+  unsigned int total_tip_count = tree->tip_count + taxon_count;
+
+  pll_parsimony_t ** parsimony =
+      (pll_parsimony_t **) calloc(partition_count, sizeof(pll_parsimony_t *));
+
+  if (!parsimony)
+  {
+    pll_errno = PLL_ERROR_MEM_ALLOC;
+    snprintf(pll_errmsg, 200, "Unable to allocate enough memory.");
+    return retval;
+  }
+
+  for (i = 0; i < partition_count; ++i)
+  {
+    assert(total_tip_count == partitions[i]->tips);
+    parsimony[i] = pll_fastparsimony_init(partitions[i]);
+    if (!parsimony[i])
+    {
+      assert(pll_errno);
+      goto cleanup;
+    }
+  }
+
+  retval = pll_fastparsimony_stepwise_extend(tree, parsimony, partition_count,
+                                             taxon_names, tip_msa_idmap,
+                                             random_seed, score);
+
+  if (retval)
+  {
+    /* update pmatrix/scaler/node indices */
+    pll_utree_reset_template_indices(tree->nodes[tree->tip_count +
+                                                 tree->inner_count - 1],
+                                     tree->tip_count);
+
+    assert(tree->tip_count == total_tip_count);
+
+    /* set default branch lengths */
+    pllmod_utree_set_length_recursive(tree,
+                                      PLLMOD_TREE_DEFAULT_BRANCH_LENGTH,
+                                      0);
+  }
+  else
+    assert(pll_errno);
+
+cleanup:
+  /* destroy parsimony */
+  for (i = 0; i < partition_count; ++i)
+  {
+    if (parsimony[i])
+      pll_parsimony_destroy(parsimony[i]);
+  }
+
+  free(parsimony);
+
+  return retval;
+}
+
+
+
 /* static functions */
 
 static int utree_find_node_in_subtree(pll_unode_t * root,
@@ -1205,6 +1372,11 @@ PLL_EXPORT int pllmod_utree_traverse_apply(pll_unode_t * root,
 PLL_EXPORT int pllmod_utree_is_tip(const pll_unode_t * node)
 {
   return (node->next == NULL);
+}
+
+PLL_EXPORT int pllmod_rtree_is_tip(const pll_rnode_t * node)
+{
+  return (node->left == NULL && node->right == NULL);
 }
 
 PLL_EXPORT void pllmod_utree_set_length(pll_unode_t * edge,
@@ -1418,10 +1590,12 @@ static int rtree_traverse_apply(pll_rnode_t * node,
                                    cb_in_trav,
                                    cb_post_trav,
                                    data);
+  }
 
-    if (cb_in_trav && !cb_in_trav(node,  data))
-      return PLL_FAILURE;
+  if (cb_in_trav && !cb_in_trav(node,  data))
+    return PLL_FAILURE;
 
+  if (node->right) {
     retval &= rtree_traverse_apply(node->right,
                                    cb_pre_trav,
                                    cb_in_trav,
