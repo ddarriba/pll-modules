@@ -51,7 +51,9 @@ typedef struct spr_params
   double bl_max;
   int smoothings;
   int brlen_opt_method;
+  double lh_epsilon_brlen_triplet;
   double * brlen_buf[BRLEN_BUF_COUNT];
+  pll_bool_t fast_clv_updates;
 } pllmod_search_params_t;
 
 typedef struct rollback_list
@@ -397,7 +399,7 @@ static double algo_optimize_bl_triplet(pll_unode_t * node,
                                        double smooth_factor)
 {
   return algo_optimize_bl_iterative(node, treeinfo, params,
-                                    1, 0.1, smooth_factor);
+                                    1, params->lh_epsilon_brlen_triplet, smooth_factor);
 }
 
 static double algo_optimize_bl_all(pllmod_treeinfo_t * treeinfo,
@@ -641,8 +643,17 @@ static int best_reinsert_edge(pllmod_treeinfo_t * treeinfo,
 
   pllmod_treeinfo_set_root(treeinfo, p_edge);
 
-  /* recompute all CLVs and p-matrices before pruning */
-  loglh = pllmod_treeinfo_compute_loglh(treeinfo, 0);
+  if (params->fast_clv_updates)
+  {
+    /* optimized version - update only invalid CLVs */
+    pllmod_treeinfo_invalidate_clv(treeinfo, p_edge);
+    loglh = pllmod_treeinfo_compute_loglh_flex(treeinfo, 1, 0);
+  }
+  else
+  {
+    /* recompute all CLVs and p-matrices before pruning */
+    loglh = pllmod_treeinfo_compute_loglh(treeinfo, 0);
+  }
 
   pllmod_treeinfo_constraint_update_splits(treeinfo);
   int check_cons = pllmod_treeinfo_constraint_subtree_affected(treeinfo, p_edge);
@@ -832,8 +843,11 @@ static int best_reinsert_edge(pllmod_treeinfo_t * treeinfo,
     assert(j < total_edge_count);
   }
 
-  /* done with regrafting; restore old root */
-  pllmod_treeinfo_set_root(treeinfo, orig_prune_edge);
+  if(!params->fast_clv_updates)
+  {
+    /* done with regrafting; restore old root */
+    pllmod_treeinfo_set_root(treeinfo, orig_prune_edge);
+  }
 
   /* re-insert into the original pruning branch */
   retval = pllmod_utree_regraft(p_edge, orig_prune_edge);
@@ -848,6 +862,19 @@ static int best_reinsert_edge(pllmod_treeinfo_t * treeinfo,
   pllmod_treeinfo_invalidate_pmatrix(treeinfo, p_edge);
   pllmod_treeinfo_invalidate_pmatrix(treeinfo, p_edge->next);
   pllmod_treeinfo_invalidate_pmatrix(treeinfo, p_edge->next->next);
+
+  if(params->fast_clv_updates)
+  {
+     // update
+     algo_update_pmatrix(treeinfo, p_edge);
+     algo_update_pmatrix(treeinfo, p_edge->next);
+     algo_update_pmatrix(treeinfo, p_edge->next->next);
+
+     /* restore root and re-update invalid CLVs */
+     pllmod_treeinfo_set_root(treeinfo, p_edge);
+     pllmod_treeinfo_invalidate_clv(treeinfo, p_edge);
+     loglh = pllmod_treeinfo_compute_loglh_flex(treeinfo, 1, 0);
+  }
 
   free(regraft_nodes);
   free(regraft_dist);
@@ -932,6 +959,12 @@ static double reinsert_nodes(pllmod_treeinfo_t * treeinfo, pll_unode_t ** nodes,
 
       algo_unode_fix_length(treeinfo, orig_prune_edge, params->bl_min, params->bl_max);
 
+      if (params->fast_clv_updates)
+      {
+        pllmod_treeinfo_invalidate_pmatrix(treeinfo, orig_prune_edge);
+        algo_update_pmatrix(treeinfo, orig_prune_edge);
+      }
+
       /* increment rollback slot counter to save SPR history */
       rollback = algo_rollback_list_next(rollback_list);
 
@@ -947,6 +980,21 @@ static double reinsert_nodes(pllmod_treeinfo_t * treeinfo, pll_unode_t ** nodes,
         /* make sure branches are within limits */
         algo_unode_fix_length(treeinfo, p_edge->next, params->bl_min, params->bl_max);
         algo_unode_fix_length(treeinfo, p_edge->next->next, params->bl_min, params->bl_max);
+      }
+
+      if(params->fast_clv_updates)
+      {
+        pllmod_treeinfo_invalidate_pmatrix(treeinfo, p_edge);
+        pllmod_treeinfo_invalidate_pmatrix(treeinfo, p_edge->next);
+        pllmod_treeinfo_invalidate_pmatrix(treeinfo, p_edge->next->next);
+
+        algo_update_pmatrix(treeinfo, p_edge);
+        algo_update_pmatrix(treeinfo, p_edge->next);
+        algo_update_pmatrix(treeinfo, p_edge->next->next);
+
+        // the root is already at p_edge
+        pllmod_treeinfo_invalidate_clv(treeinfo, p_edge);
+        loglh = pllmod_treeinfo_compute_loglh_flex(treeinfo, 1, 0);
       }
 
       assert(spr_entry.lh > best_lh);
@@ -994,7 +1042,9 @@ PLL_EXPORT double pllmod_algo_spr_round(pllmod_treeinfo_t * treeinfo,
                                         int smoothings,
                                         double epsilon,
                                         cutoff_info_t * cutoff_info,
-                                        double subtree_cutoff)
+                                        double subtree_cutoff,
+                                        double lh_epsilon_brlen_triplet,
+                                        pll_bool_t fast_clv_updates)
 {
   unsigned int i;
   double loglh, best_lh;
@@ -1034,6 +1084,8 @@ PLL_EXPORT double pllmod_algo_spr_round(pllmod_treeinfo_t * treeinfo,
   params.bl_max = bl_max;
   params.smoothings = smoothings;
   params.brlen_opt_method = brlen_opt_method;
+  params.lh_epsilon_brlen_triplet = lh_epsilon_brlen_triplet;
+  params.fast_clv_updates = fast_clv_updates;
 
   brlen_unlinked = (treeinfo->brlen_linkage == PLLMOD_COMMON_BRLEN_UNLINKED) ? 1 : 0;
 
@@ -1074,6 +1126,7 @@ PLL_EXPORT double pllmod_algo_spr_round(pllmod_treeinfo_t * treeinfo,
   }
 
   loglh   = pllmod_treeinfo_compute_loglh(treeinfo, 0);
+  pll_unode_t* initial_root = treeinfo->root;
   best_lh = loglh;
 
   /* query all nodes */
@@ -1115,6 +1168,11 @@ PLL_EXPORT double pllmod_algo_spr_round(pllmod_treeinfo_t * treeinfo,
 
     DBG("\nThorough re-insertion of %u best-scoring nodes...\n", i);
 
+    if (params.fast_clv_updates)
+    {
+      pllmod_treeinfo_set_root(treeinfo, initial_root);
+    }
+
     loglh = reinsert_nodes(treeinfo,
                            allnodes,
                            i,
@@ -1131,6 +1189,11 @@ PLL_EXPORT double pllmod_algo_spr_round(pllmod_treeinfo_t * treeinfo,
 
   free(allnodes);
   allnodes = NULL;
+
+  if (params.fast_clv_updates)
+  {
+    pllmod_treeinfo_set_root(treeinfo, initial_root);
+  }
 
   best_lh = algo_optimize_bl_all(treeinfo,
                                  &params,

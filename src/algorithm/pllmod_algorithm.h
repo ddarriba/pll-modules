@@ -214,6 +214,8 @@ PLL_EXPORT double pllmod_algo_spr_round(pllmod_treeinfo_t * treeinfo,
                                         int smoothings,
                                         double epsilon,
                                         cutoff_info_t * cutoff_info,
-                                        double subtree_cutoff);
+                                        double subtree_cutoff,
+                                        double lh_epsilon_brlen_triplet,
+                                        pll_bool_t fast_clv_updates);
 
 #endif
