@@ -977,7 +977,7 @@ double pllmod_algo_opt_subst_rates_treeinfo (pllmod_treeinfo_t * treeinfo,
   lb = (double **) malloc(sizeof(double*) * (part_count));
   ub = (double **) malloc(sizeof(double*) * (part_count));
   bt = (int **)    malloc(sizeof(int*)    * (part_count));
-  subst_free_params = (unsigned int *) calloc(sizeof(unsigned int), part_count);
+  subst_free_params = (unsigned int *) calloc(part_count, sizeof(unsigned int));
 
   /* compute REAL max_free_params accounting for rate symmetries */
   unsigned int part = 0;
@@ -1014,8 +1014,9 @@ double pllmod_algo_opt_subst_rates_treeinfo (pllmod_treeinfo_t * treeinfo,
         max_free_params = part_free_params;
 
       subst_free_params[part] = part_free_params;
-      part++;
     }
+
+    part++;
   }
 
   /* IMPORTANT: we need to know max_free_params among all threads! */
