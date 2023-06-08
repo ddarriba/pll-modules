@@ -907,6 +907,16 @@ typedef struct refsplit_info
   unsigned int right_leaf_idx;
 } pllmod_tbe_split_info_t;
 
+typedef struct tbe_extra_info
+{
+  double tbe_cutoff;
+  unsigned int min_p; // minimum size of "light side" to be considered a "close enough" branch
+  unsigned short** extra_taxa_table;
+  double * extra_taxa_array;
+  double * extra_avg_dist_array;
+  unsigned long num_bs_trees;
+} pllmod_tbe_extra_info_t;
+
 PLL_EXPORT
 pllmod_tbe_split_info_t * pllmod_utree_tbe_nature_init(pll_unode_t * ref_root,
                                                        unsigned int tip_count,
@@ -920,6 +930,18 @@ PLL_EXPORT int pllmod_utree_tbe_nature(pll_split_t * ref_splits,
                                        unsigned int tip_count,
                                        double * support,
                                        pllmod_tbe_split_info_t* split_info);
+
+PLL_EXPORT int pllmod_utree_tbe_nature_extra(pll_split_t * ref_splits,
+                                       pll_split_t * bs_splits,
+                                       pll_unode_t * bs_root,
+                                       unsigned int tip_count,
+                                       double * support,
+                                       pllmod_tbe_split_info_t* split_info,
+									   pllmod_tbe_extra_info_t* extra_info);
+
+PLL_EXPORT pllmod_tbe_extra_info_t * pllmod_tbe_extra_info_create(unsigned int refsplit_count, unsigned int tip_count, double tbe_cutoff, bool doTable, bool doArray, bool doTree);
+
+PLL_EXPORT void pllmod_tbe_extra_info_destroy(pllmod_tbe_extra_info_t * extra_info, unsigned int refsplit_count);
 
 /* This is an old, naive and rather inefficient TBE computation method by Alexey.
  * Keep it here just in case */
