@@ -1109,10 +1109,11 @@ static void reverse_split(pll_split_t split, unsigned int tip_count)
   unsigned int split_len  = tip_count / split_size + (split_offset>0);
   unsigned int i;
 
-  if (!split_offset) split_offset = split_size;
-
   for (i=0; i<split_len; ++i)
     split[i] = ~split[i];
+
+  if (!split_offset) 
+    return;
 
   pll_split_base_t mask = (1u<<split_offset) - 1;
   split[split_len - 1] &= mask;
