@@ -24,6 +24,36 @@
 
 #include "../pllmod_common.h"
 
+static inline unsigned int split_popcount(const pll_split_t bitv,
+                                          unsigned int bit_count,
+                                          unsigned int split_len)
+{
+  unsigned int split_size  = sizeof(pll_split_base_t) * 8;
+  unsigned int setb = 0;
+  unsigned int i;
+
+  if (!split_len)
+    split_len = bitv_length(bit_count);
+
+  for (i = 0; i < split_len; ++i)
+  {
+    setb += (unsigned int) PLL_POPCNT32(bitv[i]);
+  }
+
+  /* IMPORTANT: correct for padding bits in the last element! */
+  unsigned int split_offset = bit_count % split_size;
+  if (split_offset)
+  {
+    unsigned int mask = (1<<split_offset) - 1;
+    unsigned int last = bitv[split_len - 1];
+    /* count set bits in the padding part of the bit vector */
+    last &= ~mask;
+    setb -= (unsigned int) PLL_POPCNT32(last);
+  }
+
+  return setb;
+}
+
 static inline void invert_split(pll_split_t bitv, unsigned int bit_count)
 {
   unsigned int split_size  = sizeof(pll_split_base_t) * 8;
@@ -385,7 +415,10 @@ PLL_EXPORT int pllmod_utree_constraint_check_spr(pll_split_set_t * cons_splits,
     const pll_split_t prune_split = get_node_split(splits, p_edge->back);
     pll_split_t new_split = (pll_split_t) calloc(1, cons_split_len * sizeof(pll_split_base_t));
 
-    if (bitv_popcount(prune_split, cons_tip_count, cons_split_len) < cons_tip_count-1)
+    unsigned int pruned_count = split_popcount(prune_split, cons_tip_count, cons_split_len);
+    assert(pruned_count <= cons_tip_count);
+
+    if (pruned_count < cons_tip_count-1)
     {
       /* remaining subtree contains at least 2 constrained taxa -> traverse into regraft subtree */
       regraft_split = find_nonempty_regraft_split(splits, cons_split_len, prune_split, r_edge);
@@ -399,7 +432,7 @@ PLL_EXPORT int pllmod_utree_constraint_check_spr(pll_split_set_t * cons_splits,
     {
       /* remaining subtree contains just 1 constrained taxon  -> traverse into pruned subtree */
       copy_split(new_split, prune_split, cons_split_len);
-      invert_split(new_split, cons_split_len);
+      invert_split(new_split, cons_tip_count);
 
       regraft_split = find_nonempty_regraft_split(splits, cons_split_len, new_split, p_edge);
 
