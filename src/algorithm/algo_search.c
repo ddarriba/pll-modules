@@ -31,6 +31,9 @@ Schloss-Wolfsbrunnenweg 35, D-69118 Heidelberg, Germany
 #include "pllmod_algorithm.h"
 #include "../pllmod_common.h"
 
+/* constraint tree debugging */
+//#define CONS_DEBUG
+
 /* if not defined, branch length optimization will use
 * the same starting set of branch lengths for every topology */
 #define PLLMOD_SEARCH_GREEDY_BLO
@@ -733,6 +736,7 @@ static int best_reinsert_edge(pllmod_treeinfo_t * treeinfo,
     /* do not re-insert if resulting tree would contradict the constraint */
     if (check_cons && !pllmod_treeinfo_constraint_check_spr(treeinfo, p_edge, r_edge))
     {
+      DBG("SKIP incompatible: %u %u\n", j, r_edge->clv_index);
       ++j;
       continue;
     }
@@ -748,6 +752,18 @@ static int best_reinsert_edge(pllmod_treeinfo_t * treeinfo,
     /* regraft into the candidate branch */
     retval = algo_utree_regraft(treeinfo, params, p_edge, r_edge);
     assert(retval == PLL_SUCCESS);
+
+#ifdef CONS_DEBUG
+      if (!pllmod_treeinfo_constraint_check_current(treeinfo))
+      {
+        pll_utree_show_ascii(treeinfo->root, PLL_UTREE_SHOW_LABEL | PLL_UTREE_SHOW_BRANCH_LENGTH |
+                                             PLL_UTREE_SHOW_CLV_INDEX );
+        printf("Constraint check failed after REGRAFT: %u %u\n", p_edge->clv_index, r_edge->clv_index);
+        pllmod_set_error(PLLMOD_TREE_ERROR_INVALID_TREE,
+                         "Constraint check failed after applying SPR!");
+        return PLL_FAILURE;
+      }
+#endif
 
     /* place root at the pruning branch and invalidate CLV at the new root */
     pllmod_treeinfo_set_root(treeinfo, p_edge);
@@ -947,12 +963,14 @@ static double reinsert_nodes(pllmod_treeinfo_t * treeinfo, pll_unode_t ** nodes,
       if (!retval)
         return PLL_FAILURE;
 
-#ifdef DEBUG
+#ifdef CONS_DEBUG
       if (!pllmod_treeinfo_constraint_check_current(treeinfo))
       {
-//        pll_utree_show_ascii(treeinfo->root, PLL_UTREE_SHOW_LABEL | PLL_UTREE_SHOW_BRANCH_LENGTH |
-//                                             PLL_UTREE_SHOW_CLV_INDEX );
+        pll_utree_show_ascii(treeinfo->root, PLL_UTREE_SHOW_LABEL | PLL_UTREE_SHOW_BRANCH_LENGTH |
+                                             PLL_UTREE_SHOW_CLV_INDEX );
         printf("Constraint check failed after applying SPR: %u %u\n", p_edge->clv_index, best_r_edge->clv_index);
+        pllmod_set_error(PLLMOD_TREE_ERROR_INVALID_TREE,
+                         "Constraint check failed after applying SPR!");
         return PLL_FAILURE;
       }
 #endif
@@ -1092,6 +1110,14 @@ PLL_EXPORT double pllmod_algo_spr_round(pllmod_treeinfo_t * treeinfo,
   /* reset error */
   pll_errno = 0;
 
+  /* make sure initial topology is compatible with constraint */
+  if (!pllmod_treeinfo_constraint_check_current(treeinfo))
+  {
+    pllmod_set_error(PLLMOD_TREE_ERROR_INVALID_TREE,
+                     "Constraint check failed before SPR round!");
+    return PLL_FAILURE;
+  }
+
   /* allocate brlen buffers */
   for (i = 0; i < BRLEN_BUF_COUNT; ++i)
   {
@@ -1153,6 +1179,14 @@ PLL_EXPORT double pllmod_algo_spr_round(pllmod_treeinfo_t * treeinfo,
   {
     /* return and spread error */
     goto error_exit;
+  }
+
+  /* make sure intermediate topology is compatible with constraint */
+  if (!pllmod_treeinfo_constraint_check_current(treeinfo))
+  {
+    pllmod_set_error(PLLMOD_TREE_ERROR_INVALID_TREE,
+                     "Constraint check failed after reinsert_nodes() in SPR round!");
+    return PLL_FAILURE;
   }
 
   /* in FAST mode, we re-insert a subset of best-scoring subtrees with BLO
