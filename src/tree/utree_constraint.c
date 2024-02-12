@@ -103,19 +103,32 @@ static inline int disjoint_split(const pll_split_t split1,
 }
 
 static inline int empty_split(pll_split_t split,
-                         unsigned int split_len)
+                                   unsigned int split_len,
+                                   unsigned int tip_count)
 {
   unsigned int i;
-  for (i=0;i<split_len;++i)
+  for (i=0;i<split_len-1;++i)
   {
     if (split[i])
       return 0;
   }
-  return 1;
+
+  unsigned int split_size  = sizeof(pll_split_base_t) * 8;
+  unsigned int split_offset = tip_count % split_size;
+  pll_split_base_t last_elem = split[split_len-1];
+  if (split_offset)
+  {
+    unsigned int mask = (1<<split_offset) - 1;
+
+    return ((last_elem & mask) == 0);
+  }
+  else
+    return last_elem == 0;
 }
 
 static inline int full_split(pll_split_t split,
-                         unsigned int split_len)
+                                  unsigned int split_len,
+                                  unsigned int tip_count)
 {
   pll_split_base_t f = ~0;
   unsigned int i;
@@ -124,8 +137,20 @@ static inline int full_split(pll_split_t split,
     if (split[i] != f)
       return 0;
   }
-  return 1;
+
+  unsigned int split_size  = sizeof(pll_split_base_t) * 8;
+  unsigned int split_offset = tip_count % split_size;
+  pll_split_base_t last_elem = split[split_len-1];
+  if (split_offset)
+  {
+    unsigned int mask = (1<<split_offset) - 1;
+
+    return ((last_elem & mask) == f);
+  }
+  else
+    return last_elem == f;
 }
+
 
 static void truncate_splits(pll_split_set_t * split_set, unsigned int new_tip_count)
 {
@@ -157,6 +182,7 @@ inline const pll_split_t get_node_split(const pll_split_t * splits,
 
 static const pll_split_t find_nonempty_regraft_split(pll_split_t * splits,
                                                      unsigned int split_len,
+                                                     unsigned int tip_count,
                                                      const pll_split_t prune_split,
                                                      pll_unode_t * r_edge)
 {
@@ -169,13 +195,13 @@ static const pll_split_t find_nonempty_regraft_split(pll_split_t * splits,
     pll_split_t left_split = get_node_split(splits, left_node);
     pll_split_t right_split = get_node_split(splits, right_node);
 
-    if (empty_split(right_split, split_len) && !pllmod_utree_is_tip(left_node))
+    if (empty_split(right_split, split_len, tip_count) && !pllmod_utree_is_tip(left_node))
     {
       /* right subtree empty -> traverse left subtree */
       right_node = left_node->next->next->back;
       left_node = left_node->next->back;
     }
-    else if (empty_split(left_split, split_len) && !pllmod_utree_is_tip(right_node))
+    else if (empty_split(left_split, split_len, tip_count) && !pllmod_utree_is_tip(right_node))
     {
       /* left subtree empty -> traverse right subtree */
       left_node = right_node->next->back;
@@ -421,9 +447,9 @@ PLL_EXPORT int pllmod_utree_constraint_check_spr(pll_split_set_t * cons_splits,
     if (pruned_count < cons_tip_count-1)
     {
       /* remaining subtree contains at least 2 constrained taxa -> traverse into regraft subtree */
-      regraft_split = find_nonempty_regraft_split(splits, cons_split_len, prune_split, r_edge);
+      regraft_split = find_nonempty_regraft_split(splits, cons_split_len, cons_tip_count, prune_split, r_edge);
 
-      assert(!empty_split(regraft_split, cons_split_len));
+      assert(!empty_split(regraft_split, cons_split_len, cons_tip_count));
 
       copy_split(new_split, regraft_split, cons_split_len);
       merge_split(new_split, prune_split, cons_split_len);
@@ -434,7 +460,7 @@ PLL_EXPORT int pllmod_utree_constraint_check_spr(pll_split_set_t * cons_splits,
       copy_split(new_split, prune_split, cons_split_len);
       invert_split(new_split, cons_tip_count);
 
-      regraft_split = find_nonempty_regraft_split(splits, cons_split_len, new_split, p_edge);
+      regraft_split = find_nonempty_regraft_split(splits, cons_split_len, cons_tip_count, new_split, p_edge);
 
       merge_split(new_split, regraft_split, cons_split_len);
     }
@@ -521,10 +547,11 @@ PLL_EXPORT int pllmod_utree_constraint_subtree_affected(const pll_split_set_t * 
 
   const pll_split_t prune_split = get_node_split(tree_splits->splits, p_edge->back);
   unsigned int cons_split_len = cons_splits->split_len;
+  unsigned int cons_tip_count = cons_splits->tip_count;
 
   /* zero constrained taxa in pruned OR remaining subtree */
-  retval = (empty_split(prune_split, cons_split_len) ||
-            full_split(prune_split, cons_split_len)) ? PLL_FAILURE : PLL_SUCCESS;
+  retval = (empty_split(prune_split, cons_split_len, cons_tip_count) ||
+            full_split(prune_split, cons_split_len, cons_tip_count)) ? PLL_FAILURE : PLL_SUCCESS;
 
   return retval;
 }
