@@ -152,7 +152,7 @@ PLL_EXPORT double pllmod_algo_opt_subst_rates (pll_partition_t * partition,
     subst_free_params = 0;
     for (i=0; i<subst_params; ++i)
     {
-     if ((unsigned int)symmetries[i] > subst_free_params)
+     if (symmetries[i] >= 0 && (unsigned int)symmetries[i] > subst_free_params)
      {
       /* check that symmetries vector is correctly formatted */
       assert((unsigned int)symmetries[i] == (subst_free_params+1));
@@ -183,12 +183,12 @@ PLL_EXPORT double pllmod_algo_opt_subst_rates (pll_partition_t * partition,
 
     if (symmetries)
     {
-      if ((unsigned int)symmetries[subst_params-1] == k)
+      if (symmetries[subst_params-1] == (int) k)
         ++k;
 
       for (j=0; j<subst_params; ++j)
       {
-        if ((unsigned int)symmetries[j] == k)
+        if (symmetries[j] >= 0 && (unsigned int)symmetries[j] == k)
         {
           x[i] = subst_rates[j];
           break;
@@ -1002,7 +1002,7 @@ double pllmod_algo_opt_subst_rates_treeinfo (pllmod_treeinfo_t * treeinfo,
       {
         for (k=0; k<subst_params; ++k)
         {
-          if ((unsigned int)symmetries[k] > part_free_params)
+          if (symmetries[k] >= 0 && (unsigned int)symmetries[k] > part_free_params)
           {
             /* check that symmetries vector is correctly formatted */
             assert((unsigned int)symmetries[k] == (part_free_params+1));
@@ -1071,12 +1071,12 @@ double pllmod_algo_opt_subst_rates_treeinfo (pllmod_treeinfo_t * treeinfo,
     {
       if (symmetries)
       {
-        if ((unsigned int)symmetries[subst_params-1] == l)
+        if (symmetries[subst_params-1] == (int) l)
           ++l;
 
         for (j=0; j<subst_params; ++j)
         {
-          if ((unsigned int)symmetries[j] == l)
+          if (symmetries[j] >= 0 && (unsigned int)symmetries[j] == l)
           {
             x[part][k] = subst_rates[j];
             break;

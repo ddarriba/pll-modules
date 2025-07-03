@@ -544,7 +544,7 @@ double target_subst_params_func_multi(void * p, double ** x, double * fx,
                    (l == (unsigned int)symmetries[subst_params - 1]) ? 1.0 : x[part][k++];
           for (j = 0; j < subst_params; j++)
           {
-            if ((unsigned int)symmetries[j] == l)
+            if (symmetries[j] >= 0 && (unsigned int)symmetries[j] == l)
             {
               subst_rates[j] = next_value;
             }
